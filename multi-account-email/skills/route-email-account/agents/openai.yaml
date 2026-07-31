@@ -1,0 +1,4 @@
+interface:
+  display_name: "Route Email Account"
+  short_description: "Choose senders safely across connected email accounts"
+  default_prompt: "Find the right connected account, draft my email, and confirm all send details before sending."
