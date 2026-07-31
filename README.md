@@ -39,7 +39,7 @@ Optional configuration is documented in `.env.example`. The Microsoft tenant def
 
 Run `npm run db:generate`, `npm run typecheck`, and `npm run build`. For local MCP calls without Sites identity forwarding, set `ALLOW_DEV_AUTH=true` and send an `x-dev-user-email` request header.
 
-The plugin MCP URL currently points to the local server. Replace it with the approved private Sites deployment URL before private installation or external validation.
+The packaged plugin points to the owner-only Sites deployment. Keep that access policy private until provider credentials, legal URLs, external security review, and verified publisher metadata are approved.
 
 ## OAuth permissions
 

@@ -2,7 +2,7 @@
   "mcpServers": {
     "multi-account-email": {
       "type": "http",
-      "url": "http://localhost:3000/mcp"
+      "url": "https://multi-account-email-devectus.barsham.chatgpt.site/mcp"
     }
   }
 }
