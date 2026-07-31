@@ -19,7 +19,10 @@ export async function handleOAuthRoute(request: Request, env: Env): Promise<Resp
     const message = error instanceof Error ? error.message : "OAuth failed.";
     return new Response(oauthResultPage(false, message), {
       status: error instanceof HttpError ? error.status : 500,
-      headers: { "content-type": "text/html; charset=utf-8" },
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+      },
     });
   }
 }
@@ -107,7 +110,12 @@ async function finishOAuth(request: Request, env: Env, provider: Provider): Prom
 
   return new Response(
     oauthResultPage(true, `${account.email} is connected as “${account.label}”. You may close this tab.`),
-    { headers: { "content-type": "text/html; charset=utf-8" } },
+    {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store",
+      },
+    },
   );
 }
 

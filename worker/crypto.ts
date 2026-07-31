@@ -17,7 +17,12 @@ function base64ToBytes(value: string): Uint8Array<ArrayBuffer> {
 }
 
 async function importEncryptionKey(encodedKey: string): Promise<CryptoKey> {
-  const key = base64ToBytes(encodedKey);
+  let key: Uint8Array<ArrayBuffer>;
+  try {
+    key = base64ToBytes(encodedKey);
+  } catch {
+    throw new Error("TOKEN_ENCRYPTION_KEY must be valid base64 encoding.");
+  }
   if (key.byteLength !== 32) {
     throw new Error("TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key.");
   }
