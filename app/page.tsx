@@ -108,6 +108,12 @@ export default async function Home() {
         <div>
           <p>Up to 10 connected accounts per user.</p>
           <p>Background monitoring, bulk email, calendars, and automatic sending are not included.</p>
+          <div className="footer-links">
+            <Link href="/privacy">Privacy</Link>
+            <Link href="/terms">Terms</Link>
+            <Link href="/security">Security</Link>
+            <Link href="/support">Support</Link>
+          </div>
         </div>
       </footer>
     </main>

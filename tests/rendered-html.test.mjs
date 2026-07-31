@@ -35,6 +35,26 @@ test("renders the SenderDeck product page", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });
 
+test("publishes the legal, security, and support pages required for provider review", async () => {
+  const worker = await loadWorker();
+  const expected = [
+    ["/privacy", /Privacy by design/],
+    ["/terms", /Clear rules for deliberate email/],
+    ["/security", /Small attack surface/],
+    ["/support", /Help with SenderDeck/],
+  ];
+
+  for (const [path, pattern] of expected) {
+    const response = await worker.fetch(
+      new Request(`http://localhost${path}`, { headers: { accept: "text/html" } }),
+      baseEnv,
+      context,
+    );
+    assert.equal(response.status, 200, path);
+    assert.match(await response.text(), pattern, path);
+  }
+});
+
 test("exposes a healthy stateless MCP contract", async () => {
   const worker = await loadWorker();
   const health = await worker.fetch(

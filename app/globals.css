@@ -296,6 +296,64 @@ footer > div:last-child { text-align: right; }
 .devectus-link:hover span,
 .devectus-link:focus-visible span { text-decoration: underline; text-underline-offset: 0.2em; }
 .devectus-link:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+.footer-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.85rem; margin-top: 0.75rem; }
+.footer-links a { border-bottom: 1px solid currentColor; }
+
+.legal-page { max-width: 1440px; margin: 0 auto; }
+.legal-hero {
+  max-width: 64rem;
+  padding: 8vh 0 5vh;
+  border-bottom: 1px solid var(--line);
+}
+.legal-hero h1 {
+  max-width: 58rem;
+  font-size: clamp(3rem, 6.5vw, 6.5rem);
+}
+.legal-summary {
+  max-width: 48rem;
+  margin: 2rem 0 0;
+  color: var(--muted);
+  font-size: clamp(1.05rem, 1.4vw, 1.3rem);
+  line-height: 1.6;
+}
+.legal-updated {
+  margin: 1.25rem 0 0;
+  color: var(--blue);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+.legal-layout {
+  display: grid;
+  grid-template-columns: minmax(170px, 0.28fr) minmax(0, 1fr);
+  gap: clamp(2rem, 7vw, 8rem);
+  padding: 4rem 0 7rem;
+}
+.legal-layout aside {
+  position: sticky;
+  top: 2rem;
+  display: flex;
+  align-self: start;
+  flex-direction: column;
+  gap: 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.legal-layout aside strong { margin-bottom: 0.35rem; color: var(--foreground); }
+.legal-layout aside a { width: fit-content; border-bottom: 1px solid currentColor; }
+.legal-content { max-width: 52rem; }
+.legal-content section { padding: 0 0 2.5rem; border-bottom: 1px solid var(--line); }
+.legal-content section + section { padding-top: 1rem; }
+.legal-content h2 {
+  margin: 1.5rem 0 0.85rem;
+  font-size: clamp(1.4rem, 2vw, 1.85rem);
+  letter-spacing: -0.035em;
+}
+.legal-content p,
+.legal-content li { color: #33425b; font-size: 1rem; line-height: 1.72; }
+.legal-content ul { margin: 0.8rem 0 0; padding-left: 1.2rem; }
+.legal-content li + li { margin-top: 0.5rem; }
+.legal-content a { color: var(--blue); text-decoration: underline; text-underline-offset: 0.2em; }
+.legal-content strong { color: var(--foreground); }
 
 @media (max-width: 800px) {
   .hero,
@@ -315,6 +373,10 @@ footer > div:last-child { text-align: right; }
   .principles article + article { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
   footer { flex-direction: column; gap: 1rem; }
   footer > div:last-child { text-align: left; }
+  .footer-links { justify-content: flex-start; }
+  .legal-layout { grid-template-columns: 1fr; padding-top: 2.5rem; }
+  .legal-layout aside { position: static; flex-flow: row wrap; }
+  .legal-layout aside strong { width: 100%; }
 }
 
 @media (max-width: 520px) {
