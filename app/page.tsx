@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
 import AccountManager from "./AccountManager";
 import { chatGPTSignInPath, chatGPTSignOutPath, getChatGPTUser } from "./chatgpt-auth";
 
@@ -15,38 +17,56 @@ export default async function Home() {
   return (
     <main>
       <nav>
-        <span className="wordmark">Multi-Account Email</span>
+        <Link className="brand-lockup" href="/" aria-label="Multi-Account Email home">
+          <Image
+            src="/devectus-logo-dark.png"
+            alt="DEVECTUS"
+            width={150}
+            height={26}
+            priority
+          />
+          <span className="brand-divider" aria-hidden="true" />
+          <span className="wordmark">Multi-Account Email</span>
+        </Link>
         {user ? (
-          <a className="quiet-link" href={chatGPTSignOutPath("/")}>Sign out</a>
+          <div className="nav-user">
+            <span>{user.email}</span>
+            <a className="quiet-link" href={chatGPTSignOutPath("/")}>Sign out</a>
+          </div>
         ) : (
           <a className="quiet-link" href={chatGPTSignInPath("/")}>Sign in with ChatGPT</a>
         )}
       </nav>
 
-      <section className="hero">
-        <p className="eyebrow">Private proof of concept</p>
-        <h1>Every inbox. The right sender. Your final say.</h1>
-        <p className="lede">
-          Search, read, and draft across Gmail, Google Workspace, Outlook.com,
-          and Microsoft 365. Nothing sends until the sender, recipients,
-          subject, and attachments are explicitly confirmed.
-        </p>
-        {user ? (
-          <div className="connect-panel">
+      {user ? (
+        <>
+          <section className="workspace-hero">
             <div>
-              <p className="signed-in">Signed in as</p>
-              <strong>{user.email}</strong>
+              <p className="eyebrow">{"// Your email workspace"}</p>
+              <h1>One user.<br /><span>Many email identities.</span></h1>
             </div>
-            <a className="primary" href="#connections">Manage connections</a>
-          </div>
-        ) : (
+            <p className="lede">
+              Every connected mailbox remains a separate sender identity. Add,
+              label, review, and disconnect accounts here—then choose the exact
+              account whenever you search, draft, or send.
+            </p>
+          </section>
+          <AccountManager userEmail={user.email} />
+        </>
+      ) : (
+        <section className="hero">
+          <p className="eyebrow">{"// A DEVECTUS private proof of concept"}</p>
+          <h1>Every inbox.<br /><span>The right sender.</span><br />Your final say.</h1>
+          <p className="lede">
+            One secure workspace for Gmail, Google Workspace, Outlook.com, and
+            Microsoft 365. Nothing sends until the sender, recipients, subject,
+            and attachments are explicitly confirmed.
+          </p>
           <a className="primary hero-action" href={chatGPTSignInPath("/")}>
-            Sign in to connect an account
+            Sign in to manage accounts
           </a>
-        )}
-      </section>
-
-      {user ? <AccountManager userEmail={user.email} /> : null}
+        </section>
+      )}
 
       <section className="principles" aria-label="Product principles">
         <article>
@@ -67,8 +87,14 @@ export default async function Home() {
       </section>
 
       <footer>
-        <p>Up to 10 connected accounts per user.</p>
-        <p>Background monitoring, bulk email, calendars, and automatic sending are not included.</p>
+        <div>
+          <strong>Built by DEVECTUS</strong>
+          <p>Bespoke software and automation platforms for Australian organisations.</p>
+        </div>
+        <div>
+          <p>Up to 10 connected accounts per user.</p>
+          <p>Background monitoring, bulk email, calendars, and automatic sending are not included.</p>
+        </div>
       </footer>
     </main>
   );

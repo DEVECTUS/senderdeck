@@ -105,14 +105,19 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
     <section className="connections" id="connections" aria-labelledby="connections-title">
       <div className="connections-heading">
         <div>
-          <p className="eyebrow">Connection manager</p>
-          <h2 id="connections-title">Your email accounts</h2>
+          <p className="eyebrow">{"// Connection manager"}</p>
+          <h2 id="connections-title">Connected identities</h2>
           <p className="connections-intro">
-            Signed in as {userEmail}. Connect up to {limit} accounts and give each one a
-            routing-friendly label.
+            This workspace belongs to <strong>{userEmail}</strong>. Every card below is an
+            independent email account and sender identity. Connect up to {limit}.
           </p>
         </div>
-        <span className="account-count">{accounts.length} / {limit} connected</span>
+        <div className="connection-summary">
+          <span className="account-count">{accounts.length} / {limit} connected</span>
+          <button className="refresh-button" type="button" onClick={() => void loadAccounts()}>
+            Refresh list
+          </button>
+        </div>
       </div>
 
       {error ? (
@@ -153,7 +158,7 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
                     <strong>{account.label}</strong>
                     <span>{account.email}</span>
                     <small>
-                      {account.provider === "google" ? "Google" : "Microsoft"} · Connected{" "}
+                      Active sender · {account.provider === "google" ? "Google" : "Microsoft"} · Connected{" "}
                       {new Date(account.connectedAt).toLocaleDateString()}
                     </small>
                   </>
