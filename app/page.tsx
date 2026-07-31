@@ -19,10 +19,10 @@ export default async function Home() {
       <nav>
         <Link className="brand-lockup" href="/" aria-label="Multi-Account Email home">
           <Image
-            src="/devectus-logo-dark.png"
+            src="/devectus-logo-black.png"
             alt="DEVECTUS"
-            width={150}
-            height={26}
+            width={1776}
+            height={354}
             priority
           />
           <span className="brand-divider" aria-hidden="true" />
@@ -87,8 +87,22 @@ export default async function Home() {
       </section>
 
       <footer>
-        <div>
-          <strong>Built by DEVECTUS</strong>
+        <div className="builder-attribution">
+          <a
+            className="devectus-link"
+            href="https://devectus.com.au"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Visit DEVECTUS, designer and builder of Multi-Account Email"
+          >
+            <span>Designed &amp; built by</span>
+            <Image
+              src="/devectus-logo-black.png"
+              alt="DEVECTUS"
+              width={1776}
+              height={354}
+            />
+          </a>
           <p>Bespoke software and automation platforms for Australian organisations.</p>
         </div>
         <div>

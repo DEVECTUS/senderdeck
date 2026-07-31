@@ -282,6 +282,20 @@ footer {
 footer strong { color: var(--foreground); font-family: var(--font-display); }
 footer p { margin: 0.25rem 0; }
 footer > div:last-child { text-align: right; }
+.builder-attribution { display: flex; flex-direction: column; align-items: flex-start; gap: 0.45rem; }
+.devectus-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: var(--foreground);
+  font-family: var(--font-display);
+  font-weight: 650;
+}
+.devectus-link span { white-space: nowrap; }
+.devectus-link img { display: block; width: 112px; height: auto; }
+.devectus-link:hover span,
+.devectus-link:focus-visible span { text-decoration: underline; text-underline-offset: 0.2em; }
+.devectus-link:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
 
 @media (max-width: 800px) {
   .hero,
