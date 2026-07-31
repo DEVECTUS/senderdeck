@@ -24,7 +24,7 @@ const worker = {
     if (url.pathname === "/health") {
       return Response.json({
         status: "ok",
-        service: "multi-account-email",
+        service: "senderdeck",
         version: "0.1.0",
         storage: "d1",
         retention: "provider-on-demand",

@@ -268,7 +268,7 @@ function oauthResultPage(success: boolean, message: string, provider: Provider):
   const escaped = message.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
   const providerName = provider === "google" ? "Google" : "Microsoft";
   const connectUrl = `/oauth/${provider}/start?label=${encodeURIComponent(`${providerName} account`)}`;
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Multi-Account Email</title>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>SenderDeck by DEVECTUS</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"></head>
   <body style="font-family:system-ui;max-width:42rem;margin:5rem auto;padding:1rem;background:#f7f7f2;color:#17221b">
   <p style="text-transform:uppercase;letter-spacing:.12em;color:#58725f">${success ? "Connected" : "Connection failed"}</p>

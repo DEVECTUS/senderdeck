@@ -1,5 +1,5 @@
 {
-  "name": "multi-account-email",
+  "name": "senderdeck",
   "version": "0.1.0",
   "description": "Safely search, read, draft, and send across multiple Google and Microsoft email accounts.",
   "author": {
@@ -8,7 +8,7 @@
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
-    "displayName": "Multi-Account Email",
+    "displayName": "SenderDeck by DEVECTUS",
     "shortDescription": "Use up to 10 Google and Microsoft inboxes safely.",
     "longDescription": "Connect and label multiple Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts. Search and read on demand, create drafts, handle attachments within configured limits, and send only after an exact confirmation.",
     "developerName": "DEVECTUS",

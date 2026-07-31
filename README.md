@@ -1,4 +1,4 @@
-# Multi-Account Email
+# SenderDeck by DEVECTUS
 
 A private v1 proof of concept for a stateless Streamable HTTP MCP server that works with up to 10 Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts per ChatGPT/Codex user.
 
@@ -11,7 +11,7 @@ A private v1 proof of concept for a stateless Streamable HTTP MCP server that wo
 - Exact sender, recipient, subject, and attachment confirmation before sending.
 - On-demand attachment listing and base64 download with configurable size, extension, and MIME-type controls.
 - D1 storage for encrypted tokens, account preferences, and short-lived OAuth state only.
-- A packaged Codex plugin and minimal sender-routing skill in `multi-account-email/`.
+- A packaged Codex plugin and minimal sender-routing skill in `senderdeck/`.
 
 The service does not synchronize or index mailboxes, retain message bodies, run background jobs, send automatically, perform bulk email, or expose calendar/shared-mailbox functions.
 

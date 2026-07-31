@@ -1,6 +1,6 @@
 ---
 name: route-email-account
-description: Safely select a connected sender identity and use Multi-Account Email tools for cross-account search, reading, drafting, attachments, and confirmed sending. Use whenever a user asks to work with Gmail, Google Workspace, Outlook.com, or Microsoft 365 through this plugin, especially when more than one account may match.
+description: Safely select a connected sender identity and use SenderDeck tools for cross-account search, reading, drafting, attachments, and confirmed sending. Use whenever a user asks to work with Gmail, Google Workspace, Outlook.com, or Microsoft 365 through this plugin, especially when more than one account may match.
 ---
 
 # Route Email Account

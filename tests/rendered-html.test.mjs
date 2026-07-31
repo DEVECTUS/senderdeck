@@ -18,7 +18,7 @@ const context = {
   passThroughOnException() {},
 };
 
-test("renders the Multi-Account Email product page", async () => {
+test("renders the SenderDeck product page", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(
     new Request("http://localhost/", { headers: { accept: "text/html" } }),
@@ -29,7 +29,7 @@ test("renders the Multi-Account Email product page", async () => {
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
-  assert.match(html, /<title>Multi-Account Email<\/title>/i);
+  assert.match(html, /<title>SenderDeck by DEVECTUS<\/title>/i);
   assert.match(html, /Every inbox/);
   assert.match(html, /Nothing sends until/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
@@ -65,7 +65,7 @@ test("exposes a healthy stateless MCP contract", async () => {
   );
   const initialized = await initialize.json();
   assert.equal(initialized.result.protocolVersion, "2025-03-26");
-  assert.equal(initialized.result.serverInfo.name, "multi-account-email");
+  assert.equal(initialized.result.serverInfo.name, "senderdeck");
 
   const list = await worker.fetch(
     new Request("http://localhost/mcp", {

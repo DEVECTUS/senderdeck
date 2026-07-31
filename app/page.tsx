@@ -5,7 +5,7 @@ import AccountManager from "./AccountManager";
 import { chatGPTSignInPath, chatGPTSignOutPath, getChatGPTUser } from "./chatgpt-auth";
 
 export const metadata: Metadata = {
-  title: "Multi-Account Email",
+  title: "SenderDeck by DEVECTUS",
   description:
     "A private proof of concept for safe, on-demand access to multiple email accounts.",
 };
@@ -17,7 +17,7 @@ export default async function Home() {
   return (
     <main>
       <nav>
-        <Link className="brand-lockup" href="/" aria-label="Multi-Account Email home">
+        <Link className="brand-lockup" href="/" aria-label="SenderDeck home">
           <Image
             src="/devectus-logo-black.png"
             alt="DEVECTUS"
@@ -26,7 +26,7 @@ export default async function Home() {
             priority
           />
           <span className="brand-divider" aria-hidden="true" />
-          <span className="wordmark">Multi-Account Email</span>
+          <span className="wordmark">SenderDeck</span>
         </Link>
         {user ? (
           <div className="nav-user">
@@ -93,7 +93,7 @@ export default async function Home() {
             href="https://devectus.com.au"
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Visit DEVECTUS, designer and builder of Multi-Account Email"
+            aria-label="Visit DEVECTUS, designer and builder of SenderDeck"
           >
             <span>Designed &amp; built by</span>
             <Image

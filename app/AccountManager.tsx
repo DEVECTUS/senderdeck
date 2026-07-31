@@ -73,7 +73,7 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
 
   async function disconnect(account: Account) {
     const confirmed = window.confirm(
-      `Disconnect ${account.email}?\n\nThis removes its connection from Multi-Account Email. It does not delete any email.`,
+      `Disconnect ${account.email}?\n\nThis removes its connection from SenderDeck. It does not delete any email.`,
     );
     if (!confirmed) return;
 

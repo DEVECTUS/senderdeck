@@ -29,20 +29,20 @@ export async function generateMetadata(): Promise<Metadata> {
     "One secure workspace to connect and manage multiple Gmail, Google Workspace, Outlook, and Microsoft 365 email identities.";
 
   return {
-    title: "Multi-Account Email",
+    title: "SenderDeck by DEVECTUS",
     description,
     icons: {
       icon: "/favicon.svg",
       shortcut: "/favicon.svg",
     },
     openGraph: {
-      title: "Multi-Account Email",
+      title: "SenderDeck by DEVECTUS",
       description,
       images: [{ url: imageUrl, width: 1732, height: 909 }],
     },
     twitter: {
       card: "summary_large_image",
-      title: "Multi-Account Email",
+      title: "SenderDeck by DEVECTUS",
       description,
       images: [imageUrl],
     },

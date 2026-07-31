@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "multi-account-email": {
+    "senderdeck": {
       "type": "http",
       "url": "https://multi-account-email-devectus.barsham.chatgpt.site/mcp"
     }
