@@ -5,30 +5,33 @@ Prepared 31 July 2026.
 ## Completed in the application
 
 - Product name: SenderDeck by DEVECTUS
+- DEVECTUS tenant ID: `5e9ed388-da7a-49ac-86b7-e94355b4507a`
+- Application (client) ID: `78ceb14c-c25a-4105-b703-84426acf7f1f`
 - Multitenant audience: Microsoft Entra organisations and personal Microsoft accounts
 - Delegated Microsoft Graph permissions: `User.Read`, `Mail.ReadWrite`, `Mail.Send`
 - Redirect URI: `https://multi-account-email-devectus.barsham.chatgpt.site/oauth/microsoft/callback`
-- Application home page prepared: `https://multi-account-email-devectus.barsham.chatgpt.site/`
-- Privacy statement prepared: `https://multi-account-email-devectus.barsham.chatgpt.site/privacy`
-- Terms of service prepared: `https://multi-account-email-devectus.barsham.chatgpt.site/terms`
-- Support page prepared: `https://multi-account-email-devectus.barsham.chatgpt.site/support`
-- Security page prepared: `https://multi-account-email-devectus.barsham.chatgpt.site/security`
+- Application home page: `https://multi-account-email-devectus.barsham.chatgpt.site/`
+- Privacy statement: `https://multi-account-email-devectus.barsham.chatgpt.site/privacy`
+- Terms of service: `https://multi-account-email-devectus.barsham.chatgpt.site/terms`
+- Support page: `https://multi-account-email-devectus.barsham.chatgpt.site/support`
+- Security page: `https://multi-account-email-devectus.barsham.chatgpt.site/security`
 - Publisher-domain association file prepared in `publishing/microsoft-identity-association.json`
+- Microsoft Publisher Agreement and Microsoft AI Cloud Partner Program Agreement accepted by the authorised DEVECTUS representative
+- Partner Center legal-business verification submitted; status was `Pending` on 31 July 2026
+- New client credential stored only in Sites-managed secrets and deployed privately
 
 ## Business and domain steps requiring an authorised DEVECTUS administrator
 
-1. Confirm that the application is registered in a DEVECTUS organisational Microsoft Entra tenant using a work or school account. Microsoft does not support publisher verification for applications registered with a consumer Microsoft account.
-2. Enrol or confirm DEVECTUS in the Microsoft AI Cloud Partner Program.
-3. Complete Partner Center business, employment, domain and any requested identity verification.
-4. Record the PartnerGlobal Partner One ID. A location Partner ID cannot be used for publisher verification.
-5. Associate the application’s Entra tenant with the DEVECTUS Partner Global Account.
-6. Add and DNS-verify `devectus.com.au` as a custom domain in that Entra tenant, or host the supplied association JSON at:
+1. Complete any business, employment, domain, or identity checks requested while Partner Center verification is pending.
+2. Record the PartnerGlobal Partner One ID. A location Partner ID cannot be used for publisher verification.
+3. Associate the application’s Entra tenant with the DEVECTUS Partner Global Account.
+4. Add and DNS-verify `devectus.com.au` as a custom domain in that Entra tenant, or host the supplied association JSON at:
    `https://devectus.com.au/.well-known/microsoft-identity-association.json`
-7. Set the app registration publisher domain to `devectus.com.au`.
-8. Sign in with MFA as a user who is an Application Administrator or Cloud Application Administrator in Entra and a Partner Admin or Account Admin in Partner Center.
-9. Open App registrations → SenderDeck by DEVECTUS → Branding & properties → Add Partner ID to verify publisher.
-10. Enter the PartnerGlobal Partner One ID, accept the Microsoft identity platform terms and save.
-11. Confirm that the consent screen displays the verified DEVECTUS publisher badge.
+5. Set the app registration publisher domain to `devectus.com.au`.
+6. Sign in with MFA as a user who is an Application Administrator or Cloud Application Administrator in Entra and a Partner Admin or Account Admin in Partner Center.
+7. Open App registrations → SenderDeck by DEVECTUS → Branding & properties → Add Partner ID to verify publisher.
+8. Enter the PartnerGlobal Partner One ID, accept the Microsoft identity platform terms and save.
+9. Confirm that the consent screen displays the verified DEVECTUS publisher badge.
 
 ## Before public launch
 
