@@ -17,7 +17,7 @@ export async function handleOAuthRoute(request: Request, env: Env): Promise<Resp
       : await finishOAuth(request, env, provider);
   } catch (error) {
     const message = error instanceof Error ? error.message : "OAuth failed.";
-    return new Response(oauthResultPage(false, message), {
+    return new Response(oauthResultPage(false, message, provider), {
       status: error instanceof HttpError ? error.status : 500,
       headers: {
         "content-type": "text/html; charset=utf-8",
@@ -109,7 +109,7 @@ async function finishOAuth(request: Request, env: Env, provider: Provider): Prom
   });
 
   return new Response(
-    oauthResultPage(true, `${account.email} is connected as “${account.label}”. You may close this tab.`),
+    oauthResultPage(true, `${account.email} is connected as “${account.label}”.`, provider),
     {
       headers: {
         "content-type": "text/html; charset=utf-8",
@@ -264,11 +264,17 @@ function defaultLabel(provider: Provider): string {
   return provider === "google" ? "Google account" : "Microsoft account";
 }
 
-function oauthResultPage(success: boolean, message: string): string {
+function oauthResultPage(success: boolean, message: string, provider: Provider): string {
   const escaped = message.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  const providerName = provider === "google" ? "Google" : "Microsoft";
+  const connectUrl = `/oauth/${provider}/start?label=${encodeURIComponent(`${providerName} account`)}`;
   return `<!doctype html><html><head><meta charset="utf-8"><title>Multi-Account Email</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"></head>
   <body style="font-family:system-ui;max-width:42rem;margin:5rem auto;padding:1rem;background:#f7f7f2;color:#17221b">
   <p style="text-transform:uppercase;letter-spacing:.12em;color:#58725f">${success ? "Connected" : "Connection failed"}</p>
-  <h1>${success ? "Account ready" : "Could not connect account"}</h1><p>${escaped}</p></body></html>`;
+  <h1>${success ? "Account ready" : "Could not connect account"}</h1><p style="line-height:1.6">${escaped}</p>
+  <div style="display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem">
+  <a href="/#connections" style="display:inline-flex;align-items:center;min-height:44px;padding:.7rem 1rem;border-radius:4px;background:#c9f16a;color:#17251a;text-decoration:none;font-weight:650">Manage connections</a>
+  <a href="${connectUrl}" style="display:inline-flex;align-items:center;min-height:44px;padding:.7rem 1rem;border:1px solid #58725f;border-radius:4px;color:#17221b;text-decoration:none;font-weight:650">${success ? `Connect another ${providerName} account` : `Try ${providerName} again`}</a>
+  </div></body></html>`;
 }

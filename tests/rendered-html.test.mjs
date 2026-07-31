@@ -103,3 +103,15 @@ test("requires authenticated identity for account tools", async () => {
   assert.equal(result.result.isError, true);
   assert.match(result.result.content[0].text, /Authentication required/);
 });
+
+test("requires authenticated identity for the account management API", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(
+    new Request("http://localhost/api/accounts"),
+    baseEnv,
+    context,
+  );
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.match((await response.json()).error, /Authentication required/);
+});

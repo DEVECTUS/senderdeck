@@ -2,6 +2,7 @@
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import type { Env } from "./env";
+import { handleAccountApi } from "./account-api";
 import { handleMcp } from "./mcp";
 import { handleOAuthRoute } from "./oauth";
 
@@ -32,6 +33,9 @@ const worker = {
 
     const mcpResponse = await handleMcp(request, env);
     if (mcpResponse) return mcpResponse;
+
+    const accountApiResponse = await handleAccountApi(request, env);
+    if (accountApiResponse) return accountApiResponse;
 
     const oauthResponse = await handleOAuthRoute(request, env);
     if (oauthResponse) return oauthResponse;

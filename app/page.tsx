@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import AccountManager from "./AccountManager";
 import { chatGPTSignInPath, chatGPTSignOutPath, getChatGPTUser } from "./chatgpt-auth";
 
 export const metadata: Metadata = {
@@ -36,14 +37,7 @@ export default async function Home() {
               <p className="signed-in">Signed in as</p>
               <strong>{user.email}</strong>
             </div>
-            <div className="actions">
-              <a className="primary" href="/oauth/google/start?label=Google account">
-                Connect Google
-              </a>
-              <a className="secondary" href="/oauth/microsoft/start?label=Microsoft account">
-                Connect Microsoft
-              </a>
-            </div>
+            <a className="primary" href="#connections">Manage connections</a>
           </div>
         ) : (
           <a className="primary hero-action" href={chatGPTSignInPath("/")}>
@@ -51,6 +45,8 @@ export default async function Home() {
           </a>
         )}
       </section>
+
+      {user ? <AccountManager userEmail={user.email} /> : null}
 
       <section className="principles" aria-label="Product principles">
         <article>

@@ -103,6 +103,117 @@ h1 {
 .secondary { border: 1px solid rgba(255, 255, 255, 0.42); }
 .hero-action { align-self: end; justify-self: start; margin-top: 2rem; }
 
+.connections {
+  margin-bottom: 6rem;
+  padding: clamp(1.4rem, 3vw, 2.5rem);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.connections-heading,
+.connect-another {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
+}
+
+.connections-heading .eyebrow { margin: 0 0 0.8rem; }
+.connections-heading h2 { margin: 0; font-size: clamp(1.8rem, 4vw, 3.2rem); letter-spacing: -0.045em; }
+.connections-intro { max-width: 42rem; margin: 0.75rem 0 0; color: #536057; line-height: 1.55; }
+.account-count { flex: none; padding: 0.55rem 0.75rem; border: 1px solid var(--line); border-radius: 999px; font-size: 0.78rem; }
+.account-list { display: grid; gap: 0.75rem; margin-top: 2rem; }
+
+.account-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8f7f1;
+}
+
+.provider-mark {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  color: white;
+  font-weight: 750;
+}
+
+.provider-mark.google { background: #356f45; }
+.provider-mark.microsoft { background: #315c8f; }
+.account-identity { display: flex; min-width: 0; flex-direction: column; gap: 0.2rem; }
+.account-identity span { overflow: hidden; color: #48564c; text-overflow: ellipsis; }
+.account-identity small { color: #728077; }
+.account-actions { display: flex; gap: 0.45rem; }
+button { font: inherit; }
+
+.account-actions button,
+.label-form button,
+.manager-error button {
+  min-height: 38px;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.account-actions button:hover,
+.label-form button:hover { background: rgba(41, 76, 53, 0.08); }
+.account-actions .danger-button { color: #8a2f28; }
+button:disabled { cursor: wait; opacity: 0.55; }
+.label-form label { display: block; margin-bottom: 0.35rem; font-size: 0.76rem; color: #5a695f; }
+.label-form div { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+.label-form input {
+  min-width: min(100%, 17rem);
+  min-height: 38px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #718076;
+  border-radius: 4px;
+  background: white;
+  color: inherit;
+  font: inherit;
+}
+
+.manager-status,
+.empty-accounts { margin: 2rem 0 0; padding: 2rem; border: 1px dashed var(--line); text-align: center; }
+.empty-accounts h3 { margin: 0 0 0.4rem; }
+.empty-accounts p { margin: 0; color: #647067; }
+
+.manager-error {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgba(138, 47, 40, 0.4);
+  border-radius: 6px;
+  background: rgba(138, 47, 40, 0.06);
+  color: #762a24;
+}
+
+.connect-another {
+  align-items: center;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--line);
+}
+
+.connect-another h3 { margin: 0; }
+.connect-another p { margin: 0.35rem 0 0; color: #647067; }
+.secondary.dark { border-color: #58725f; color: #17221b; }
+.disabled-link { pointer-events: none; opacity: 0.45; }
+
 .principles {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -130,6 +241,11 @@ footer {
   .lede { align-self: auto; }
   .connect-panel { flex-direction: column; align-items: stretch; }
   .actions { flex-direction: column; }
+  .connections-heading,
+  .connect-another { flex-direction: column; }
+  .account-card { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+  .account-actions { grid-column: 1 / -1; width: 100%; }
+  .account-actions button { flex: 1; }
   .principles { grid-template-columns: 1fr; }
   .principles article + article { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
   footer { flex-direction: column; gap: 0; }
