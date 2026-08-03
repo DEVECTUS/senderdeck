@@ -1,22 +1,7 @@
-"use client";
-
-import { useState } from "react";
-
-const installCommand = "codex plugin add senderdeck@personal";
+const pluginDeepLink =
+  "codex://plugins/senderdeck?marketplacePath=C%3A%5CUsers%5Cbarsh%5C.agents%5Cplugins%5Cmarketplace.json";
 
 export default function CodexSetup() {
-  const [copied, setCopied] = useState(false);
-
-  async function copyCommand() {
-    try {
-      await navigator.clipboard.writeText(installCommand);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      setCopied(false);
-    }
-  }
-
   return (
     <section className="codex-setup" aria-labelledby="codex-setup-title">
       <div className="section-heading-row">
@@ -40,13 +25,12 @@ export default function CodexSetup() {
           <span className="step-number">02</span>
           <div>
             <h3>Install or refresh the Codex plugin</h3>
-            <p>Run this command in a terminal on the computer where you use Codex.</p>
-            <div className="command-row">
-              <code>{installCommand}</code>
-              <button type="button" aria-live="polite" onClick={() => void copyCommand()}>
-                {copied ? "Copied" : "Copy command"}
-              </button>
-            </div>
+            <p>Open SenderDeck from your Personal marketplace and select Install or reinstall it.</p>
+            <a className="setup-plugin-link" href={pluginDeepLink}>Open SenderDeck in Codex</a>
+            <p className="setup-fallback">
+              If the button does not open the app: open <strong>Plugins</strong>, choose
+              <strong> Personal</strong>, then select <strong>SenderDeck</strong>.
+            </p>
           </div>
         </li>
         <li>

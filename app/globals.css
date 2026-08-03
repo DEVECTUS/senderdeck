@@ -247,32 +247,23 @@ h1 span { color: var(--blue); }
 .setup-steps p { margin: 0.55rem 0 0; color: var(--muted); line-height: 1.55; }
 .inline-link { display: inline-block; margin-top: 1rem; color: var(--blue); border-bottom: 1px solid currentColor; }
 
-.command-row {
-  display: flex;
-  align-items: stretch;
+.setup-plugin-link {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
   margin-top: 1rem;
-  border: 1px solid var(--line);
-  background: var(--surface);
+  padding: 0.7rem 0.9rem;
+  border-radius: 2px;
+  background: var(--gradient);
+  color: white;
+  font-family: var(--font-display);
+  font-weight: 650;
 }
 
-.command-row code {
-  flex: 1;
-  min-width: 0;
-  padding: 0.8rem;
-  overflow-wrap: anywhere;
-  color: #253550;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-}
-
-.command-row button {
-  flex: none;
-  padding: 0.65rem;
-  border: 0;
-  border-left: 1px solid var(--line);
-  background: white;
-  color: var(--blue);
-  cursor: pointer;
+.setup-steps .setup-fallback {
+  margin-top: 0.8rem;
+  font-size: 0.78rem;
 }
 
 .setup-steps blockquote {

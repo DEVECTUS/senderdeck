@@ -89,6 +89,8 @@ test("renders the protected SenderDeck configuration screen", async () => {
   const html = await response.text();
   assert.match(html, /Plugin &amp; account/);
   assert.match(html, /Make SenderDeck available in Codex/);
+  assert.match(html, /Open SenderDeck in Codex/);
+  assert.doesNotMatch(html, /codex plugin add senderdeck@personal/);
   assert.match(html, /Connected identities/);
   assert.match(html, /owner@example.com/);
 });
