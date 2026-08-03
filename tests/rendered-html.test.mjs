@@ -19,7 +19,7 @@ const context = {
   passThroughOnException() {},
 };
 
-test("packages the private Sites MCP server with ChatGPT session authentication", async () => {
+test("packages the private Sites MCP server with environment-backed authentication", async () => {
   const config = JSON.parse(
     await readFile(new URL("../senderdeck/.mcp.json", import.meta.url), "utf8"),
   );
@@ -29,7 +29,10 @@ test("packages the private Sites MCP server with ChatGPT session authentication"
     config.mcpServers.senderdeck.url,
     "https://multi-account-email-devectus.barsham.chatgpt.site/api/mcp",
   );
-  assert.equal(config.mcpServers.senderdeck.auth, "chatgpt");
+  assert.deepEqual(config.mcpServers.senderdeck.env_http_headers, {
+    "OAI-Sites-Authorization": "SENDERDECK_SITES_AUTHORIZATION",
+    "x-dev-user-email": "SENDERDECK_USER_EMAIL",
+  });
 });
 
 test("renders the SenderDeck product page", async () => {

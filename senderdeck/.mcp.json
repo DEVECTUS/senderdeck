@@ -3,7 +3,10 @@
     "senderdeck": {
       "type": "http",
       "url": "https://multi-account-email-devectus.barsham.chatgpt.site/api/mcp",
-      "auth": "chatgpt"
+      "env_http_headers": {
+        "OAI-Sites-Authorization": "SENDERDECK_SITES_AUTHORIZATION",
+        "x-dev-user-email": "SENDERDECK_USER_EMAIL"
+      }
     }
   }
 }
