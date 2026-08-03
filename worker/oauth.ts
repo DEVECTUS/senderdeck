@@ -28,9 +28,18 @@ export async function handleOAuthRoute(request: Request, env: Env): Promise<Resp
 }
 
 async function startOAuth(request: Request, env: Env, provider: Provider): Promise<Response> {
+  const url = new URL(request.url);
+  const authenticatedUser = request.headers.get("oai-authenticated-user-id")?.trim()
+    || request.headers.get("oai-authenticated-user-email")?.trim();
+  const devEmail = env.ALLOW_DEV_AUTH === "true"
+    ? request.headers.get("x-dev-user-email")?.trim()
+    : null;
+  if (!authenticatedUser && !devEmail) {
+    const returnTo = `${url.pathname}${url.search}`;
+    return Response.redirect(`${url.origin}/signin-with-chatgpt?return_to=${encodeURIComponent(returnTo)}`, 302);
+  }
   const userId = requireUserId(request, env);
   assertProviderConfigured(env, provider);
-  const url = new URL(request.url);
   const label = (url.searchParams.get("label") || defaultLabel(provider)).trim().slice(0, 80);
   const state = randomBase64Url();
   const stateHash = await sha256Base64Url(state);

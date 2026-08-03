@@ -1,6 +1,6 @@
 # SenderDeck by DEVECTUS
 
-A private v1 proof of concept for a stateless Streamable HTTP MCP server that works with up to 10 Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts per ChatGPT/Codex user.
+A production-candidate Streamable HTTP MCP server that works with up to 10 Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts per ChatGPT/Codex user.
 
 ## What is implemented
 
@@ -39,10 +39,10 @@ Optional configuration is documented in `.env.example`. The Microsoft tenant def
 
 Run `npm run db:generate`, `npm run typecheck`, and `npm run build`. For local MCP calls without Sites identity forwarding, set `ALLOW_DEV_AUTH=true` and send an `x-dev-user-email` request header.
 
-The packaged plugin points to the owner-only Sites deployment at `/api/mcp`. Sites reserves `/mcp` at its edge, so production MCP clients must use `/api/mcp`. The bundled MCP configuration reads its private Sites authorization value from `SENDERDECK_SITES_AUTHORIZATION` and its development identity from `SENDERDECK_USER_EMAIL`; personal installations may materialize those as local static headers. Keep the site access policy private until provider credentials, legal URLs, external security review, and verified publisher metadata are approved.
+The packaged plugin points to the Sites deployment at `/api/mcp`. Sites reserves `/mcp` at its edge, so production MCP clients must use `/api/mcp`. Public plugin connections use OAuth 2.1 authorization code flow with PKCE and per-user bearer tokens. Local development may opt into the `x-dev-user-email` shortcut only by setting `ALLOW_DEV_AUTH=true`; production must keep it disabled.
 
 ## OAuth permissions
 
 Google requests OpenID email identity plus `gmail.readonly` and `gmail.compose`. Microsoft requests OpenID identity plus `Mail.ReadWrite` and `Mail.Send`, with `offline_access`.
 
-Provider production credentials, privacy/terms URLs, verified publisher metadata, and public marketplace submission are intentionally not created by this proof of concept.
+Public submission materials are maintained in `publishing/OPENAI-PLUGIN-SUBMISSION.md`. Provider verification, OpenAI publisher verification, reviewer credentials, external security review and legal approval remain account-bound release gates.

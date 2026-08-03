@@ -12,7 +12,7 @@ export default function PrivacyPage() {
       eyebrow="// Privacy statement"
       title="Privacy by design, not by promise."
       summary="This statement explains how SenderDeck accesses and handles information when you connect Google or Microsoft email accounts."
-      updated="31 July 2026"
+      updated="4 August 2026"
     >
       <section>
         <h2>1. Who operates SenderDeck</h2>
@@ -28,7 +28,7 @@ export default function PrivacyPage() {
         <h2>2. Information we handle</h2>
         <p>Depending on the features you use, SenderDeck handles:</p>
         <ul>
-          <li>Your ChatGPT or Codex account identifier and email address, used to keep each user’s connections separate.</li>
+          <li>Your site-specific ChatGPT or Codex account identifier and email address, used to keep each user’s connections separate.</li>
           <li>Connected account information, including provider, email address, account label, granted scopes and connection timestamps.</li>
           <li>OAuth access and refresh tokens issued by Google or Microsoft. Tokens are encrypted before storage.</li>
           <li>Email search results, message content and attachment data requested by you. These are fetched on demand and processed transiently.</li>
@@ -68,6 +68,8 @@ export default function PrivacyPage() {
           Encrypted OAuth tokens and account preferences remain until you
           disconnect the account or the service must remove them for security,
           legal or operational reasons. OAuth transaction state is short-lived.
+          SenderDeck connection access tokens expire after one hour and refresh
+          tokens expire after 30 days unless they are rotated or revoked sooner.
           Limited operational records may be retained only as long as reasonably
           necessary for security, troubleshooting and legal obligations.
         </p>
@@ -100,6 +102,12 @@ export default function PrivacyPage() {
         <p>
           Disconnecting SenderDeck does not delete email or drafts stored by
           your email provider.
+        </p>
+        <p>
+          To delete all SenderDeck connection data, disconnect each account and
+          email <a href="mailto:privacy@devectus.com.au?subject=SenderDeck%20deletion%20request">privacy@devectus.com.au</a>
+          {" "}from the address associated with your SenderDeck sign-in. We may
+          request reasonable identity verification before completing the request.
         </p>
       </section>
 

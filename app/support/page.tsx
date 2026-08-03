@@ -12,7 +12,7 @@ export default function SupportPage() {
       eyebrow="// Support"
       title="Help with SenderDeck."
       summary="Contact DEVECTUS for connection, permission, privacy or security assistance."
-      updated="31 July 2026"
+      updated="4 August 2026"
     >
       <section>
         <h2>Contact support</h2>

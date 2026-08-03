@@ -41,6 +41,7 @@ export interface Env {
   MAX_TOTAL_ATTACHMENT_BYTES?: string;
   BLOCKED_ATTACHMENT_EXTENSIONS?: string;
   BLOCKED_ATTACHMENT_MIME_TYPES?: string;
+  OPENAI_APPS_CHALLENGE?: string;
 }
 
 export type Provider = "google" | "microsoft";

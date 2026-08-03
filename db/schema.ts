@@ -40,3 +40,59 @@ export const oauthStates = sqliteTable(
   },
   (table) => [index("oauth_states_expiry_idx").on(table.expiresAt)],
 );
+
+export const mcpOauthClients = sqliteTable("mcp_oauth_clients", {
+  clientId: text("client_id").primaryKey(),
+  redirectUris: text("redirect_uris").notNull(),
+  clientName: text("client_name"),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const mcpAuthorizationRequests = sqliteTable(
+  "mcp_authorization_requests",
+  {
+    requestHash: text("request_hash").primaryKey(),
+    userId: text("user_id").notNull(),
+    clientId: text("client_id").notNull(),
+    redirectUri: text("redirect_uri").notNull(),
+    codeChallenge: text("code_challenge").notNull(),
+    scope: text("scope").notNull(),
+    state: text("state"),
+    resource: text("resource").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+  },
+  (table) => [index("mcp_authorization_requests_expiry_idx").on(table.expiresAt)],
+);
+
+export const mcpAuthorizationCodes = sqliteTable(
+  "mcp_authorization_codes",
+  {
+    codeHash: text("code_hash").primaryKey(),
+    userId: text("user_id").notNull(),
+    clientId: text("client_id").notNull(),
+    redirectUri: text("redirect_uri").notNull(),
+    codeChallenge: text("code_challenge").notNull(),
+    scope: text("scope").notNull(),
+    resource: text("resource").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+  },
+  (table) => [index("mcp_authorization_codes_expiry_idx").on(table.expiresAt)],
+);
+
+export const mcpOauthTokens = sqliteTable(
+  "mcp_oauth_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    tokenType: text("token_type", { enum: ["access", "refresh"] }).notNull(),
+    userId: text("user_id").notNull(),
+    clientId: text("client_id").notNull(),
+    scope: text("scope").notNull(),
+    resource: text("resource").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    index("mcp_oauth_tokens_expiry_idx").on(table.expiresAt),
+    index("mcp_oauth_tokens_user_idx").on(table.userId),
+  ],
+);

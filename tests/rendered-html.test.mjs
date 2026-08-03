@@ -19,7 +19,7 @@ const context = {
   passThroughOnException() {},
 };
 
-test("packages the private Sites MCP server with environment-backed authentication", async () => {
+test("packages the public Sites MCP server with per-user OAuth", async () => {
   const config = JSON.parse(
     await readFile(new URL("../senderdeck/.mcp.json", import.meta.url), "utf8"),
   );
@@ -29,10 +29,9 @@ test("packages the private Sites MCP server with environment-backed authenticati
     config.mcpServers.senderdeck.url,
     "https://multi-account-email-devectus.barsham.chatgpt.site/api/mcp",
   );
-  assert.deepEqual(config.mcpServers.senderdeck.env_http_headers, {
-    "OAI-Sites-Authorization": "SENDERDECK_SITES_AUTHORIZATION",
-    "x-dev-user-email": "SENDERDECK_USER_EMAIL",
-  });
+  assert.equal(config.mcpServers.senderdeck.auth, "oauth");
+  assert.deepEqual(config.mcpServers.senderdeck.scopes, ["senderdeck"]);
+  assert.equal(config.mcpServers.senderdeck.env_http_headers, undefined);
 });
 
 test("renders the SenderDeck product page", async () => {
@@ -143,6 +142,42 @@ test("exposes a healthy stateless MCP contract", async () => {
   assert.ok(names.includes("attachment_download"));
   assert.ok(names.includes("account_list"));
   assert.ok(names.includes("route_account"));
+  for (const tool of listed.result.tools) {
+    assert.deepEqual(tool.securitySchemes, [{ type: "oauth2", scopes: ["senderdeck"] }]);
+    assert.equal(typeof tool.annotations.readOnlyHint, "boolean");
+    assert.equal(typeof tool.annotations.openWorldHint, "boolean");
+    assert.equal(typeof tool.annotations.destructiveHint, "boolean");
+  }
+  const send = listed.result.tools.find((tool) => tool.name === "email_send");
+  assert.equal(send.annotations.openWorldHint, true);
+  assert.equal(send.annotations.destructiveHint, true);
+});
+
+test("publishes OAuth discovery metadata for the MCP client", async () => {
+  const worker = await loadWorker();
+  const resourceResponse = await worker.fetch(
+    new Request("http://localhost/.well-known/oauth-protected-resource"),
+    baseEnv,
+    context,
+  );
+  assert.equal(resourceResponse.status, 200);
+  const resource = await resourceResponse.json();
+  assert.equal(resource.resource, "http://localhost/api/mcp");
+  assert.deepEqual(resource.authorization_servers, ["http://localhost"]);
+  assert.deepEqual(resource.scopes_supported, ["senderdeck"]);
+
+  const authorizationResponse = await worker.fetch(
+    new Request("http://localhost/.well-known/oauth-authorization-server"),
+    baseEnv,
+    context,
+  );
+  assert.equal(authorizationResponse.status, 200);
+  const authorization = await authorizationResponse.json();
+  assert.equal(authorization.issuer, "http://localhost");
+  assert.equal(authorization.authorization_endpoint, "http://localhost/oauth/authorize");
+  assert.equal(authorization.token_endpoint, "http://localhost/oauth/token");
+  assert.equal(authorization.registration_endpoint, "http://localhost/oauth/register");
+  assert.ok(authorization.code_challenge_methods_supported.includes("S256"));
 });
 
 test("requires authenticated identity for account tools", async () => {
@@ -163,7 +198,11 @@ test("requires authenticated identity for account tools", async () => {
   );
   const result = await response.json();
   assert.equal(result.result.isError, true);
-  assert.match(result.result.content[0].text, /Authentication required/);
+  assert.match(result.result.content[0].text, /Connect SenderDeck/);
+  assert.match(
+    result.result._meta["mcp/www_authenticate"][0],
+    /oauth-protected-resource.*invalid_token.*Connect SenderDeck/,
+  );
 });
 
 test("requires authenticated identity for the account management API", async () => {

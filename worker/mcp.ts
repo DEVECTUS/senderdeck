@@ -1,4 +1,5 @@
-import { HttpError, requireUserId } from "./auth";
+import { HttpError } from "./auth";
+import { McpAuthenticationError, requireMcpUserId } from "./mcp-auth";
 import {
   disconnectAccount,
   getAccount,
@@ -56,11 +57,15 @@ const tools = [
       required: ["provider", "label"],
       additionalProperties: false,
     },
+    securitySchemes: oauthSecurity(),
+    annotations: toolAnnotations("Connect an email account", true, false, false),
   },
   {
     name: "account_list",
     description: "List the current user's connected email accounts and sender identities.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    securitySchemes: oauthSecurity(),
+    annotations: toolAnnotations("List connected accounts", true, false, false),
   },
   {
     name: "account_label",
@@ -71,6 +76,8 @@ const tools = [
       required: ["accountId", "label"],
       additionalProperties: false,
     },
+    securitySchemes: oauthSecurity(),
+    annotations: toolAnnotations("Rename an account", false, false, false),
   },
   {
     name: "account_disconnect",
@@ -82,6 +89,8 @@ const tools = [
       required: ["accountId", "confirmed"],
       additionalProperties: false,
     },
+    securitySchemes: oauthSecurity(),
+    annotations: toolAnnotations("Disconnect an account", false, false, true),
   },
   {
     name: "route_account",
@@ -96,6 +105,8 @@ const tools = [
       required: ["hint"],
       additionalProperties: false,
     },
+    securitySchemes: oauthSecurity(),
+    annotations: toolAnnotations("Choose a sender account", true, false, false),
   },
   {
     name: "email_search",
@@ -111,6 +122,8 @@ const tools = [
       required: ["query"],
       additionalProperties: false,
     },
+    securitySchemes: oauthSecurity(),
+    annotations: toolAnnotations("Search email", true, false, false),
   },
   {
     name: "email_read",
@@ -121,18 +134,24 @@ const tools = [
       required: ["accountId", "messageId"],
       additionalProperties: false,
     },
+    securitySchemes: oauthSecurity(),
+    annotations: toolAnnotations("Read an email", true, false, false),
   },
   {
     name: "draft_create",
     description:
       "Create a provider-hosted email draft. This does not send. Optional attachment bytes are passed directly to the provider.",
     inputSchema: draftInputSchema(false),
+    securitySchemes: oauthSecurity(),
+    annotations: toolAnnotations("Create an email draft", false, false, false),
   },
   {
     name: "draft_reply",
     description:
       "Create a provider-hosted reply draft for a message. This does not send.",
     inputSchema: draftInputSchema(true),
+    securitySchemes: oauthSecurity(),
+    annotations: toolAnnotations("Create a reply draft", false, false, false),
   },
   {
     name: "draft_inspect",
@@ -144,6 +163,8 @@ const tools = [
       required: ["accountId", "draftId"],
       additionalProperties: false,
     },
+    securitySchemes: oauthSecurity(),
+    annotations: toolAnnotations("Inspect an email draft", true, false, false),
   },
   {
     name: "email_send",
@@ -183,6 +204,8 @@ const tools = [
       required: ["accountId", "draftId", "confirmed", "confirmation"],
       additionalProperties: false,
     },
+    securitySchemes: oauthSecurity(),
+    annotations: toolAnnotations("Send a confirmed email", false, true, true),
   },
   {
     name: "attachment_list",
@@ -193,6 +216,8 @@ const tools = [
       required: ["accountId", "messageId"],
       additionalProperties: false,
     },
+    securitySchemes: oauthSecurity(),
+    annotations: toolAnnotations("List email attachments", true, false, false),
   },
   {
     name: "attachment_download",
@@ -208,6 +233,8 @@ const tools = [
       required: ["accountId", "messageId", "attachmentId"],
       additionalProperties: false,
     },
+    securitySchemes: oauthSecurity(),
+    annotations: toolAnnotations("Download an email attachment", true, false, false),
   },
 ] as const;
 
@@ -249,7 +276,7 @@ export async function handleMcp(request: Request, env: Env): Promise<Response | 
       return rpcResult(rpc.id, {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "senderdeck", version: "0.1.0" },
+        serverInfo: { name: "senderdeck", version: "0.2.0" },
         instructions:
           "Use account IDs explicitly. Drafts never send automatically. Before email_send, show the user and confirm sender, all recipients, subject, and attachments.",
       });
@@ -257,7 +284,7 @@ export async function handleMcp(request: Request, env: Env): Promise<Response | 
     if (rpc.method === "ping") return rpcResult(rpc.id, {});
     if (rpc.method === "tools/list") return rpcResult(rpc.id, { tools });
     if (rpc.method === "tools/call") {
-      const userId = requireUserId(request, env);
+      const userId = await requireMcpUserId(request, env);
       const name = stringValue(rpc.params?.name, "tool name");
       const args = objectValue(rpc.params?.arguments ?? {}, "arguments");
       const data = await callTool(name, args, request, env, userId);
@@ -266,11 +293,31 @@ export async function handleMcp(request: Request, env: Env): Promise<Response | 
     return rpcError(rpc.id, -32601, "Method not found");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected tool error.";
+    if (error instanceof McpAuthenticationError) {
+      return rpcResult(rpc.id, {
+        content: [{ type: "text", text: message }],
+        isError: true,
+        _meta: { "mcp/www_authenticate": [error.challenge] },
+      });
+    }
     return rpcResult(rpc.id, {
       content: [{ type: "text", text: message }],
       isError: true,
     });
   }
+}
+
+function oauthSecurity(): readonly Record<string, unknown>[] {
+  return [{ type: "oauth2", scopes: ["senderdeck"] }];
+}
+
+function toolAnnotations(
+  title: string,
+  readOnlyHint: boolean,
+  openWorldHint: boolean,
+  destructiveHint: boolean,
+): Record<string, unknown> {
+  return { title, readOnlyHint, openWorldHint, destructiveHint };
 }
 
 async function callTool(

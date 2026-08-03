@@ -1,8 +1,13 @@
 import type { Env } from "./env";
 
+const AUTH_USER_ID_HEADER = "oai-authenticated-user-id";
 const AUTH_EMAIL_HEADER = "oai-authenticated-user-email";
 
 export function requireUserId(request: Request, env: Env): string {
+  const stableUserId = request.headers.get(AUTH_USER_ID_HEADER)?.trim();
+  if (stableUserId) return stableUserId;
+
+  // Email fallback preserves local development and existing private-preview data.
   const email = request.headers.get(AUTH_EMAIL_HEADER)?.trim().toLowerCase();
   if (email) return email;
 

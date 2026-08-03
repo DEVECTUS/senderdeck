@@ -5,6 +5,7 @@ import type { Env } from "./env";
 import { handleAccountApi } from "./account-api";
 import { handleMcp } from "./mcp";
 import { handleOAuthRoute } from "./oauth";
+import { handleMcpAuthentication } from "./mcp-auth";
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -25,11 +26,21 @@ const worker = {
       return Response.json({
         status: "ok",
         service: "senderdeck",
-        version: "0.1.0",
+        version: "0.2.0",
         storage: "d1",
         retention: "provider-on-demand",
       });
     }
+
+    if (url.pathname === "/.well-known/openai-apps-challenge") {
+      if (!env.OPENAI_APPS_CHALLENGE) return new Response("Not configured.", { status: 404 });
+      return new Response(env.OPENAI_APPS_CHALLENGE, {
+        headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
+      });
+    }
+
+    const mcpAuthResponse = await handleMcpAuthentication(request, env);
+    if (mcpAuthResponse) return mcpAuthResponse;
 
     const mcpResponse = await handleMcp(request, env);
     if (mcpResponse) return mcpResponse;

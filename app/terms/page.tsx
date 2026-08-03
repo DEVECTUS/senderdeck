@@ -12,7 +12,7 @@ export default function TermsPage() {
       eyebrow="// Terms of service"
       title="Clear rules for deliberate email."
       summary="These terms govern your access to and use of SenderDeck, including its Google and Microsoft email integrations."
-      updated="31 July 2026"
+      updated="4 August 2026"
     >
       <section>
         <h2>1. Agreement and operator</h2>
@@ -72,10 +72,9 @@ export default function TermsPage() {
       </section>
 
       <section>
-        <h2>6. Pre-release status and changes</h2>
+        <h2>6. Service availability and changes</h2>
         <p>
-          SenderDeck may be offered as a private proof of concept, pilot or
-          pre-release service. Features may change, be limited or be withdrawn.
+          SenderDeck features may change, be limited or be withdrawn.
           We may suspend access to protect users, providers or the service, or
           to comply with law or provider requirements.
         </p>
