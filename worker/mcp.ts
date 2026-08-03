@@ -32,6 +32,7 @@ import {
 } from "./providers/microsoft";
 
 const PROTOCOL_VERSION = "2025-03-26";
+const MCP_PATHS = new Set(["/api/mcp", "/mcp"]);
 
 type JsonRpcId = string | number | null;
 interface JsonRpcRequest {
@@ -212,7 +213,9 @@ const tools = [
 
 export async function handleMcp(request: Request, env: Env): Promise<Response | null> {
   const url = new URL(request.url);
-  if (url.pathname !== "/mcp") return null;
+  // Sites reserves /mcp at its edge. /api/mcp reaches this worker in production;
+  // retain /mcp for local clients and backwards-compatible development tests.
+  if (!MCP_PATHS.has(url.pathname)) return null;
   if (request.method === "GET") {
     return new Response("This stateless MCP endpoint accepts POST requests.", {
       status: 405,

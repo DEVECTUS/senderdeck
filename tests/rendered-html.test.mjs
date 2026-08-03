@@ -66,7 +66,7 @@ test("exposes a healthy stateless MCP contract", async () => {
   assert.equal((await health.json()).status, "ok");
 
   const initialize = await worker.fetch(
-    new Request("http://localhost/mcp", {
+    new Request("http://localhost/api/mcp", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -88,7 +88,7 @@ test("exposes a healthy stateless MCP contract", async () => {
   assert.equal(initialized.result.serverInfo.name, "senderdeck");
 
   const list = await worker.fetch(
-    new Request("http://localhost/mcp", {
+    new Request("http://localhost/api/mcp", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }),
@@ -101,12 +101,14 @@ test("exposes a healthy stateless MCP contract", async () => {
   assert.equal(names.length, 13);
   assert.ok(names.includes("email_send"));
   assert.ok(names.includes("attachment_download"));
+  assert.ok(names.includes("account_list"));
+  assert.ok(names.includes("route_account"));
 });
 
 test("requires authenticated identity for account tools", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(
-    new Request("http://localhost/mcp", {
+    new Request("http://localhost/api/mcp", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
