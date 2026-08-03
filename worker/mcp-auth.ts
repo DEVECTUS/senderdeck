@@ -291,7 +291,9 @@ async function completeAuthorization(request: Request, env: Env): Promise<Respon
   const redirect = new URL(pending.redirect_uri);
   redirect.searchParams.set("code", code);
   if (pending.state) redirect.searchParams.set("state", pending.state);
-  return Response.redirect(redirect.toString(), 302);
+  // This response follows a form POST. A 303 explicitly converts the callback
+  // navigation to GET, which is required by OAuth clients and embedded browsers.
+  return Response.redirect(redirect.toString(), 303);
 }
 
 async function exchangeToken(request: Request, env: Env): Promise<Response> {
