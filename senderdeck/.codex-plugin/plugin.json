@@ -1,6 +1,6 @@
 {
   "name": "senderdeck",
-  "version": "0.1.0+codex.20260803022625",
+  "version": "0.1.0+codex.20260803042410",
   "description": "Safely search, read, draft, and send across multiple Google and Microsoft email accounts.",
   "author": {
     "name": "DEVECTUS"
@@ -22,6 +22,9 @@
       "Draft a reply from the right account.",
       "Show me the exact details before sending."
     ],
-    "brandColor": "#294C35"
+    "brandColor": "#294C35",
+    "composerIcon": "./assets/senderdeck-icon-256.png",
+    "logo": "./assets/senderdeck-icon-1024.png",
+    "logoDark": "./assets/senderdeck-icon-1024.png"
   }
 }
