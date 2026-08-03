@@ -1,6 +1,6 @@
 {
   "name": "senderdeck",
-  "version": "0.1.0+codex.20260803022625",
+  "version": "0.1.0+codex.20260803043536",
   "description": "Safely search, read, draft, and send across multiple Google and Microsoft email accounts.",
   "author": {
     "name": "DEVECTUS"
@@ -13,6 +13,9 @@
     "longDescription": "Connect and label multiple Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts. Search and read on demand, create drafts, handle attachments within configured limits, and send only after an exact confirmation.",
     "developerName": "DEVECTUS",
     "category": "Productivity",
+    "websiteURL": "https://multi-account-email-devectus.barsham.chatgpt.site/settings",
+    "privacyPolicyURL": "https://multi-account-email-devectus.barsham.chatgpt.site/privacy",
+    "termsOfServiceURL": "https://multi-account-email-devectus.barsham.chatgpt.site/terms",
     "capabilities": [
       "Read",
       "Write"
