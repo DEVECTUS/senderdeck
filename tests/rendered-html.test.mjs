@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 async function loadWorker() {
@@ -17,6 +18,19 @@ const context = {
   waitUntil() {},
   passThroughOnException() {},
 };
+
+test("packages the private Sites MCP server with ChatGPT session authentication", async () => {
+  const config = JSON.parse(
+    await readFile(new URL("../senderdeck/.mcp.json", import.meta.url), "utf8"),
+  );
+  assert.deepEqual(Object.keys(config), ["mcpServers"]);
+  assert.equal(config.mcpServers.senderdeck.type, "http");
+  assert.equal(
+    config.mcpServers.senderdeck.url,
+    "https://multi-account-email-devectus.barsham.chatgpt.site/api/mcp",
+  );
+  assert.equal(config.mcpServers.senderdeck.auth, "chatgpt");
+});
 
 test("renders the SenderDeck product page", async () => {
   const worker = await loadWorker();

@@ -39,7 +39,7 @@ Optional configuration is documented in `.env.example`. The Microsoft tenant def
 
 Run `npm run db:generate`, `npm run typecheck`, and `npm run build`. For local MCP calls without Sites identity forwarding, set `ALLOW_DEV_AUTH=true` and send an `x-dev-user-email` request header.
 
-The packaged plugin points to the owner-only Sites deployment at `/api/mcp`. Sites reserves `/mcp` at its edge, so production MCP clients must use `/api/mcp`. Keep the site access policy private until provider credentials, legal URLs, external security review, and verified publisher metadata are approved.
+The packaged plugin points to the owner-only Sites deployment at `/api/mcp` and uses Codex's ChatGPT-session authentication for that trusted `chatgpt.site` origin. Sites reserves `/mcp` at its edge, so production MCP clients must use `/api/mcp`. Keep the site access policy private until provider credentials, legal URLs, external security review, and verified publisher metadata are approved.
 
 ## OAuth permissions
 
