@@ -72,6 +72,27 @@ test("publishes the legal, security, and support pages required for provider rev
   }
 });
 
+test("renders the protected SenderDeck configuration screen", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(
+    new Request("http://localhost/settings", {
+      headers: {
+        accept: "text/html",
+        "oai-authenticated-user-email": "owner@example.com",
+      },
+    }),
+    baseEnv,
+    context,
+  );
+
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Plugin &amp; account/);
+  assert.match(html, /Make SenderDeck available in Codex/);
+  assert.match(html, /Connected identities/);
+  assert.match(html, /owner@example.com/);
+});
+
 test("exposes a healthy stateless MCP contract", async () => {
   const worker = await loadWorker();
   const health = await worker.fetch(

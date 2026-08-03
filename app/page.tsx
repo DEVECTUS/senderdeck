@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import AccountManager from "./AccountManager";
 import { chatGPTSignInPath, chatGPTSignOutPath, getChatGPTUser } from "./chatgpt-auth";
 
 export const metadata: Metadata = {
@@ -31,6 +30,7 @@ export default async function Home() {
         {user ? (
           <div className="nav-user">
             <span>{user.email}</span>
+            <Link className="quiet-link" href="/settings">Configuration</Link>
             <a className="quiet-link" href={chatGPTSignOutPath("/")}>Sign out</a>
           </div>
         ) : (
@@ -51,7 +51,17 @@ export default async function Home() {
               account whenever you search, draft, or send.
             </p>
           </section>
-          <AccountManager userEmail={user.email} />
+          <section className="configuration-callout" aria-labelledby="configuration-title">
+            <div>
+              <p className="eyebrow">{"// Configuration"}</p>
+              <h2 id="configuration-title">Configure accounts and Codex.</h2>
+              <p>
+                Manage Google and Microsoft sender identities, review which ChatGPT account owns
+                them, and complete the one-time Codex plugin setup in one place.
+              </p>
+            </div>
+            <Link className="primary" href="/settings">Open configuration</Link>
+          </section>
         </>
       ) : (
         <section className="hero">
@@ -113,6 +123,7 @@ export default async function Home() {
             <Link href="/terms">Terms</Link>
             <Link href="/security">Security</Link>
             <Link href="/support">Support</Link>
+            <Link href="/settings">Configuration</Link>
           </div>
         </div>
       </footer>
