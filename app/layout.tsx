@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = requestHeaders.get("host");
   const safeHost = host && /^[a-z0-9.-]+(?::\d+)?$/i.test(host)
     ? host
-    : "multi-account-email-devectus.barsham.chatgpt.site";
+    : "senderdeck.devectus.com.au";
   const imageUrl = `https://${safeHost}/og.png`;
   const description =
     "One secure workspace to connect and manage multiple Gmail, Google Workspace, Outlook, and Microsoft 365 email identities.";

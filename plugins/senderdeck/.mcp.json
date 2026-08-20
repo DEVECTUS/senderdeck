@@ -2,7 +2,7 @@
   "mcpServers": {
     "senderdeck": {
       "type": "http",
-      "url": "https://multi-account-email-devectus.barsham.chatgpt.site/api/mcp",
+      "url": "https://senderdeck.devectus.com.au/api/mcp",
       "auth": "oauth",
       "scopes": ["senderdeck"]
     }

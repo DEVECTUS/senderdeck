@@ -1,21 +1,23 @@
 {
   "name": "senderdeck",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Safely search, read, draft, and send across multiple Google and Microsoft email accounts.",
   "author": {
     "name": "DEVECTUS"
   },
+  "homepage": "https://senderdeck.devectus.com.au/",
+  "repository": "https://github.com/DEVECTUS/DEVECTUS.SenderDeck",
+  "keywords": ["email", "gmail", "outlook", "microsoft-365", "productivity"],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "SenderDeck by DEVECTUS",
     "shortDescription": "Use up to 10 Google and Microsoft inboxes safely.",
     "longDescription": "Connect and label multiple Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts. Search and read on demand, create drafts, handle attachments within configured limits, and send only after an exact confirmation.",
     "developerName": "DEVECTUS",
     "category": "Productivity",
-    "websiteURL": "https://multi-account-email-devectus.barsham.chatgpt.site/settings",
-    "privacyPolicyURL": "https://multi-account-email-devectus.barsham.chatgpt.site/privacy",
-    "termsOfServiceURL": "https://multi-account-email-devectus.barsham.chatgpt.site/terms",
+    "websiteURL": "https://senderdeck.devectus.com.au/settings",
+    "privacyPolicyURL": "https://senderdeck.devectus.com.au/privacy",
+    "termsOfServiceURL": "https://senderdeck.devectus.com.au/terms",
     "capabilities": [
       "Read",
       "Write"
@@ -26,5 +28,6 @@
       "Show me the exact details before sending."
     ],
     "brandColor": "#294C35"
-  }
+  },
+  "mcpServers": "./.mcp.json"
 }

@@ -1,6 +1,6 @@
 # SenderDeck OpenAI plugin submission
 
-Prepared 4 August 2026 for the initial public submission.
+Prepared 4 August 2026 for the initial public submission. Updated 21 August 2026 for the DEVECTUS custom-domain release.
 
 ## Listing
 
@@ -9,13 +9,13 @@ Prepared 4 August 2026 for the initial public submission.
 - **Category:** Productivity
 - **Short description:** Safely use up to 10 Google and Microsoft inboxes.
 - **Long description:** Connect and label multiple Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts. Search and read messages on demand, create provider-hosted drafts, work with attachments within configured safety limits, and send only after confirming the exact sender, recipients, subject, and attachment list.
-- **Website:** https://multi-account-email-devectus.barsham.chatgpt.site/
-- **Support:** https://multi-account-email-devectus.barsham.chatgpt.site/support
-- **Privacy:** https://multi-account-email-devectus.barsham.chatgpt.site/privacy
-- **Terms:** https://multi-account-email-devectus.barsham.chatgpt.site/terms
-- **Security:** https://multi-account-email-devectus.barsham.chatgpt.site/security
+- **Website:** https://senderdeck.devectus.com.au/
+- **Support:** https://senderdeck.devectus.com.au/support
+- **Privacy:** https://senderdeck.devectus.com.au/privacy
+- **Terms:** https://senderdeck.devectus.com.au/terms
+- **Security:** https://senderdeck.devectus.com.au/security
 - **MCP server type:** Universal
-- **MCP server URL:** https://multi-account-email-devectus.barsham.chatgpt.site/api/mcp
+- **MCP server URL:** https://senderdeck.devectus.com.au/api/mcp
 - **Authentication:** OAuth 2.1 authorization code with PKCE and dynamic client registration
 - **Requested scope:** `senderdeck`
 - **Countries:** Australia initially; expand only after legal and support approval.
@@ -104,6 +104,10 @@ Prepared 4 August 2026 for the initial public submission.
 ## Initial release notes
 
 Initial public submission of SenderDeck by DEVECTUS. The plugin provides per-user OAuth access to on-demand Google and Microsoft email workflows, supports up to ten labelled accounts, keeps drafts with the email provider, and requires exact confirmation before sending. Mailbox content is not indexed or retained. Reviewer fixtures should use disposable accounts and self-addressed send tests.
+
+## Custom-domain update notes
+
+Moves all public listing, legal, support, security, and MCP endpoints to `senderdeck.devectus.com.au`. Google and Microsoft provider callbacks now use the same verified DEVECTUS domain. The original Sites callback URLs remain registered temporarily for rollback compatibility; the plugin and public listing use only the custom domain.
 
 ## Account-bound release gates
 
