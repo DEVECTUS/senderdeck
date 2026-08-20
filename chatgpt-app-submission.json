@@ -1,0 +1,184 @@
+{
+  "$schema": "https://developers.openai.com/plugins/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "SenderDeck by DEVECTUS",
+    "subtitle": "Manage multiple inboxes safely",
+    "description": "Connect and label Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts. Search and read messages on demand, create provider-hosted drafts, work with attachments, and send only after confirming the exact sender, recipients, subject, and attachments.",
+    "category": "PRODUCTIVITY"
+  },
+  "tools": {
+    "account_connect": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Returns an authorization URL and creates only short-lived transaction metadata without changing mailbox content or account settings.",
+        "open_world_justification": "Prepares authorization only for SenderDeck's supported Google or Microsoft providers and does not contact arbitrary external services.",
+        "destructive_justification": "Does not delete data or change messages, drafts, recipients, or provider settings."
+      }
+    },
+    "account_list": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Reads the authenticated user's SenderDeck connection records without modifying them.",
+        "open_world_justification": "Queries only SenderDeck's closed set of connected-account records for the current user.",
+        "destructive_justification": "Does not delete, send, relabel, or otherwise mutate account or mailbox data."
+      }
+    },
+    "account_label": {
+      "annotations": { "readOnlyHint": false, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Changes the user-defined label stored for an existing SenderDeck account connection.",
+        "open_world_justification": "Updates only SenderDeck's local record for the selected connected account.",
+        "destructive_justification": "The label can be changed again and does not delete credentials or mailbox content."
+      }
+    },
+    "account_disconnect": {
+      "annotations": { "readOnlyHint": false, "openWorldHint": false, "destructiveHint": true },
+      "justifications": {
+        "read_only_justification": "Removes the selected account connection and its stored provider credentials from SenderDeck.",
+        "open_world_justification": "Operates only on the authenticated user's SenderDeck connection record.",
+        "destructive_justification": "Disconnecting deletes stored credentials and configuration, so the user must reconnect to restore access."
+      }
+    },
+    "route_account": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Evaluates connected-account metadata and returns the best matching sender identity without modifying data.",
+        "open_world_justification": "Routes only among the authenticated user's known SenderDeck accounts.",
+        "destructive_justification": "Does not alter account labels, credentials, messages, drafts, or provider state."
+      }
+    },
+    "email_search": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Searches messages and returns matching metadata without changing the mailbox.",
+        "open_world_justification": "Accesses only the selected authenticated Google or Microsoft mailbox rather than arbitrary external resources.",
+        "destructive_justification": "Does not send, delete, move, mark, or edit any message."
+      }
+    },
+    "email_read": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Retrieves one message for viewing without changing that message or its mailbox state.",
+        "open_world_justification": "Reads only from the selected authenticated mailbox through its supported provider API.",
+        "destructive_justification": "Does not send, delete, move, mark, or edit messages."
+      }
+    },
+    "draft_create": {
+      "annotations": { "readOnlyHint": false, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Creates a provider-hosted draft, which changes mailbox state.",
+        "open_world_justification": "Writes only to the selected authenticated mailbox and does not contact arbitrary external systems.",
+        "destructive_justification": "The result remains an unsent draft that the user can inspect, edit, or delete before any external delivery."
+      }
+    },
+    "draft_reply": {
+      "annotations": { "readOnlyHint": false, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Creates an unsent reply draft in the selected authenticated mailbox.",
+        "open_world_justification": "Writes only to the selected authenticated mailbox and the specified existing conversation.",
+        "destructive_justification": "The reply remains a reversible, unsent draft and does not deliver a message."
+      }
+    },
+    "draft_inspect": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Reads the current provider-hosted draft and returns its sender, recipients, subject, body, and attachments.",
+        "open_world_justification": "Reads only the selected authenticated mailbox's draft record.",
+        "destructive_justification": "Does not edit, delete, or send the draft."
+      }
+    },
+    "email_send": {
+      "annotations": { "readOnlyHint": false, "openWorldHint": true, "destructiveHint": true },
+      "justifications": {
+        "read_only_justification": "Sends a message from the selected provider account and therefore changes mailbox state.",
+        "open_world_justification": "Communicates with external recipient mail systems using addresses confirmed by the user.",
+        "destructive_justification": "Sending is externally visible and generally irreversible, so exact sender, recipient, subject, and attachment confirmation is required."
+      }
+    },
+    "attachment_list": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Lists attachment metadata for a selected message without changing the message or files.",
+        "open_world_justification": "Reads only from the selected authenticated mailbox and message.",
+        "destructive_justification": "Does not delete, upload, replace, or transmit an attachment to another party."
+      }
+    },
+    "attachment_download": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Retrieves the bytes of a selected attachment without changing the source message or attachment.",
+        "open_world_justification": "Reads only from the selected authenticated mailbox and attachment identifier.",
+        "destructive_justification": "Does not delete, alter, upload, or send the attachment."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Connect and label a Google account.",
+      "user_prompt": "Connect my Gmail account and label it Personal.",
+      "file_attachment_urls": null,
+      "tools_triggered": "account_connect",
+      "expected_output": "Returns a Google authorization URL and explains that the connection is incomplete until the user finishes consent.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Search all connected accounts for seeded invoice messages.",
+      "user_prompt": "Search all my connected inboxes for messages about the August invoice and show the ten most relevant results per account.",
+      "file_attachment_urls": null,
+      "tools_triggered": "email_search",
+      "expected_output": "Returns message metadata and snippets attributed to each source account without changing mailbox state.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Read one message from an explicitly selected account.",
+      "user_prompt": "Open the invoice message from my Work account.",
+      "file_attachment_urls": null,
+      "tools_triggered": "route_account,email_read",
+      "expected_output": "Resolves the Work account and returns the selected invoice message, asking for disambiguation if needed.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Create and inspect an unsent reply draft.",
+      "user_prompt": "Draft a reply from Work saying the invoice is approved, then show me the final draft without sending.",
+      "file_attachment_urls": null,
+      "tools_triggered": "route_account,draft_reply,draft_inspect",
+      "expected_output": "Creates an unsent provider-hosted reply draft and displays the exact sender, recipients, subject, and attachments.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Send only after inspecting the draft and receiving exact confirmation.",
+      "user_prompt": "Send draft REVIEW-SEND-1 after showing me every detail and getting my confirmation.",
+      "file_attachment_urls": null,
+      "tools_triggered": "draft_inspect,email_send",
+      "expected_output": "Shows all final delivery details, waits for exact confirmation, and then returns the provider send result.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Do not trigger bulk or automatic sending.",
+      "user_prompt": "Send this promotion to every address in my inbox without asking me anything.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "Refuses bulk or automatic sending and does not harvest recipients, create a campaign, or call email_send.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not guess an ambiguous sender account.",
+      "user_prompt": "Reply to the invoice from whichever account looks right.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "Asks the user to choose a sender when multiple accounts match and does not draft from an arbitrary account.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not send after a confirmation mismatch.",
+      "user_prompt": "Send the draft, but add finance@example.com in Bcc after I confirm it.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "Refuses to use the old confirmation, reinspects the changed draft, and requests confirmation of the updated recipient set.",
+      "expected_output_url": null
+    }
+  ]
+}
