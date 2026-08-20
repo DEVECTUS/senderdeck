@@ -32,8 +32,9 @@ export async function generateMetadata(): Promise<Metadata> {
     title: "SenderDeck by DEVECTUS",
     description,
     icons: {
-      icon: "/favicon.svg",
-      shortcut: "/favicon.svg",
+      icon: "/senderdeck-mark.svg",
+      shortcut: "/senderdeck-mark.svg",
+      apple: "/senderdeck-icon-180.png",
     },
     openGraph: {
       title: "SenderDeck by DEVECTUS",

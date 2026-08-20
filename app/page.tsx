@@ -18,6 +18,15 @@ export default async function Home() {
       <nav>
         <Link className="brand-lockup" href="/" aria-label="SenderDeck home">
           <Image
+            className="senderdeck-mark"
+            src="/senderdeck-mark.svg"
+            alt=""
+            width={1024}
+            height={1024}
+            priority
+          />
+          <Image
+            className="devectus-wordmark"
             src="/devectus-logo-black.png"
             alt="DEVECTUS"
             width={1776}
