@@ -21,13 +21,13 @@ const context = {
 
 test("packages the public Sites MCP server with per-user OAuth", async () => {
   const config = JSON.parse(
-    await readFile(new URL("../senderdeck/.mcp.json", import.meta.url), "utf8"),
+    await readFile(new URL("../plugins/senderdeck/.mcp.json", import.meta.url), "utf8"),
   );
   assert.deepEqual(Object.keys(config), ["mcpServers"]);
   assert.equal(config.mcpServers.senderdeck.type, "http");
   assert.equal(
     config.mcpServers.senderdeck.url,
-    "https://multi-account-email-devectus.barsham.chatgpt.site/api/mcp",
+    "https://senderdeck.devectus.com.au/api/mcp",
   );
   assert.equal(config.mcpServers.senderdeck.auth, "oauth");
   assert.deepEqual(config.mcpServers.senderdeck.scopes, ["senderdeck"]);

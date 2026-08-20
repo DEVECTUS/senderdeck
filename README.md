@@ -11,7 +11,7 @@ A production-candidate Streamable HTTP MCP server that works with up to 10 Gmail
 - Exact sender, recipient, subject, and attachment confirmation before sending.
 - On-demand attachment listing and base64 download with configurable size, extension, and MIME-type controls.
 - D1 storage for encrypted tokens, account preferences, and short-lived OAuth state only.
-- A packaged Codex plugin and minimal sender-routing skill in `senderdeck/`.
+- A packaged Codex plugin and minimal sender-routing skill in `plugins/senderdeck/`, with a repository marketplace in `.agents/plugins/marketplace.json`.
 
 The service does not synchronize or index mailboxes, retain message bodies, run background jobs, send automatically, perform bulk email, or expose calendar/shared-mailbox functions.
 
@@ -21,11 +21,17 @@ Copy `.env.example` to `.env.local` for local work. Generate `TOKEN_ENCRYPTION_K
 
 Google OAuth redirect URI:
 
-`https://<private-site-host>/oauth/google/callback`
+`https://senderdeck.devectus.com.au/oauth/google/callback`
 
 Microsoft OAuth redirect URI:
 
-`https://<private-site-host>/oauth/microsoft/callback`
+`https://senderdeck.devectus.com.au/oauth/microsoft/callback`
+
+Production MCP server URL:
+
+`https://senderdeck.devectus.com.au/api/mcp`
+
+Keep the original Sites-host callback URLs registered during the custom-domain transition so existing sessions can complete and the deployment can be rolled back safely.
 
 Required hosted secrets:
 

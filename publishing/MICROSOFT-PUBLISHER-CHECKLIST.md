@@ -9,12 +9,12 @@ Prepared 31 July 2026.
 - Application (client) ID: `78ceb14c-c25a-4105-b703-84426acf7f1f`
 - Multitenant audience: Microsoft Entra organisations and personal Microsoft accounts
 - Delegated Microsoft Graph permissions: `User.Read`, `Mail.ReadWrite`, `Mail.Send`
-- Redirect URI: `https://multi-account-email-devectus.barsham.chatgpt.site/oauth/microsoft/callback`
-- Application home page: `https://multi-account-email-devectus.barsham.chatgpt.site/`
-- Privacy statement: `https://multi-account-email-devectus.barsham.chatgpt.site/privacy`
-- Terms of service: `https://multi-account-email-devectus.barsham.chatgpt.site/terms`
-- Support page: `https://multi-account-email-devectus.barsham.chatgpt.site/support`
-- Security page: `https://multi-account-email-devectus.barsham.chatgpt.site/security`
+- Redirect URI: `https://senderdeck.devectus.com.au/oauth/microsoft/callback`
+- Application home page: `https://senderdeck.devectus.com.au/`
+- Privacy statement: `https://senderdeck.devectus.com.au/privacy`
+- Terms of service: `https://senderdeck.devectus.com.au/terms`
+- Support page: `https://senderdeck.devectus.com.au/support`
+- Security page: `https://senderdeck.devectus.com.au/security`
 - Publisher-domain association file prepared in `publishing/microsoft-identity-association.json`
 - Microsoft Publisher Agreement and Microsoft AI Cloud Partner Program Agreement accepted by the authorised DEVECTUS representative
 - Partner Center legal-business verification submitted; status was `Pending` on 31 July 2026
@@ -37,7 +37,7 @@ Prepared 31 July 2026.
 
 - Obtain legal review of the SenderDeck-specific privacy statement and terms.
 - Make the legal and support URLs publicly accessible.
-- Decide whether the product site will use its current Sites URL or a verified DEVECTUS custom domain.
+- Keep the original Sites callback URI registered temporarily for rollback compatibility.
 - Rotate the Microsoft client secret before expiry on 27 January 2027.
 - Complete an external security review.
 - Test consent with an administrator and a standard user in a tenant other than the publisher tenant.
