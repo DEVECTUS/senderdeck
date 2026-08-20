@@ -291,9 +291,11 @@ async function completeAuthorization(request: Request, env: Env): Promise<Respon
   const redirect = new URL(pending.redirect_uri);
   redirect.searchParams.set("code", code);
   if (pending.state) redirect.searchParams.set("state", pending.state);
-  // This response follows a form POST. A 303 explicitly converts the callback
-  // navigation to GET, which is required by OAuth clients and embedded browsers.
-  return Response.redirect(redirect.toString(), 303);
+  // Some embedded Chromium surfaces complete the POST but do not follow a
+  // cross-origin 303. Render a one-time redirect page so the callback still
+  // proceeds as a GET without inviting the user to submit the consent form
+  // twice (the authorization request has already been consumed at this point).
+  return html(oauthRedirectPage(redirect.toString()));
 }
 
 async function exchangeToken(request: Request, env: Env): Promise<Response> {
@@ -466,6 +468,11 @@ function authorizationError(
   if (description) redirect.searchParams.set("error_description", description);
   if (state) redirect.searchParams.set("state", state);
   return Response.redirect(redirect.toString(), 302);
+}
+
+function oauthRedirectPage(redirectUri: string): string {
+  const safeRedirectUri = escapeHtml(redirectUri);
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=${safeRedirectUri}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Returning to OpenAI</title><style>body{margin:0;background:#f3f4ef;color:#17241c;font:16px/1.5 system-ui,sans-serif}.card{max-width:600px;margin:10vh auto;padding:40px;background:#fff;border:1px solid #d5dcd5;border-radius:20px;box-shadow:0 20px 60px #17342018}a{color:#294c35;font-weight:700}</style></head><body><main class="card"><h1>Authorization approved</h1><p>Returning to OpenAI&hellip;</p><p><a href="${safeRedirectUri}">Continue if you are not redirected automatically.</a></p></main></body></html>`;
 }
 
 function consentPage(requestToken: string, email: string): string {
