@@ -21,9 +21,9 @@ export interface WorkerD1Database {
 }
 
 export interface Env {
-  ASSETS: WorkerFetcher;
+  ASSETS?: WorkerFetcher;
   DB: WorkerD1Database;
-  IMAGES: {
+  IMAGES?: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {
         output(options: { format: string; quality: number }): Promise<{ response(): Response }>;
