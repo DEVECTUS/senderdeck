@@ -12,7 +12,7 @@ export default function TermsPage() {
       eyebrow="// Terms of service"
       title="Clear rules for deliberate email."
       summary="These terms govern your access to and use of SenderDeck, including its Google and Microsoft email integrations."
-      updated="4 August 2026"
+      updated="27 August 2026"
     >
       <section>
         <h2>1. Agreement and operator</h2>
@@ -53,7 +53,7 @@ export default function TermsPage() {
       <section>
         <h2>4. Your responsibilities</h2>
         <ul>
-          <li>Keep your ChatGPT, Codex, Google and Microsoft accounts secure.</li>
+          <li>Keep your SenderDeck, Codex, Claude, Google and Microsoft accounts secure.</li>
           <li>Review the selected sender, all recipients, subject and attachments before approving a send.</li>
           <li>Comply with privacy, confidentiality, recordkeeping, anti-spam and employment obligations that apply to your messages.</li>
           <li>Do not use SenderDeck for unlawful, deceptive, abusive, malicious, unsolicited bulk or rights-infringing activity.</li>
@@ -64,7 +64,7 @@ export default function TermsPage() {
       <section>
         <h2>5. Connected services</h2>
         <p>
-          Google, Microsoft, OpenAI and other third-party services are governed
+          Google, Microsoft, OpenAI, Anthropic and other third-party services are governed
           by their own terms. Their availability, permissions and policies may
           affect SenderDeck. We are not responsible for third-party services or
           for changes they make.

@@ -276,7 +276,7 @@ export async function handleMcp(request: Request, env: Env): Promise<Response | 
       return rpcResult(rpc.id, {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "senderdeck", version: "0.2.0" },
+        serverInfo: { name: "senderdeck", version: "0.3.1" },
         instructions:
           "Use account IDs explicitly. Drafts never send automatically. Before email_send, show the user and confirm sender, all recipients, subject, and attachments.",
       });
@@ -294,10 +294,20 @@ export async function handleMcp(request: Request, env: Env): Promise<Response | 
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected tool error.";
     if (error instanceof McpAuthenticationError) {
-      return rpcResult(rpc.id, {
-        content: [{ type: "text", text: message }],
-        isError: true,
-        _meta: { "mcp/www_authenticate": [error.challenge] },
+      return Response.json({
+        jsonrpc: "2.0",
+        id: rpc.id,
+        result: {
+          content: [{ type: "text", text: message }],
+          isError: true,
+          _meta: { "mcp/www_authenticate": [error.challenge] },
+        },
+      }, {
+        status: 401,
+        headers: {
+          ...mcpHeaders(),
+          "www-authenticate": error.challenge,
+        },
       });
     }
     return rpcResult(rpc.id, {

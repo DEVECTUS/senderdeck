@@ -26,7 +26,7 @@ const worker = {
       return Response.json({
         status: "ok",
         service: "senderdeck",
-        version: "0.2.0",
+        version: "0.3.1",
         storage: "d1",
         retention: "provider-on-demand",
       });

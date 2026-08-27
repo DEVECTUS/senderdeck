@@ -7,7 +7,7 @@ export default function CodexSetup() {
       <div className="section-heading-row">
         <div>
           <p className="eyebrow">{"// Codex setup"}</p>
-          <h2 id="codex-setup-title">Make SenderDeck available in Codex</h2>
+          <h2 id="codex-setup-title">Make SenderDeck available in Codex or Claude</h2>
         </div>
         <span className="setup-status">One-time setup</span>
       </div>
@@ -38,6 +38,18 @@ export default function CodexSetup() {
           <div>
             <h3>Start a new Codex task</h3>
             <p>New tasks load the latest plugin tools. Ask Codex to list your connected SenderDeck accounts.</p>
+            <blockquote>“List my connected SenderDeck email accounts.”</blockquote>
+          </div>
+        </li>
+        <li>
+          <span className="step-number">04</span>
+          <div>
+            <h3>Use SenderDeck in Claude</h3>
+            <p>
+              In Claude Code, add <strong>DEVECTUS/senderdeck</strong> as a plugin marketplace,
+              install <strong>senderdeck@devectus-senderdeck</strong>, then authenticate from the MCP panel.
+              In Claude.ai, add the production MCP URL as a custom connector.
+            </p>
             <blockquote>“List my connected SenderDeck email accounts.”</blockquote>
           </div>
         </li>

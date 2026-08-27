@@ -1,12 +1,12 @@
 {
   "name": "senderdeck",
-  "version": "0.2.1",
+  "version": "0.3.1",
   "description": "Safely search, read, draft, and send across multiple Google and Microsoft email accounts.",
   "author": {
     "name": "DEVECTUS"
   },
   "homepage": "https://senderdeck.devectus.com.au/",
-  "repository": "https://github.com/DEVECTUS/DEVECTUS.SenderDeck",
+  "repository": "https://github.com/DEVECTUS/senderdeck",
   "keywords": ["email", "gmail", "outlook", "microsoft-365", "productivity"],
   "skills": "./skills/",
   "interface": {
@@ -27,7 +27,10 @@
       "Draft a reply from the right account.",
       "Show me the exact details before sending."
     ],
-    "brandColor": "#294C35"
+    "brandColor": "#255EDB",
+    "composerIcon": "./assets/composer-icon.png",
+    "logo": "./assets/logo.png",
+    "logoDark": "./assets/logo-dark.png"
   },
   "mcpServers": "./.mcp.json"
 }

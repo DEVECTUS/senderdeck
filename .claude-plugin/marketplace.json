@@ -1,0 +1,26 @@
+{
+  "name": "devectus-senderdeck",
+  "owner": {
+    "name": "DEVECTUS Pty Ltd",
+    "url": "https://devectus.com.au/"
+  },
+  "description": "Official DEVECTUS plugins for Claude Code and Cowork.",
+  "metadata": {
+    "description": "Official DEVECTUS plugins for Claude Code and Cowork."
+  },
+  "plugins": [
+    {
+      "name": "senderdeck",
+      "source": "./plugins/senderdeck",
+      "description": "Safely use up to 10 Google and Microsoft inboxes.",
+      "version": "0.3.1",
+      "author": {
+        "name": "DEVECTUS Pty Ltd",
+        "url": "https://devectus.com.au/"
+      },
+      "homepage": "https://senderdeck.devectus.com.au/",
+      "category": "productivity",
+      "tags": ["email", "gmail", "outlook", "microsoft-365"]
+    }
+  ]
+}

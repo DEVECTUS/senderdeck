@@ -2,9 +2,7 @@
   "mcpServers": {
     "senderdeck": {
       "type": "http",
-      "url": "https://senderdeck.devectus.com.au/api/mcp",
-      "auth": "oauth",
-      "scopes": ["senderdeck"]
+      "url": "https://senderdeck.devectus.com.au/api/mcp"
     }
   }
 }

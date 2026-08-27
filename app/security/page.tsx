@@ -12,7 +12,7 @@ export default function SecurityPage() {
       eyebrow="// Security"
       title="Small attack surface. Strong user control."
       summary="SenderDeck is designed to minimise retained data and keep sensitive email actions deliberate."
-      updated="4 August 2026"
+      updated="27 August 2026"
     >
       <section>
         <h2>Security principles</h2>
@@ -20,7 +20,7 @@ export default function SecurityPage() {
           <li><strong>Least privilege:</strong> delegated OAuth permissions are limited to the email functions SenderDeck provides.</li>
           <li><strong>On-demand access:</strong> mailboxes are not synchronised or indexed into a separate message database.</li>
           <li><strong>Encrypted credentials:</strong> OAuth tokens are encrypted before storage and are separated by authenticated user.</li>
-          <li><strong>Per-user MCP authorization:</strong> Codex connections use OAuth 2.1 authorization code flow with PKCE, short-lived access tokens and rotating refresh tokens.</li>
+          <li><strong>Per-user MCP authorization:</strong> Codex and Claude connections use OAuth 2.1 authorization code flow with PKCE, short-lived access tokens and rotating refresh tokens.</li>
           <li><strong>Provider-hosted drafts:</strong> drafts remain with Google or Microsoft.</li>
           <li><strong>Deliberate sending:</strong> sending requires confirmation of the exact sender, recipients, subject and attachment list.</li>
           <li><strong>Attachment controls:</strong> configurable type and size limits block high-risk or oversized attachments.</li>

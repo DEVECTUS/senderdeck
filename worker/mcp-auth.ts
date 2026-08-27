@@ -160,7 +160,7 @@ async function registerClient(request: Request, env: Env): Promise<Response> {
   const redirectUris = Array.isArray(body.redirect_uris)
     ? body.redirect_uris.filter((value): value is string => typeof value === "string")
     : [];
-  if (redirectUris.length === 0 || !redirectUris.every(validRedirectUri)) {
+  if (redirectUris.length === 0 || !redirectUris.every(isAllowedRedirectUri)) {
     return oauthError("invalid_redirect_uri", "Use an approved HTTPS or loopback redirect URI.", 400);
   }
   if (body.token_endpoint_auth_method && body.token_endpoint_auth_method !== "none") {
@@ -261,7 +261,7 @@ async function completeAuthorization(request: Request, env: Env): Promise<Respon
   )
     .bind(requestHash, userId, now)
     .first<AuthorizationRequestRow>();
-  if (!pending) return new Response("Authorization request expired. Return to Codex and try again.", { status: 400 });
+  if (!pending) return new Response("Authorization request expired. Return to your AI assistant and try again.", { status: 400 });
   await env.DB.prepare("DELETE FROM mcp_authorization_requests WHERE request_hash = ?")
     .bind(requestHash)
     .run();
@@ -421,12 +421,22 @@ function sitesUserId(request: Request): string | null {
     || null;
 }
 
-function validRedirectUri(value: string): boolean {
+export function isAllowedRedirectUri(value: string): boolean {
   try {
     const url = new URL(value);
     if (url.hash) return false;
     if (url.protocol === "https:") {
-      return url.hostname === "chatgpt.com" || url.hostname.endsWith(".chatgpt.com") || url.hostname.endsWith(".openai.com");
+      const isOpenAI = url.hostname === "chatgpt.com"
+        || url.hostname.endsWith(".chatgpt.com")
+        || url.hostname === "openai.com"
+        || url.hostname.endsWith(".openai.com");
+      const isClaudeHostedCallback = url.hostname === "claude.ai"
+        && url.pathname === "/api/mcp/auth_callback"
+        && !url.search
+        && !url.port
+        && !url.username
+        && !url.password;
+      return isOpenAI || isClaudeHostedCallback;
     }
     return url.protocol === "http:" && (url.hostname === "127.0.0.1" || url.hostname === "localhost");
   } catch {
@@ -462,7 +472,7 @@ function authorizationError(
   error: string,
   description?: string,
 ): Response {
-  if (!validRedirectUri(redirectUri)) return oauthError(error, description || error, 400);
+  if (!isAllowedRedirectUri(redirectUri)) return oauthError(error, description || error, 400);
   const redirect = new URL(redirectUri);
   redirect.searchParams.set("error", error);
   if (description) redirect.searchParams.set("error_description", description);
@@ -472,11 +482,11 @@ function authorizationError(
 
 function oauthRedirectPage(redirectUri: string): string {
   const safeRedirectUri = escapeHtml(redirectUri);
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=${safeRedirectUri}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Returning to OpenAI</title><style>body{margin:0;background:#f3f4ef;color:#17241c;font:16px/1.5 system-ui,sans-serif}.card{max-width:600px;margin:10vh auto;padding:40px;background:#fff;border:1px solid #d5dcd5;border-radius:20px;box-shadow:0 20px 60px #17342018}a{color:#294c35;font-weight:700}</style></head><body><main class="card"><h1>Authorization approved</h1><p>Returning to OpenAI&hellip;</p><p><a href="${safeRedirectUri}">Continue if you are not redirected automatically.</a></p></main></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=${safeRedirectUri}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Returning to your AI assistant</title><style>body{margin:0;background:#f3f4ef;color:#17241c;font:16px/1.5 system-ui,sans-serif}.card{max-width:600px;margin:10vh auto;padding:40px;background:#fff;border:1px solid #d5dcd5;border-radius:20px;box-shadow:0 20px 60px #17342018}a{color:#294c35;font-weight:700}</style></head><body><main class="card"><h1>Authorization approved</h1><p>Returning to your AI assistant&hellip;</p><p><a href="${safeRedirectUri}">Continue if you are not redirected automatically.</a></p></main></body></html>`;
 }
 
 function consentPage(requestToken: string, email: string): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect SenderDeck</title><style>body{margin:0;background:#f3f4ef;color:#17241c;font:16px/1.5 system-ui,sans-serif}.card{max-width:600px;margin:10vh auto;padding:40px;background:#fff;border:1px solid #d5dcd5;border-radius:20px;box-shadow:0 20px 60px #17342018}h1{margin-top:0}li{margin:.7rem 0}.actions{display:flex;gap:12px;margin-top:28px}button{padding:12px 18px;border-radius:10px;border:1px solid #294c35;font:inherit;font-weight:700;cursor:pointer}.approve{background:#294c35;color:#fff}.deny{background:#fff;color:#294c35}.fine{color:#526259;font-size:14px}</style></head><body><main class="card"><h1>Connect SenderDeck</h1><p>Signed in as <strong>${escapeHtml(email)}</strong>.</p><p>Codex is requesting permission to:</p><ul><li>Connect the Google and Microsoft email accounts you choose.</li><li>Search and read messages only when you ask.</li><li>Create drafts and send only after exact confirmation.</li></ul><p class="fine">SenderDeck stores encrypted provider tokens and account labels. It does not index or retain mailbox content.</p><form method="post" action="/oauth/authorize"><input type="hidden" name="request_token" value="${escapeHtml(requestToken)}"><div class="actions"><button class="approve" name="decision" value="approve" type="submit">Allow</button><button class="deny" name="decision" value="deny" type="submit">Cancel</button></div></form></main></body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect SenderDeck</title><style>body{margin:0;background:#f3f4ef;color:#17241c;font:16px/1.5 system-ui,sans-serif}.card{max-width:600px;margin:10vh auto;padding:40px;background:#fff;border:1px solid #d5dcd5;border-radius:20px;box-shadow:0 20px 60px #17342018}h1{margin-top:0}li{margin:.7rem 0}.actions{display:flex;gap:12px;margin-top:28px}button{padding:12px 18px;border-radius:10px;border:1px solid #294c35;font:inherit;font-weight:700;cursor:pointer}.approve{background:#294c35;color:#fff}.deny{background:#fff;color:#294c35}.fine{color:#526259;font-size:14px}</style></head><body><main class="card"><h1>Connect SenderDeck</h1><p>Signed in as <strong>${escapeHtml(email)}</strong>.</p><p>Your AI assistant is requesting permission to:</p><ul><li>Connect the Google and Microsoft email accounts you choose.</li><li>Search and read messages only when you ask.</li><li>Create drafts and send only after exact confirmation.</li></ul><p class="fine">SenderDeck stores encrypted provider tokens and account labels. It does not index or retain mailbox content.</p><form method="post" action="/oauth/authorize"><input type="hidden" name="request_token" value="${escapeHtml(requestToken)}"><div class="actions"><button class="approve" name="decision" value="approve" type="submit">Allow</button><button class="deny" name="decision" value="deny" type="submit">Cancel</button></div></form></main></body></html>`;
 }
 
 function escapeHtml(value: string): string {

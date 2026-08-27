@@ -12,7 +12,7 @@ export default function PrivacyPage() {
       eyebrow="// Privacy statement"
       title="Privacy by design, not by promise."
       summary="This statement explains how SenderDeck accesses and handles information when you connect Google or Microsoft email accounts."
-      updated="4 August 2026"
+      updated="27 August 2026"
     >
       <section>
         <h2>1. Who operates SenderDeck</h2>
@@ -28,7 +28,7 @@ export default function PrivacyPage() {
         <h2>2. Information we handle</h2>
         <p>Depending on the features you use, SenderDeck handles:</p>
         <ul>
-          <li>Your site-specific ChatGPT or Codex account identifier and email address, used to keep each user’s connections separate.</li>
+          <li>Your site-specific SenderDeck sign-in identifier and email address, currently supplied by the hosting platform’s ChatGPT sign-in, used to keep each user’s connections separate.</li>
           <li>Connected account information, including provider, email address, account label, granted scopes and connection timestamps.</li>
           <li>OAuth access and refresh tokens issued by Google or Microsoft. Tokens are encrypted before storage.</li>
           <li>Email search results, message content and attachment data requested by you. These are fetched on demand and processed transiently.</li>
@@ -79,8 +79,8 @@ export default function PrivacyPage() {
         <h2>5. Disclosure and service providers</h2>
         <p>
           Information may be processed by Google or Microsoft as your email
-          provider, by OpenAI services that supply the authenticated product
-          experience, and by infrastructure providers used to host and secure
+          provider, by OpenAI or Anthropic services when you use SenderDeck from
+          their products, and by infrastructure providers used to host and secure
           SenderDeck. These providers process information under their own terms
           and privacy commitments. Processing may occur outside Australia.
         </p>

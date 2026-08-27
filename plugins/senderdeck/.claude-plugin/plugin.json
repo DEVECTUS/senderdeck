@@ -1,0 +1,13 @@
+{
+  "name": "senderdeck",
+  "version": "0.3.1",
+  "description": "Safely search, read, draft, and send across multiple Google and Microsoft email accounts.",
+  "author": {
+    "name": "DEVECTUS",
+    "url": "https://devectus.com.au/"
+  },
+  "homepage": "https://senderdeck.devectus.com.au/",
+  "repository": "https://github.com/DEVECTUS/senderdeck",
+  "keywords": ["email", "gmail", "outlook", "microsoft-365", "productivity"],
+  "mcpServers": "./.mcp.json"
+}

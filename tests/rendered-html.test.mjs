@@ -29,8 +29,8 @@ test("packages the public Sites MCP server with per-user OAuth", async () => {
     config.mcpServers.senderdeck.url,
     "https://senderdeck.devectus.com.au/api/mcp",
   );
-  assert.equal(config.mcpServers.senderdeck.auth, "oauth");
-  assert.deepEqual(config.mcpServers.senderdeck.scopes, ["senderdeck"]);
+  assert.equal(config.mcpServers.senderdeck.auth, undefined);
+  assert.equal(config.mcpServers.senderdeck.scopes, undefined);
   assert.equal(config.mcpServers.senderdeck.env_http_headers, undefined);
 });
 
@@ -196,6 +196,8 @@ test("requires authenticated identity for account tools", async () => {
     baseEnv,
     context,
   );
+  assert.equal(response.status, 401);
+  assert.match(response.headers.get("www-authenticate") ?? "", /oauth-protected-resource/);
   const result = await response.json();
   assert.equal(result.result.isError, true);
   assert.match(result.result.content[0].text, /Connect SenderDeck/);

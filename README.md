@@ -1,6 +1,6 @@
 # SenderDeck by DEVECTUS
 
-A production-candidate Streamable HTTP MCP server that works with up to 10 Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts per ChatGPT/Codex user.
+A production-candidate Streamable HTTP MCP server for Codex and Claude that works with up to 10 Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts per user.
 
 ## What is implemented
 
@@ -11,7 +11,8 @@ A production-candidate Streamable HTTP MCP server that works with up to 10 Gmail
 - Exact sender, recipient, subject, and attachment confirmation before sending.
 - On-demand attachment listing and base64 download with configurable size, extension, and MIME-type controls.
 - D1 storage for encrypted tokens, account preferences, and short-lived OAuth state only.
-- A packaged Codex plugin and minimal sender-routing skill in `plugins/senderdeck/`, with a repository marketplace in `.agents/plugins/marketplace.json`.
+- Dual Codex and Claude plugin manifests plus a shared sender-routing skill in `plugins/senderdeck/`.
+- Repository marketplaces for Codex in `.agents/plugins/marketplace.json` and Claude in `.claude-plugin/marketplace.json`.
 
 The service does not synchronize or index mailboxes, retain message bodies, run background jobs, send automatically, perform bulk email, or expose calendar/shared-mailbox functions.
 
@@ -51,4 +52,12 @@ The packaged plugin points to the Sites deployment at `/api/mcp`. Sites reserves
 
 Google requests OpenID email identity plus `gmail.readonly` and `gmail.compose`. Microsoft requests OpenID identity plus `Mail.ReadWrite` and `Mail.Send`, with `offline_access`.
 
-Public submission materials are maintained in `publishing/OPENAI-PLUGIN-SUBMISSION.md`. Provider verification, OpenAI publisher verification, reviewer credentials, external security review and legal approval remain account-bound release gates.
+Public submission materials are maintained in `publishing/OPENAI-PLUGIN-SUBMISSION.md` and `publishing/CLAUDE-PUBLISHING-PLAN.md`. Provider verification, publisher verification, reviewer credentials, external security review and legal approval remain account-bound release gates.
+
+## Claude testing
+
+For Claude Code, validate the repository marketplace with `claude plugin validate .`, add it with `claude plugin marketplace add DEVECTUS/senderdeck`, then install `senderdeck@devectus-senderdeck`. Authenticate the bundled remote MCP server from `/mcp`.
+
+For hosted Claude surfaces, add `https://senderdeck.devectus.com.au/api/mcp` under **Customize → Connectors → Add custom connector**. The hosted OAuth callback is restricted to `https://claude.ai/api/mcp/auth_callback`; Claude Code uses a loopback callback.
+
+The current production identity bootstrap is supplied by the hosting platform's ChatGPT sign-in. It can be used while testing Claude, but a vendor-neutral SenderDeck sign-in is a release gate before broad Claude directory submission so Claude-only customers are not required to hold a separate ChatGPT account.
