@@ -1,4 +1,4 @@
-import { HttpError, requireUserId } from "./auth";
+import { authenticatedUser, HttpError, requireUserId } from "./auth";
 import { googleScopes, microsoftScopes, saveAccount } from "./accounts";
 import { randomBase64Url, sha256Base64Url } from "./crypto";
 import type { Env, Provider } from "./env";
@@ -29,16 +29,11 @@ export async function handleOAuthRoute(request: Request, env: Env): Promise<Resp
 
 async function startOAuth(request: Request, env: Env, provider: Provider): Promise<Response> {
   const url = new URL(request.url);
-  const authenticatedUser = request.headers.get("oai-authenticated-user-id")?.trim()
-    || request.headers.get("oai-authenticated-user-email")?.trim();
-  const devEmail = env.ALLOW_DEV_AUTH === "true"
-    ? request.headers.get("x-dev-user-email")?.trim()
-    : null;
-  if (!authenticatedUser && !devEmail) {
+  if (!await authenticatedUser(request, env)) {
     const returnTo = `${url.pathname}${url.search}`;
-    return Response.redirect(`${url.origin}/signin-with-chatgpt?return_to=${encodeURIComponent(returnTo)}`, 302);
+    return Response.redirect(`${url.origin}/signin?return_to=${encodeURIComponent(returnTo)}`, 302);
   }
-  const userId = requireUserId(request, env);
+  const userId = await requireUserId(request, env);
   assertProviderConfigured(env, provider);
   const label = (url.searchParams.get("label") || defaultLabel(provider)).trim().slice(0, 80);
   const state = randomBase64Url();
@@ -128,7 +123,7 @@ async function finishOAuth(request: Request, env: Env, provider: Provider): Prom
   );
 }
 
-function googleAuthorizeUrl(
+export function googleAuthorizeUrl(
   env: Env,
   redirectUri: string,
   state: string,
@@ -150,7 +145,7 @@ function googleAuthorizeUrl(
   return url.toString();
 }
 
-function microsoftAuthorizeUrl(
+export function microsoftAuthorizeUrl(
   env: Env,
   redirectUri: string,
   state: string,
@@ -174,7 +169,7 @@ function microsoftAuthorizeUrl(
   return url.toString();
 }
 
-async function exchangeCode(
+export async function exchangeCode(
   env: Env,
   provider: Provider,
   code: string,
@@ -232,16 +227,18 @@ async function exchangeCode(
   };
 }
 
-async function googleProfile(accessToken: string): Promise<{ id: string; email: string }> {
+export async function googleProfile(accessToken: string): Promise<{ id: string; email: string }> {
   const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
     headers: { authorization: `Bearer ${accessToken}` },
   });
-  const data = (await response.json()) as { id?: string; email?: string };
-  if (!response.ok || !data.id || !data.email) throw new HttpError(400, "Could not read Google account identity.");
+  const data = (await response.json()) as { id?: string; email?: string; verified_email?: boolean };
+  if (!response.ok || !data.id || !data.email || data.verified_email !== true) {
+    throw new HttpError(400, "Could not verify the Google account identity.");
+  }
   return { id: data.id, email: data.email };
 }
 
-async function microsoftProfile(accessToken: string): Promise<{ id: string; email: string }> {
+export async function microsoftProfile(accessToken: string): Promise<{ id: string; email: string }> {
   const response = await fetch("https://graph.microsoft.com/v1.0/me?$select=id,mail,userPrincipalName", {
     headers: { authorization: `Bearer ${accessToken}` },
   });
@@ -257,7 +254,7 @@ async function microsoftProfile(accessToken: string): Promise<{ id: string; emai
   return { id: data.id, email };
 }
 
-function assertProviderConfigured(env: Env, provider: Provider): void {
+export function assertProviderConfigured(env: Env, provider: Provider): void {
   if (provider === "google" && (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET)) {
     throw new HttpError(503, "Google OAuth credentials have not been configured.");
   }

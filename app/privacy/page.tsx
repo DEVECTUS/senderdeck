@@ -28,7 +28,7 @@ export default function PrivacyPage() {
         <h2>2. Information we handle</h2>
         <p>Depending on the features you use, SenderDeck handles:</p>
         <ul>
-          <li>Your site-specific SenderDeck sign-in identifier and email address, currently supplied by the hosting platform’s ChatGPT sign-in, used to keep each user’s connections separate.</li>
+          <li>Your SenderDeck sign-in identifier and email address, established through Google or Microsoft or, for compatible OpenAI-hosted sessions, supplied by the hosting platform.</li>
           <li>Connected account information, including provider, email address, account label, granted scopes and connection timestamps.</li>
           <li>OAuth access and refresh tokens issued by Google or Microsoft. Tokens are encrypted before storage.</li>
           <li>Email search results, message content and attachment data requested by you. These are fetched on demand and processed transiently.</li>
@@ -65,9 +65,10 @@ export default function PrivacyPage() {
           Drafts remain with Google or Microsoft.
         </p>
         <p>
-          Encrypted OAuth tokens and account preferences remain until you
+          Encrypted OAuth tokens, provider identity links and account preferences remain until you
           disconnect the account or the service must remove them for security,
           legal or operational reasons. OAuth transaction state is short-lived.
+          SenderDeck browser sessions expire after 30 days and can be ended sooner by signing out.
           SenderDeck connection access tokens expire after one hour and refresh
           tokens expire after 30 days unless they are rotated or revoked sooner.
           Limited operational records may be retained only as long as reasonably

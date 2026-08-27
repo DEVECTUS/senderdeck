@@ -3,17 +3,17 @@ import Image from "next/image";
 import Link from "next/link";
 import AccountManager from "../AccountManager";
 import CodexSetup from "../CodexSetup";
-import { chatGPTSignOutPath, requireChatGPTUser } from "../chatgpt-auth";
+import { requireSenderDeckUser, senderDeckSignOutPath } from "../senderdeck-auth";
 
 export const metadata: Metadata = {
   title: "Configuration | SenderDeck by DEVECTUS",
-  description: "Connect email identities and configure the SenderDeck plugin for Codex.",
+  description: "Connect email identities and configure SenderDeck for Codex or Claude.",
 };
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const user = await requireChatGPTUser("/settings");
+  const user = await requireSenderDeckUser("/settings");
 
   return (
     <main className="settings-page">
@@ -41,7 +41,7 @@ export default async function SettingsPage() {
         <div className="nav-user">
           <span>{user.email}</span>
           <Link className="quiet-link" href="/">Home</Link>
-          <a className="quiet-link" href={chatGPTSignOutPath("/")}>Sign out</a>
+          <a className="quiet-link" href={senderDeckSignOutPath("/")}>Sign out</a>
         </div>
       </nav>
 
@@ -50,18 +50,18 @@ export default async function SettingsPage() {
           <p className="eyebrow">{"// Configuration"}</p>
           <h1>Plugin &amp; account<br /><span>configuration.</span></h1>
           <p className="lede">
-            Connect the email identities SenderDeck may use, then make the plugin available to Codex.
-            Email access stays with the signed-in ChatGPT identity shown here.
+            Connect the email identities SenderDeck may use, then make the plugin available to Codex
+            or Claude. Email access stays with the signed-in SenderDeck identity shown here.
           </p>
         </div>
         <div className="configuration-status" aria-label="Configuration status">
           <div>
             <span className="status-dot active" aria-hidden="true" />
-            <p><strong>ChatGPT identity</strong><span>{user.email}</span></p>
+            <p><strong>SenderDeck identity</strong><span>{user.email}</span></p>
           </div>
           <div>
             <span className="status-dot neutral" aria-hidden="true" />
-            <p><strong>Codex plugin</strong><span>Verify locally using the steps below</span></p>
+            <p><strong>AI clients</strong><span>Connect Codex or Claude using the steps below</span></p>
           </div>
         </div>
       </section>

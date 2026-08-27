@@ -1,4 +1,4 @@
-import { HttpError } from "./auth";
+import { authenticatedUser, HttpError } from "./auth";
 import type { Env } from "./env";
 
 const AUTH_REQUEST_TTL_SECONDS = 10 * 60;
@@ -193,11 +193,12 @@ async function registerClient(request: Request, env: Env): Promise<Response> {
 
 async function beginAuthorization(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
-  const userId = sitesUserId(request);
-  if (!userId) {
+  const user = await authenticatedUser(request, env);
+  if (!user) {
     const returnTo = `${url.pathname}${url.search}`;
-    return Response.redirect(`${url.origin}/signin-with-chatgpt?return_to=${encodeURIComponent(returnTo)}`, 302);
+    return Response.redirect(`${url.origin}/signin?return_to=${encodeURIComponent(returnTo)}`, 302);
   }
+  const userId = user.userId;
 
   const clientId = requiredParam(url.searchParams, "client_id");
   const redirectUri = requiredParam(url.searchParams, "redirect_uri");
@@ -240,14 +241,13 @@ async function beginAuthorization(request: Request, env: Env): Promise<Response>
     )
     .run();
 
-  const displayIdentity = request.headers.get("oai-authenticated-user-email")?.trim()
-    || "your ChatGPT account";
-  return html(consentPage(requestToken, displayIdentity));
+  return html(consentPage(requestToken, user.email));
 }
 
 async function completeAuthorization(request: Request, env: Env): Promise<Response> {
-  const userId = sitesUserId(request);
-  if (!userId) return new Response("Authentication required.", { status: 401 });
+  const user = await authenticatedUser(request, env);
+  if (!user) return new Response("Authentication required.", { status: 401 });
+  const userId = user.userId;
   const form = await request.formData();
   const requestToken = String(form.get("request_token") || "");
   const decision = String(form.get("decision") || "deny");
@@ -413,12 +413,6 @@ async function getClient(env: Env, clientId: string): Promise<ClientRow | null> 
   return env.DB.prepare("SELECT * FROM mcp_oauth_clients WHERE client_id = ?")
     .bind(clientId)
     .first<ClientRow>();
-}
-
-function sitesUserId(request: Request): string | null {
-  return request.headers.get("oai-authenticated-user-id")?.trim()
-    || request.headers.get("oai-authenticated-user-email")?.trim().toLowerCase()
-    || null;
 }
 
 export function isAllowedRedirectUri(value: string): boolean {

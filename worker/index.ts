@@ -6,6 +6,8 @@ import { handleAccountApi } from "./account-api";
 import { handleMcp } from "./mcp";
 import { handleOAuthRoute } from "./oauth";
 import { handleMcpAuthentication } from "./mcp-auth";
+import { handleIdentityAuthRoute } from "./identity-auth";
+import { withAuthenticatedUserHeaders } from "./auth";
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -39,6 +41,9 @@ const worker = {
       });
     }
 
+    const identityResponse = await handleIdentityAuthRoute(request, env);
+    if (identityResponse) return identityResponse;
+
     const mcpAuthResponse = await handleMcpAuthentication(request, env);
     if (mcpAuthResponse) return mcpAuthResponse;
 
@@ -62,7 +67,7 @@ const worker = {
       }, allowedWidths);
     }
 
-    return handler.fetch(request, env, ctx);
+    return handler.fetch(await withAuthenticatedUserHeaders(request, env), env, ctx);
   },
 };
 

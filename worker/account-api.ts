@@ -12,7 +12,7 @@ export async function handleAccountApi(
   if (url.pathname !== "/api/accounts") return null;
 
   try {
-    const userId = requireUserId(request, env);
+    const userId = await requireUserId(request, env);
 
     if (request.method === "GET") {
       return jsonResponse({

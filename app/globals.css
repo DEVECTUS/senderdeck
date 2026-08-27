@@ -145,6 +145,41 @@ h1 span { color: var(--blue); }
 
 .configuration-callout .primary { flex: none; }
 
+.signin-page { max-width: 1440px; margin: 0 auto; }
+.signin-shell {
+  min-height: calc(100vh - 84px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.55fr);
+  align-items: center;
+  gap: 7vw;
+  padding: 8vh 0;
+}
+.signin-copy h1 { font-size: clamp(3.2rem, 6.5vw, 6.8rem); }
+.signin-card {
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--blue);
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgba(9, 22, 47, 0.09);
+}
+.signin-card h2 { margin: 0 0 0.65rem; font-size: 1.8rem; letter-spacing: -0.035em; }
+.signin-card > p { color: var(--muted); line-height: 1.55; }
+.signin-actions { display: grid; gap: 0.75rem; margin: 1.5rem 0; }
+.provider-secondary {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.05rem;
+  border: 1px solid var(--blue);
+  border-radius: 2px;
+  color: var(--blue);
+  font-family: var(--font-display);
+  font-weight: 650;
+  background: white;
+}
+.signin-note { margin-bottom: 0; font-size: 0.86rem; }
+
 .settings-page { max-width: 1440px; margin: 0 auto; }
 
 .settings-hero {
@@ -529,7 +564,8 @@ footer > div:last-child { text-align: right; }
 @media (max-width: 800px) {
   .hero,
   .workspace-hero,
-  .settings-hero { grid-template-columns: 1fr; }
+  .settings-hero,
+  .signin-shell { grid-template-columns: 1fr; }
   .lede { align-self: auto; }
   .nav-user span { display: none; }
   .brand-lockup .senderdeck-mark { width: 30px; }

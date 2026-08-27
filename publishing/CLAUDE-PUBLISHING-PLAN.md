@@ -49,8 +49,9 @@ The plugin and connector should share the same production endpoint, safety behav
 
 ## Phase 2 — publication readiness
 
-- [ ] Replace the hosting-platform ChatGPT identity bootstrap with a vendor-neutral SenderDeck sign-in. Claude-only users must not need a separate ChatGPT account.
-- [ ] Update privacy, terms, account deletion, and support procedures for the vendor-neutral identity flow and Anthropic processing.
+- [x] Implement a vendor-neutral SenderDeck sign-in using Google or Microsoft, while retaining the OpenAI-hosted identity as a compatibility fallback.
+- [ ] Deploy and smoke-test identity linking, session expiry, sign-out, and first-mailbox connection from both Codex and Claude.
+- [x] Update privacy, terms, account deletion, and support procedures for the vendor-neutral identity flow and Anthropic processing.
 - [ ] Decide and add an explicit source license. Anthropic plugin submissions require a public repository and do not accept closed-source plugins.
 - [ ] Confirm the public GitHub repository URL and that the submitter can grant Anthropic review access without private dependencies.
 - [ ] Run `claude plugin validate .` with the current Claude Code release and resolve all warnings.

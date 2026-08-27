@@ -10,7 +10,7 @@ A production-candidate Streamable HTTP MCP server for Codex and Claude that work
 - Provider-hosted new drafts and reply drafts.
 - Exact sender, recipient, subject, and attachment confirmation before sending.
 - On-demand attachment listing and base64 download with configurable size, extension, and MIME-type controls.
-- D1 storage for encrypted tokens, account preferences, and short-lived OAuth state only.
+- D1 storage for encrypted tokens, account preferences, provider identity links, opaque sessions, and short-lived OAuth state.
 - Dual Codex and Claude plugin manifests plus a shared sender-routing skill in `plugins/senderdeck/`.
 - Repository marketplaces for Codex in `.agents/plugins/marketplace.json` and Claude in `.claude-plugin/marketplace.json`.
 
@@ -60,4 +60,4 @@ For Claude Code, validate the repository marketplace with `claude plugin validat
 
 For hosted Claude surfaces, add `https://senderdeck.devectus.com.au/api/mcp` under **Customize → Connectors → Add custom connector**. The hosted OAuth callback is restricted to `https://claude.ai/api/mcp/auth_callback`; Claude Code uses a loopback callback.
 
-The current production identity bootstrap is supplied by the hosting platform's ChatGPT sign-in. It can be used while testing Claude, but a vendor-neutral SenderDeck sign-in is a release gate before broad Claude directory submission so Claude-only customers are not required to hold a separate ChatGPT account.
+Codex and Claude use the same SenderDeck OAuth authorization server. Claude-only users sign in directly with Google or Microsoft; the selected provider identity establishes the SenderDeck user and connects the first mailbox. Existing OpenAI-hosted identities remain supported as a compatibility fallback, and additional mailboxes are linked to the same SenderDeck user.

@@ -6,7 +6,7 @@ export default function CodexSetup() {
     <section className="codex-setup" aria-labelledby="codex-setup-title">
       <div className="section-heading-row">
         <div>
-          <p className="eyebrow">{"// Codex setup"}</p>
+          <p className="eyebrow">{"// AI client setup"}</p>
           <h2 id="codex-setup-title">Make SenderDeck available in Codex or Claude</h2>
         </div>
         <span className="setup-status">One-time setup</span>

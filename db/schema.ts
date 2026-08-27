@@ -41,6 +41,55 @@ export const oauthStates = sqliteTable(
   (table) => [index("oauth_states_expiry_idx").on(table.expiresAt)],
 );
 
+export const senderdeckIdentities = sqliteTable(
+  "senderdeck_identities",
+  {
+    provider: text("provider", { enum: ["google", "microsoft"] }).notNull(),
+    providerAccountId: text("provider_account_id").notNull(),
+    userId: text("user_id").notNull(),
+    email: text("email").notNull(),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("senderdeck_identities_provider_account_uidx").on(
+      table.provider,
+      table.providerAccountId,
+    ),
+    index("senderdeck_identities_user_idx").on(table.userId),
+  ],
+);
+
+export const senderdeckLoginStates = sqliteTable(
+  "senderdeck_login_states",
+  {
+    stateHash: text("state_hash").primaryKey(),
+    provider: text("provider", { enum: ["google", "microsoft"] }).notNull(),
+    codeVerifier: text("code_verifier").notNull(),
+    redirectUri: text("redirect_uri").notNull(),
+    returnTo: text("return_to").notNull(),
+    linkingUserId: text("linking_user_id"),
+    createdAt: integer("created_at").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+  },
+  (table) => [index("senderdeck_login_states_expiry_idx").on(table.expiresAt)],
+);
+
+export const senderdeckSessions = sqliteTable(
+  "senderdeck_sessions",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    userId: text("user_id").notNull(),
+    email: text("email").notNull(),
+    createdAt: integer("created_at").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+  },
+  (table) => [
+    index("senderdeck_sessions_user_idx").on(table.userId),
+    index("senderdeck_sessions_expiry_idx").on(table.expiresAt),
+  ],
+);
+
 export const mcpOauthClients = sqliteTable("mcp_oauth_clients", {
   clientId: text("client_id").primaryKey(),
   redirectUris: text("redirect_uris").notNull(),

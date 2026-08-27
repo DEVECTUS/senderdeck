@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { chatGPTSignInPath, chatGPTSignOutPath, getChatGPTUser } from "./chatgpt-auth";
+import { getSenderDeckUser, senderDeckSignInPath, senderDeckSignOutPath } from "./senderdeck-auth";
 
 export const metadata: Metadata = {
   title: "SenderDeck by DEVECTUS",
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const user = await getChatGPTUser();
+  const user = await getSenderDeckUser();
   return (
     <main>
       <nav>
@@ -40,10 +40,10 @@ export default async function Home() {
           <div className="nav-user">
             <span>{user.email}</span>
             <Link className="quiet-link" href="/settings">Configuration</Link>
-            <a className="quiet-link" href={chatGPTSignOutPath("/")}>Sign out</a>
+            <a className="quiet-link" href={senderDeckSignOutPath("/")}>Sign out</a>
           </div>
         ) : (
-          <a className="quiet-link" href={chatGPTSignInPath("/")}>Sign in with ChatGPT</a>
+          <a className="quiet-link" href={senderDeckSignInPath("/")}>Sign in</a>
         )}
       </nav>
 
@@ -63,10 +63,10 @@ export default async function Home() {
           <section className="configuration-callout" aria-labelledby="configuration-title">
             <div>
               <p className="eyebrow">{"// Configuration"}</p>
-              <h2 id="configuration-title">Configure accounts and Codex.</h2>
+              <h2 id="configuration-title">Configure accounts and AI clients.</h2>
               <p>
-                Manage Google and Microsoft sender identities, review which ChatGPT account owns
-                them, and complete the one-time Codex plugin setup in one place.
+                Manage Google and Microsoft sender identities, review which SenderDeck identity owns
+                them, and connect the plugin to Codex or Claude in one place.
               </p>
             </div>
             <Link className="primary" href="/settings">Open configuration</Link>
@@ -81,7 +81,7 @@ export default async function Home() {
             Microsoft 365. Nothing sends until the sender, recipients, subject,
             and attachments are explicitly confirmed.
           </p>
-          <a className="primary hero-action" href={chatGPTSignInPath("/")}>
+          <a className="primary hero-action" href={senderDeckSignInPath("/settings")}>
             Sign in to manage accounts
           </a>
         </section>

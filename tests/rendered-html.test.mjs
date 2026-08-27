@@ -51,6 +51,23 @@ test("renders the SenderDeck product page", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });
 
+test("offers one vendor-neutral sign-in for Codex and Claude", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(
+    new Request("http://localhost/signin?return_to=%2Fsettings", { headers: { accept: "text/html" } }),
+    baseEnv,
+    context,
+  );
+
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Sign in once/);
+  assert.match(html, /Use Codex or Claude/);
+  assert.match(html, /Continue with Google/);
+  assert.match(html, /Continue with Microsoft/);
+  assert.doesNotMatch(html, /Sign in with ChatGPT/);
+});
+
 test("publishes the legal, security, and support pages required for provider review", async () => {
   const worker = await loadWorker();
   const expected = [

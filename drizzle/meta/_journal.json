@@ -15,6 +15,13 @@
       "when": 1785770492172,
       "tag": "0001_nice_bushwacker",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787834948674,
+      "tag": "0002_magenta_beyonder",
+      "breakpoints": true
     }
   ]
 }
