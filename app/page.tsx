@@ -110,8 +110,8 @@ export default async function Home() {
           <p className="eyebrow">{"// Built in the open"}</p>
           <h2 id="open-source-title">Public code.<br /><span>Human stakes.</span></h2>
           <p>
-            Trust should be inspectable. DEVECTUS publishes SenderDeck&apos;s source so people can
-            examine how it handles identity, consent, and email—not just take our word for it.
+            Trust should be inspectable. SenderDeck is open source under the MIT License, so people
+            can examine how it handles identity, consent, and email—not just take our word for it.
           </p>
           <a
             className="source-link"
@@ -119,7 +119,7 @@ export default async function Home() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            View SenderDeck on GitHub <span aria-hidden="true">↗</span>
+            Explore the open-source code <span aria-hidden="true">↗</span>
           </a>
         </div>
         <div className="open-source-notes" aria-label="Why DEVECTUS builds in public">

@@ -61,3 +61,7 @@ For Claude Code, validate the repository marketplace with `claude plugin validat
 For hosted Claude surfaces, add `https://senderdeck.devectus.com.au/api/mcp` under **Customize → Connectors → Add custom connector**. The hosted OAuth callback is restricted to `https://claude.ai/api/mcp/auth_callback`; Claude Code uses a loopback callback.
 
 Codex and Claude use the same SenderDeck OAuth authorization server. Claude-only users sign in directly with Google or Microsoft; the selected provider identity establishes the SenderDeck user and connects the first mailbox. Existing OpenAI-hosted identities remain supported as a compatibility fallback, and additional mailboxes are linked to the same SenderDeck user.
+
+## License
+
+SenderDeck is open source under the [MIT License](LICENSE). Copyright © 2026 DEVECTUS Pty Ltd.

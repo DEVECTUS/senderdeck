@@ -7,6 +7,7 @@
   },
   "homepage": "https://senderdeck.devectus.com.au/",
   "repository": "https://github.com/DEVECTUS/senderdeck",
+  "license": "MIT",
   "keywords": ["email", "gmail", "outlook", "microsoft-365", "productivity"],
   "skills": "./skills/",
   "interface": {
