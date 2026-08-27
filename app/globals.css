@@ -476,6 +476,71 @@ button:disabled { cursor: wait; opacity: 0.55; }
 h2 { margin: 2.5rem 0 0.6rem; font-family: var(--font-display); font-size: 1.25rem; }
 .principles p { margin: 0; max-width: 25rem; color: var(--muted); line-height: 1.55; }
 
+.open-source {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
+  gap: clamp(3rem, 8vw, 9rem);
+  padding: clamp(4.5rem, 9vw, 9rem) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.open-source-copy h2 {
+  margin: 1rem 0 1.25rem;
+  font-size: clamp(2.8rem, 5vw, 5.8rem);
+  line-height: 0.95;
+  letter-spacing: -0.065em;
+}
+
+.open-source-copy h2 span { color: var(--blue); }
+.open-source-copy > p:not(.eyebrow) {
+  max-width: 37rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(1rem, 1.35vw, 1.2rem);
+  line-height: 1.65;
+}
+
+.source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 2rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 2px solid var(--blue);
+  color: var(--blue);
+  font-family: var(--font-display);
+  font-weight: 650;
+}
+
+.source-link span { transition: transform 160ms ease; }
+.source-link:hover span,
+.source-link:focus-visible span { transform: translate(0.18rem, -0.18rem); }
+.source-link:focus-visible { outline: 2px solid var(--blue); outline-offset: 5px; }
+
+.open-source-notes {
+  display: grid;
+  align-content: center;
+  border-top: 1px solid var(--line);
+}
+
+.open-source-notes article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.25rem;
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.open-source-notes article > span {
+  padding-top: 0.2rem;
+  color: var(--blue);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.open-source-notes h3 { margin: 0; font-family: var(--font-display); font-size: 1.15rem; }
+.open-source-notes p { margin: 0.4rem 0 0; color: var(--muted); line-height: 1.55; }
+
 footer {
   display: flex;
   justify-content: space-between;
@@ -584,6 +649,7 @@ footer > div:last-child { text-align: right; }
   .account-actions button { flex: 1; }
   .principles { grid-template-columns: 1fr; }
   .principles article + article { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
+  .open-source { grid-template-columns: 1fr; gap: 3rem; }
   footer { flex-direction: column; gap: 1rem; }
   footer > div:last-child { text-align: left; }
   .footer-links { justify-content: flex-start; }

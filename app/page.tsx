@@ -6,7 +6,7 @@ import { getSenderDeckUser, senderDeckSignInPath, senderDeckSignOutPath } from "
 export const metadata: Metadata = {
   title: "SenderDeck by DEVECTUS",
   description:
-    "A private proof of concept for safe, on-demand access to multiple email accounts.",
+    "Open, inspectable infrastructure for safe, on-demand access to multiple email accounts.",
 };
 
 export const dynamic = "force-dynamic";
@@ -74,7 +74,7 @@ export default async function Home() {
         </>
       ) : (
         <section className="hero">
-          <p className="eyebrow">{"// A DEVECTUS private proof of concept"}</p>
+          <p className="eyebrow">{"// Built in public by DEVECTUS"}</p>
           <h1>Every inbox.<br /><span>The right sender.</span><br />Your final say.</h1>
           <p className="lede">
             One secure workspace for Gmail, Google Workspace, Outlook.com, and
@@ -103,6 +103,48 @@ export default async function Home() {
           <h2>Minimal retention</h2>
           <p>Only encrypted OAuth tokens and account preferences are stored by this service.</p>
         </article>
+      </section>
+
+      <section className="open-source" aria-labelledby="open-source-title">
+        <div className="open-source-copy">
+          <p className="eyebrow">{"// Built in the open"}</p>
+          <h2 id="open-source-title">Public code.<br /><span>Human stakes.</span></h2>
+          <p>
+            Trust should be inspectable. DEVECTUS publishes SenderDeck&apos;s source so people can
+            examine how it handles identity, consent, and email—not just take our word for it.
+          </p>
+          <a
+            className="source-link"
+            href="https://github.com/DEVECTUS/senderdeck"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            View SenderDeck on GitHub <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+        <div className="open-source-notes" aria-label="Why DEVECTUS builds in public">
+          <article>
+            <span>01</span>
+            <div>
+              <h3>Earn trust in public</h3>
+              <p>Security boundaries, data handling, and every release are open to scrutiny.</p>
+            </div>
+          </article>
+          <article>
+            <span>02</span>
+            <div>
+              <h3>Safety is product work</h3>
+              <p>Explicit sender identities, minimal retention, and human confirmation are core features.</p>
+            </div>
+          </article>
+          <article>
+            <span>03</span>
+            <div>
+              <h3>Useful beats heroic</h3>
+              <p>We contribute focused work, honest constraints, and a few late nights to make human–AI collaboration safer.</p>
+            </div>
+          </article>
+        </div>
       </section>
 
       <footer>
