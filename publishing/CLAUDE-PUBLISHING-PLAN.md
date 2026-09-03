@@ -42,7 +42,7 @@ The plugin and connector should share the same production endpoint, safety behav
 - [x] Allow only Claude's documented hosted callback plus loopback callbacks used by native clients.
 - [x] Return OAuth challenges as both HTTP `401`/`WWW-Authenticate` and MCP `_meta["mcp/www_authenticate"]`.
 - [x] Make MCP consent and return pages client-neutral.
-- [ ] Deploy version 0.3.1 to production.
+- [ ] Deploy version 0.3.2 to production.
 - [ ] Smoke-test DCR, authorization, token exchange, refresh, and revocation in Claude Code.
 - [ ] Add the MCP URL as a Claude.ai custom connector and repeat the full OAuth smoke test.
 - [ ] Run the positive and negative review scenarios from the OpenAI submission plan in both Claude surfaces.

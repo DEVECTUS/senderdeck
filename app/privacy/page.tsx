@@ -28,7 +28,7 @@ export default function PrivacyPage() {
         <h2>2. Information we handle</h2>
         <p>Depending on the features you use, SenderDeck handles:</p>
         <ul>
-          <li>Your SenderDeck sign-in identifier and email address, established through Google or Microsoft or, for compatible OpenAI-hosted sessions, supplied by the hosting platform.</li>
+          <li>Your SenderDeck sign-in identifier and email address, established through Google or Microsoft, temporary marketplace-review access or, for compatible OpenAI-hosted sessions, supplied by the hosting platform.</li>
           <li>Connected account information, including provider, email address, account label, granted scopes and connection timestamps.</li>
           <li>OAuth access and refresh tokens issued by Google or Microsoft. Tokens are encrypted before storage.</li>
           <li>Email search results, message content and attachment data requested by you. These are fetched on demand and processed transiently.</li>

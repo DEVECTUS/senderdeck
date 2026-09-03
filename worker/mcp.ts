@@ -276,7 +276,7 @@ export async function handleMcp(request: Request, env: Env): Promise<Response | 
       return rpcResult(rpc.id, {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "senderdeck", version: "0.3.1" },
+        serverInfo: { name: "senderdeck", version: "0.3.2" },
         instructions:
           "Use account IDs explicitly. Drafts never send automatically. Before email_send, show the user and confirm sender, all recipients, subject, and attachments.",
       });

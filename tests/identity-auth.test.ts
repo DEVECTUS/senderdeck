@@ -6,7 +6,8 @@ import {
   withAuthenticatedUserHeaders,
 } from "../worker/auth";
 import type { Env } from "../worker/env";
-import { safeReturnPath } from "../worker/identity-auth";
+import { handleIdentityAuthRoute, reviewCredentialsMatch, safeReturnPath } from "../worker/identity-auth";
+import { sha256Base64Url } from "../worker/crypto";
 import { handleMcpAuthentication } from "../worker/mcp-auth";
 
 test("accepts only same-origin relative post-login destinations", () => {
@@ -15,6 +16,61 @@ test("accepts only same-origin relative post-login destinations", () => {
   assert.equal(safeReturnPath("//evil.example/steal"), "/");
   assert.equal(safeReturnPath("/auth/google/start"), "/");
   assert.equal(safeReturnPath("/signin"), "/");
+  assert.equal(safeReturnPath("/review-access"), "/");
+});
+
+test("accepts only the configured reviewer credentials", async () => {
+  const password = "correct horse battery staple";
+  const env = {
+    REVIEW_ACCESS_USERNAME: "Marketplace-Reviewer",
+    REVIEW_ACCESS_PASSWORD_HASH: await sha256Base64Url(password),
+  };
+  assert.equal(await reviewCredentialsMatch(" marketplace-reviewer ", password, env), true);
+  assert.equal(await reviewCredentialsMatch("marketplace-reviewer", "wrong", env), false);
+  assert.equal(await reviewCredentialsMatch("someone-else", password, env), false);
+});
+
+test("reviewer credentials create a short-lived SenderDeck session", async () => {
+  const password = "review-only-password";
+  const boundRows: unknown[][] = [];
+  const env = {
+    REVIEW_ACCESS_USERNAME: "marketplace-reviewer",
+    REVIEW_ACCESS_PASSWORD_HASH: await sha256Base64Url(password),
+    REVIEW_ACCESS_USER_ID: "review-user",
+    REVIEW_ACCESS_EMAIL: "reviewer@example.com",
+    DB: {
+      prepare() {
+        return {
+          bind(...values: unknown[]) {
+            boundRows.push(values);
+            return this;
+          },
+          async run() {
+            return { success: true, results: [] };
+          },
+        };
+      },
+    },
+  } as unknown as Env;
+  const body = new URLSearchParams({
+    username: "marketplace-reviewer",
+    password,
+    return_to: "/settings",
+  });
+  const response = await handleIdentityAuthRoute(
+    new Request("https://senderdeck.example/auth/reviewer", {
+      method: "POST",
+      headers: { origin: "https://senderdeck.example" },
+      body,
+    }),
+    env,
+  );
+
+  assert.ok(response);
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get("location"), "https://senderdeck.example/settings");
+  assert.match(response.headers.get("set-cookie") || "", /Max-Age=86400/);
+  assert.equal(boundRows[0]?.[1], "review-user");
 });
 
 test("resolves an opaque SenderDeck session before platform identity", async () => {

@@ -17,6 +17,7 @@ import {
 
 const LOGIN_STATE_TTL_MS = 10 * 60 * 1000;
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+const REVIEW_SESSION_TTL_SECONDS = 24 * 60 * 60;
 
 interface LoginStateRow {
   state_hash: string;
@@ -46,6 +47,11 @@ export async function handleIdentityAuthRoute(
 
   if (url.pathname === "/auth/signout") {
     return signOut(request, env);
+  }
+
+  if (url.pathname === "/auth/reviewer") {
+    if (request.method !== "POST") return methodNotAllowed("POST");
+    return signInReviewer(request, env);
   }
 
   const startMatch = url.pathname.match(/^\/auth\/(google|microsoft)\/start$/);
@@ -194,29 +200,14 @@ async function finishSignInIfMatched(
       scopes: token.scopes,
     });
 
-    const sessionToken = randomBase64Url(32);
-    await env.DB.prepare(
-      `INSERT INTO senderdeck_sessions (token_hash, user_id, email, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?)`,
-    )
-      .bind(
-        await sha256Base64Url(sessionToken),
-        resolvedIdentity.user_id,
-        resolvedIdentity.email,
-        now,
-        now + SESSION_TTL_SECONDS * 1000,
-      )
-      .run();
-
     const destination = new URL(safeReturnPath(stored.return_to), url.origin).toString();
-    return new Response(null, {
-      status: 303,
-      headers: {
-        location: destination,
-        "cache-control": "no-store",
-        "set-cookie": sessionCookie(sessionToken),
-      },
-    });
+    return createSessionResponse(
+      env,
+      resolvedIdentity.user_id,
+      resolvedIdentity.email,
+      destination,
+      SESSION_TTL_SECONDS,
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Sign-in failed.";
     return new Response(signInResultPage(message, provider), {
@@ -227,6 +218,90 @@ async function finishSignInIfMatched(
       },
     });
   }
+}
+
+async function signInReviewer(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const configured = env.REVIEW_ACCESS_USERNAME
+    && env.REVIEW_ACCESS_PASSWORD_HASH
+    && env.REVIEW_ACCESS_USER_ID
+    && env.REVIEW_ACCESS_EMAIL;
+  if (!configured) return new Response("Not found.", { status: 404 });
+
+  const requestOrigin = request.headers.get("origin");
+  if (requestOrigin !== url.origin) {
+    return new Response("Invalid request origin.", { status: 403 });
+  }
+  const contentLength = Number(request.headers.get("content-length") || "0");
+  if (contentLength > 4096) return new Response("Request is too large.", { status: 413 });
+
+  const form = await request.formData();
+  const username = String(form.get("username") || "");
+  const password = String(form.get("password") || "");
+  const returnTo = safeReturnPath(String(form.get("return_to") || "/settings"));
+  if (!(await reviewCredentialsMatch(username, password, env))) {
+    const retry = new URL("/review-access", url.origin);
+    retry.searchParams.set("error", "invalid");
+    retry.searchParams.set("return_to", returnTo);
+    return new Response(null, {
+      status: 303,
+      headers: { location: retry.toString(), "cache-control": "no-store" },
+    });
+  }
+
+  return createSessionResponse(
+    env,
+    env.REVIEW_ACCESS_USER_ID!,
+    env.REVIEW_ACCESS_EMAIL!,
+    new URL(returnTo, url.origin).toString(),
+    REVIEW_SESSION_TTL_SECONDS,
+  );
+}
+
+export async function reviewCredentialsMatch(
+  username: string,
+  password: string,
+  env: Pick<Env, "REVIEW_ACCESS_USERNAME" | "REVIEW_ACCESS_PASSWORD_HASH">,
+): Promise<boolean> {
+  if (!env.REVIEW_ACCESS_USERNAME || !env.REVIEW_ACCESS_PASSWORD_HASH) return false;
+  const [actualUsernameHash, expectedUsernameHash, actualPasswordHash] = await Promise.all([
+    sha256Base64Url(username.trim().toLowerCase()),
+    sha256Base64Url(env.REVIEW_ACCESS_USERNAME.trim().toLowerCase()),
+    sha256Base64Url(password),
+  ]);
+  return constantTimeEqual(actualUsernameHash, expectedUsernameHash)
+    && constantTimeEqual(actualPasswordHash, env.REVIEW_ACCESS_PASSWORD_HASH);
+}
+
+async function createSessionResponse(
+  env: Env,
+  userId: string,
+  email: string,
+  destination: string,
+  ttlSeconds: number,
+): Promise<Response> {
+  const now = Date.now();
+  const sessionToken = randomBase64Url(32);
+  await env.DB.prepare(
+    `INSERT INTO senderdeck_sessions (token_hash, user_id, email, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?)`,
+  )
+    .bind(
+      await sha256Base64Url(sessionToken),
+      userId,
+      email,
+      now,
+      now + ttlSeconds * 1000,
+    )
+    .run();
+  return new Response(null, {
+    status: 303,
+    headers: {
+      location: destination,
+      "cache-control": "no-store",
+      "set-cookie": sessionCookie(sessionToken, ttlSeconds),
+    },
+  });
 }
 
 async function signOut(request: Request, env: Env): Promise<Response> {
@@ -252,7 +327,11 @@ export function safeReturnPath(value: string): string {
   try {
     const parsed = new URL(value, "https://senderdeck.local");
     if (parsed.origin !== "https://senderdeck.local") return "/";
-    if (parsed.pathname.startsWith("/auth/") || parsed.pathname === "/signin") return "/";
+    if (
+      parsed.pathname.startsWith("/auth/")
+      || parsed.pathname === "/signin"
+      || parsed.pathname === "/review-access"
+    ) return "/";
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   } catch {
     return "/";
@@ -268,8 +347,17 @@ function readCookie(header: string | null, name: string): string | null {
   return null;
 }
 
-function sessionCookie(token: string): string {
-  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}`;
+function sessionCookie(token: string, ttlSeconds: number): string {
+  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${ttlSeconds}`;
+}
+
+function constantTimeEqual(left: string, right: string): boolean {
+  const length = Math.max(left.length, right.length);
+  let mismatch = left.length ^ right.length;
+  for (let index = 0; index < length; index += 1) {
+    mismatch |= (left.charCodeAt(index) || 0) ^ (right.charCodeAt(index) || 0);
+  }
+  return mismatch === 0;
 }
 
 function methodNotAllowed(allow: string): Response {

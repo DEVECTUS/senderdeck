@@ -179,6 +179,20 @@ h1 span { color: var(--blue); }
   background: white;
 }
 .signin-note { margin-bottom: 0; font-size: 0.86rem; }
+.reviewer-form { display: grid; gap: 0.7rem; }
+.reviewer-form label { margin-top: 0.35rem; font-size: 0.78rem; color: var(--muted); }
+.reviewer-form input {
+  min-height: 46px;
+  padding: 0.72rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+}
+.reviewer-form input:focus { outline: 2px solid var(--blue); outline-offset: 2px; }
+.reviewer-form button { margin-top: 0.8rem; border: 0; cursor: pointer; }
+.signin-error { padding: 0.75rem; border-left: 3px solid #b42318; background: #fff1f0; color: #7a271a !important; }
 
 .settings-page { max-width: 1440px; margin: 0 auto; }
 
