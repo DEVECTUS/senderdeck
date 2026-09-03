@@ -1,6 +1,6 @@
 # SenderDeck OpenAI plugin submission
 
-Prepared 4 August 2026 for the initial public submission. Updated 21 August 2026 for the DEVECTUS custom-domain release.
+Prepared 4 August 2026 for the initial public submission. Updated 3 September 2026 for the v0.3.2 review-access release.
 
 ## Listing
 
@@ -28,33 +28,33 @@ Prepared 4 August 2026 for the initial public submission. Updated 21 August 2026
 
 ## Positive review tests
 
-### 1. Connect and label a Google account
+### 1. Sign in to the isolated review workspace
 
-- **Prompt:** Connect my Gmail account and label it Personal.
-- **Expected behavior:** Trigger SenderDeck OAuth if needed, call `account_connect` with Google and label Personal, then show the returned provider authorization URL. Do not claim connection is complete until the user finishes Google consent.
-- **Expected result:** A safe user-driven connection URL and no mailbox action.
-- **Fixture:** Reviewer Google account with Gmail enabled and no MFA step during the review session.
+- **Review URL:** https://senderdeck.devectus.com.au/review-access
+- **Expected behavior:** The supplied username and password open the sample workspace directly without Google or Microsoft login, MFA, email confirmation, or additional setup.
+- **Expected result:** One isolated connected sample account, `ebayservice2013@gmail.com`.
+- **Credential handling:** Store the username and password only in the OpenAI submission portal. Rotate or disable the credential after review.
 
 ### 2. Search across connected accounts
 
-- **Prompt:** Search all my connected inboxes for messages about the August invoice and show the ten most relevant results per account.
+- **Prompt:** Search my connected inbox for messages from the last year and show the most recent result.
 - **Expected behavior:** Call `email_search` with the query and limit 10. Keep results attributed to their account IDs and report per-account errors without hiding successful results.
 - **Expected result:** Message metadata and snippets grouped or identified by source account; no mailbox data is retained by SenderDeck.
-- **Fixture:** At least two connected reviewer accounts containing seeded messages with “August invoice”.
+- **Fixture:** The isolated sample Gmail account contains at least one searchable message.
 
 ### 3. Read one selected message
 
-- **Prompt:** Open the invoice message from my Work account.
-- **Expected behavior:** Resolve Work with `route_account`, require disambiguation if needed, then call `email_read` for the selected message ID.
+- **Prompt:** Open the first message from the previous search.
+- **Expected behavior:** Call `email_read` using the sample account ID and selected message ID.
 - **Expected result:** The requested message from the explicitly selected account.
-- **Fixture:** A connected account labelled Work with a seeded invoice message.
+- **Fixture:** The message returned by test 2.
 
 ### 4. Create and inspect a draft
 
-- **Prompt:** Draft a reply from Work saying the invoice is approved, then show me the final draft without sending.
-- **Expected behavior:** Resolve Work, create a provider-hosted reply draft with `draft_reply`, then call `draft_inspect`. Do not call `email_send`.
+- **Prompt:** Draft a message from the sample account to itself with subject “SenderDeck review draft”, then show me the final draft without sending.
+- **Expected behavior:** Create a provider-hosted draft with `draft_create`, then call `draft_inspect`. Do not call `email_send`.
 - **Expected result:** A draft ID and exact sender, recipients, subject, and attachment list.
-- **Fixture:** The seeded Work message and permission to create provider-hosted drafts.
+- **Fixture:** The isolated sample Gmail account and Gmail compose permission.
 
 ### 5. Send after exact confirmation
 
@@ -109,6 +109,10 @@ Initial public submission of SenderDeck by DEVECTUS. The plugin provides per-use
 
 Moves all public listing, legal, support, security, and MCP endpoints to `senderdeck.devectus.com.au`. Google and Microsoft provider callbacks now use the same verified DEVECTUS domain. The original Sites callback URLs remain registered temporarily for rollback compatibility; the plugin and public listing use only the custom domain.
 
+## v0.3.2 review-access notes
+
+Adds a credential-only marketplace-review route backed by a high-entropy Sites-managed secret and a 24-hour session. The reviewer is mapped only to an isolated sample Gmail workspace. This removes Google unfamiliar-device verification from the SenderDeck sign-in path while preserving the standard Google and Microsoft sign-ins for normal users.
+
 ## Account-bound release gates
 
 - [ ] DEVECTUS business identity is verified in the same OpenAI Platform organization used for submission.
@@ -117,6 +121,6 @@ Moves all public listing, legal, support, security, and MCP endpoints to `sender
 - [ ] Microsoft publisher verification is complete and the consent screen shows DEVECTUS as verified.
 - [ ] Independent security review is complete and findings are resolved.
 - [ ] Authorized DEVECTUS representative approves the privacy statement, terms, supported countries, and policy attestations.
-- [ ] Reviewer Google and Microsoft credentials work without an additional MFA, SMS, or email-confirmation step.
+- [x] Dedicated reviewer credentials work without an additional MFA, SMS, email-confirmation, or provider sign-in step.
 - [ ] Portal-generated domain challenge token is stored as `OPENAI_APPS_CHALLENGE` and the challenge succeeds.
 - [ ] All five positive and three negative tests pass against production.
