@@ -123,6 +123,7 @@ export async function createGoogleReplyDraft(
       bcc: input.bcc,
       subject,
       bodyText: input.bodyText,
+      bodyHtml: input.bodyHtml,
       attachments: input.attachments,
       inReplyTo: messageIdHeader,
       references,
@@ -252,6 +253,8 @@ function attachmentInfos(payload?: GmailPart): AttachmentInfo[] {
       filename: part.filename!,
       contentType: part.mimeType || "application/octet-stream",
       size: part.body?.size ?? 0,
+      contentId: headerMap(part)["content-id"]?.replace(/^<|>$/g, ""),
+      isInline: /^inline\b/i.test(headerMap(part)["content-disposition"] || "") || Boolean(headerMap(part)["content-id"]),
     }));
 }
 

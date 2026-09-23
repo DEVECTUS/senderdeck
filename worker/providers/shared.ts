@@ -1,3 +1,4 @@
+import type { AttachmentInput } from "../mail-types";
 import { HttpError } from "../auth";
 
 export async function providerJson<T>(
@@ -46,11 +47,11 @@ export function buildMime(input: {
   bcc?: string[];
   subject: string;
   bodyText: string;
+  bodyHtml?: string;
   inReplyTo?: string;
   references?: string;
-  attachments?: Array<{ filename: string; contentType: string; contentBase64: string }>;
+  attachments?: AttachmentInput[];
 }): string {
-  const boundary = `=_multi_account_email_${crypto.randomUUID()}`;
   const headers = [
     `From: ${escapeHeader(input.from)}`,
     `To: ${normalizeAddresses(input.to).map(escapeHeader).join(", ")}`,
@@ -62,29 +63,46 @@ export function buildMime(input: {
     "MIME-Version: 1.0",
   ].filter(Boolean);
   const attachments = input.attachments ?? [];
-  if (!attachments.length) {
-    return `${headers.join("\r\n")}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n${input.bodyText}`;
+  const inline = attachments.filter((attachment) => attachment.contentId);
+  if (inline.length && input.bodyHtml === undefined) {
+    throw new HttpError(400, "Inline attachments require bodyHtml.");
   }
-  const parts = [
-    ...headers,
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    "",
-    `--${boundary}`,
-    "Content-Type: text/plain; charset=utf-8",
-    "Content-Transfer-Encoding: 8bit",
-    "",
-    input.bodyText,
-  ];
-  for (const attachment of attachments) {
-    parts.push(
-      `--${boundary}`,
-      `Content-Type: ${escapeHeader(attachment.contentType)}; name="${escapeHeader(attachment.filename)}"`,
-      "Content-Transfer-Encoding: base64",
-      `Content-Disposition: attachment; filename="${escapeHeader(attachment.filename)}"`,
-      "",
-      attachment.contentBase64.replace(/\s/g, "").match(/.{1,76}/g)?.join("\r\n") ?? "",
-    );
+  let body = textPart("text/plain", input.bodyText);
+  if (input.bodyHtml !== undefined) {
+    let html = textPart("text/html", input.bodyHtml);
+    if (inline.length) html = multipart("related", [html, ...inline.map(attachmentPart)]);
+    body = multipart("alternative", [body, html]);
   }
-  parts.push(`--${boundary}--`, "");
-  return parts.join("\r\n");
+  const regular = attachments.filter((attachment) => !attachment.contentId);
+  if (regular.length) body = multipart("mixed", [body, ...regular.map(attachmentPart)]);
+  return `${headers.join("\r\n")}\r\n${body}`;
+}
+
+function textPart(type: string, content: string): string {
+  // Base64 preserves Unicode, long HTML lines, and boundary-like content safely.
+  const encoded = encodeBase64Url(content).replaceAll("-", "+").replaceAll("_", "/");
+  const padded = encoded.padEnd(Math.ceil(encoded.length / 4) * 4, "=");
+  return `Content-Type: ${type}; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${wrapBase64(padded)}`;
+}
+
+function multipart(type: string, parts: string[]): string {
+  const boundary = `=_senderdeck_${crypto.randomUUID()}`;
+  return `Content-Type: multipart/${type}; boundary="${boundary}"\r\n\r\n` +
+    parts.map((part) => `--${boundary}\r\n${part}\r\n`).join("") + `--${boundary}--\r\n`;
+}
+
+function attachmentPart(attachment: AttachmentInput): string {
+  const filename = escapeHeader(attachment.filename).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+  return [
+    `Content-Type: ${escapeHeader(attachment.contentType)}; name="${filename}"`,
+    "Content-Transfer-Encoding: base64",
+    `Content-Disposition: ${attachment.contentId ? "inline" : "attachment"}; filename="${filename}"`,
+    ...(attachment.contentId ? [`Content-ID: <${escapeHeader(attachment.contentId)}>`] : []),
+    "",
+    wrapBase64(attachment.contentBase64),
+  ].join("\r\n");
+}
+
+function wrapBase64(value: string): string {
+  return value.replace(/\s/g, "").match(/.{1,76}/g)?.join("\r\n") ?? "";
 }

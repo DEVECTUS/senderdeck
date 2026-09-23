@@ -7,6 +7,8 @@ export interface AttachmentInput {
   filename: string;
   contentType: string;
   contentBase64: string;
+  /** Bare CID referenced by an HTML img src="cid:..."; implies inline disposition. */
+  contentId?: string;
 }
 
 export interface AttachmentInfo {
@@ -14,6 +16,8 @@ export interface AttachmentInfo {
   filename: string;
   contentType: string;
   size: number;
+  contentId?: string;
+  isInline?: boolean;
 }
 
 export interface MessageSummary {
@@ -54,5 +58,7 @@ export interface DraftInput {
   bcc?: string[];
   subject: string;
   bodyText: string;
+  /** Complete formatted body, including the sender's signature when desired. */
+  bodyHtml?: string;
   attachments?: AttachmentInput[];
 }

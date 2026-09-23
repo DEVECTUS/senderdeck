@@ -1,3 +1,4 @@
+import { HttpError } from "../auth";
 import { getAccessToken } from "../accounts";
 import { validateAttachments, validateDownloadedAttachment } from "../attachments";
 import type { Env, StoredAccount } from "../env";
@@ -22,6 +23,7 @@ interface GraphAttachment {
   contentType?: string;
   size: number;
   isInline?: boolean;
+  contentId?: string;
   contentBytes?: string;
   "@odata.type"?: string;
 }
@@ -72,9 +74,7 @@ export async function readMicrosoft(
     `${GRAPH}/messages/${encodeURIComponent(messageId)}?$select=id,conversationId,subject,from,toRecipients,ccRecipients,receivedDateTime,body,bodyPreview,hasAttachments`,
     token,
   );
-  const attachments = message.hasAttachments
-    ? await listMicrosoftAttachments(env, account, messageId)
-    : [];
+  const attachments = await listMicrosoftAttachments(env, account, messageId);
   return {
     ...summary(account, message),
     cc: recipients(message.ccRecipients),
@@ -94,6 +94,9 @@ export async function createMicrosoftDraft(
   input: DraftInput,
 ): Promise<DraftDetail> {
   validateAttachments(env, input.attachments);
+  if (input.attachments?.some((attachment) => attachment.contentId) && input.bodyHtml === undefined) {
+    throw new HttpError(400, "Inline attachments require bodyHtml.");
+  }
   const token = await getAccessToken(env, account);
   const draft = await providerJson<GraphMessage>(`${GRAPH}/messages`, token, {
     method: "POST",
@@ -108,6 +111,7 @@ export async function createMicrosoftDraft(
           name: attachment.filename,
           contentType: attachment.contentType,
           contentBytes: attachment.contentBase64.replace(/\s/g, ""),
+          ...(attachment.contentId ? { isInline: true, contentId: attachment.contentId } : {}),
         }),
       });
     }
@@ -122,13 +126,18 @@ export async function createMicrosoftReplyDraft(
   input: Omit<DraftInput, "subject" | "to"> & { to?: string[]; subject?: string },
 ): Promise<DraftDetail> {
   validateAttachments(env, input.attachments);
+  if (input.attachments?.some((attachment) => attachment.contentId) && input.bodyHtml === undefined) {
+    throw new HttpError(400, "Inline attachments require bodyHtml.");
+  }
   const token = await getAccessToken(env, account);
   const draft = await providerJson<GraphMessage>(
     `${GRAPH}/messages/${encodeURIComponent(messageId)}/createReply`,
     token,
     {
       method: "POST",
-      body: JSON.stringify({ comment: input.bodyText }),
+      body: JSON.stringify(input.bodyHtml !== undefined
+        ? { message: { body: { contentType: "HTML", content: input.bodyHtml } } }
+        : { comment: input.bodyText }),
     },
   );
   const patch: Record<string, unknown> = {};
@@ -151,6 +160,7 @@ export async function createMicrosoftReplyDraft(
           name: attachment.filename,
           contentType: attachment.contentType,
           contentBytes: attachment.contentBase64.replace(/\s/g, ""),
+          ...(attachment.contentId ? { isInline: true, contentId: attachment.contentId } : {}),
         }),
       });
     }
@@ -178,9 +188,7 @@ export async function getMicrosoftDraft(
     cc: recipients(message.ccRecipients),
     bcc: recipients(message.bccRecipients),
     subject: message.subject || "",
-    attachments: message.hasAttachments
-      ? await listMicrosoftAttachments(env, account, draftId)
-      : [],
+    attachments: await listMicrosoftAttachments(env, account, draftId),
   };
 }
 
@@ -205,16 +213,17 @@ export async function listMicrosoftAttachments(
 ): Promise<AttachmentInfo[]> {
   const token = await getAccessToken(env, account);
   const data = await providerJson<{ value: GraphAttachment[] }>(
-    `${GRAPH}/messages/${encodeURIComponent(messageId)}/attachments?$select=id,name,contentType,size,isInline`,
+    `${GRAPH}/messages/${encodeURIComponent(messageId)}/attachments?$select=id,name,contentType,size,isInline,contentId`,
     token,
   );
   return data.value
-    .filter((attachment) => !attachment.isInline)
     .map((attachment) => ({
       id: attachment.id,
       filename: attachment.name,
       contentType: attachment.contentType || "application/octet-stream",
       size: attachment.size,
+      isInline: attachment.isInline,
+      contentId: attachment.contentId,
     }));
 }
 
@@ -238,6 +247,8 @@ export async function downloadMicrosoftAttachment(
     filename: attachment.name,
     contentType: attachment.contentType || "application/octet-stream",
     size: attachment.size,
+    isInline: attachment.isInline,
+    contentId: attachment.contentId,
   };
   validateDownloadedAttachment(env, info.filename, info.contentType, info.size);
   return { ...info, contentBase64: attachment.contentBytes };
@@ -261,7 +272,9 @@ function summary(account: StoredAccount, message: GraphMessage): MessageSummary 
 function messagePayload(input: DraftInput): Record<string, unknown> {
   return {
     subject: input.subject,
-    body: { contentType: "Text", content: input.bodyText },
+    body: input.bodyHtml !== undefined
+      ? { contentType: "HTML", content: input.bodyHtml }
+      : { contentType: "Text", content: input.bodyText },
     toRecipients: graphRecipients(input.to),
     ccRecipients: graphRecipients(input.cc),
     bccRecipients: graphRecipients(input.bcc),

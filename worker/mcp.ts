@@ -410,6 +410,7 @@ async function callTool(
       bcc: optionalStringArray(args.bcc),
       subject: optionalString(args.subject),
       bodyText: stringValue(args.bodyText, "bodyText"),
+      bodyHtml: optionalString(args.bodyHtml),
       attachments: attachmentInputs(args.attachments),
     };
     return account.provider === "google"
@@ -509,6 +510,7 @@ function draftInput(args: Record<string, unknown>): DraftInput {
     bcc: optionalStringArray(args.bcc),
     subject: stringValue(args.subject, "subject", true),
     bodyText: stringValue(args.bodyText, "bodyText", true),
+    bodyHtml: optionalString(args.bodyHtml),
     attachments: attachmentInputs(args.attachments),
   };
 }
@@ -520,6 +522,7 @@ function attachmentInputs(value: unknown): AttachmentInput[] {
       filename: stringValue(attachment.filename, "filename"),
       contentType: stringValue(attachment.contentType, "contentType"),
       contentBase64: stringValue(attachment.contentBase64, "contentBase64"),
+      contentId: optionalString(attachment.contentId),
     };
   });
 }
@@ -531,7 +534,8 @@ function draftInputSchema(reply: boolean): Record<string, unknown> {
     cc: { type: "array", items: { type: "string" } },
     bcc: { type: "array", items: { type: "string" } },
     subject: { type: "string" },
-    bodyText: { type: "string" },
+    bodyText: { type: "string", description: "Plain-text body or fallback matching bodyHtml, including signature text." },
+    bodyHtml: { type: "string", description: "Optional complete HTML body with formatting and sender signature. Prefer for rich email. Signatures are not automatically inserted. Use cid: references for embedded images." },
     attachments: {
       type: "array",
       items: {
@@ -540,6 +544,7 @@ function draftInputSchema(reply: boolean): Record<string, unknown> {
           filename: { type: "string" },
           contentType: { type: "string" },
           contentBase64: { type: "string", description: "Base64 bytes; passed directly to the provider." },
+          contentId: { type: "string", description: "For inline images: unique bare content ID, e.g. logo@signature, referenced as src=\"cid:logo@signature\" in bodyHtml. Omit for regular attachments." },
         },
         required: ["filename", "contentType", "contentBase64"],
         additionalProperties: false,

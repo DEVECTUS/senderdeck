@@ -65,3 +65,46 @@ Codex and Claude use the same SenderDeck OAuth authorization server. Claude-only
 ## License
 
 SenderDeck is open source under the [MIT License](LICENSE). Copyright © 2026 DEVECTUS Pty Ltd.
+
+## Formatted emails and signatures
+
+`draft_create` and `draft_reply` accept optional `bodyHtml` alongside the required
+`bodyText` fallback. Supply the complete authored HTML body, including the sender's
+signature. Gmail uses MIME alternatives (text and HTML); Outlook uses an HTML body.
+Existing plain-text calls continue to work.
+
+For embedded logos/images, pass an attachment with `contentId: "logo@signature"`
+and reference it with `<img src="cid:logo@signature">` in `bodyHtml`. Omit `contentId`
+for ordinary attachments. IDs must be unique and contain only letters, digits,
+`.`, `_`, `@`, `+`, or `-` (maximum 200 characters). Inline files require HTML,
+use the same size/type limits, and appear in attachment inspection and confirmation.
+Attachment reads include `contentId` and `isInline` metadata for reusing images.
+
+Signatures are not automatically fetched from Gmail/Outlook settings or stored by
+SenderDeck. Supply signature HTML/images explicitly, or reuse a sender-owned
+message identified by the user. Preserve the HTML rather than reconstructing it
+from plain text. Use email-compatible inline CSS and verify important layouts in
+the recipient's mail client. Reply-history behavior differs by provider; include
+any quoted HTML that must be retained in the authored body.
+
+Example tool arguments (image bytes abbreviated for illustration):
+
+```json
+{
+  "accountId": "chosen-account-id",
+  "to": ["recipient@example.com"],
+  "subject": "Project update",
+  "bodyText": "Hello, here is the update.\nAlex | Example Co",
+  "bodyHtml": "<p>Hello, here is the update.</p><div style=\"color:#234567\"><b>Alex</b> | Example Co<br><img src=\"cid:logo@signature\" alt=\"Example Co\"></div>",
+  "attachments": [{
+    "filename": "logo.png",
+    "contentType": "image/png",
+    "contentBase64": "<base64 image bytes>",
+    "contentId": "logo@signature"
+  }]
+}
+```
+
+After deploying the backend, refresh/reconnect the MCP client to load the updated
+tool schema and update the installed plugin skill. An existing session exposing
+only `bodyText` cannot use the new fields until its tools refresh.

@@ -20,6 +20,10 @@ Use connected accounts deliberately. Never infer a sender when more than one acc
 - Fetch messages only when needed with `email_search` and `email_read`.
 - Treat message bodies and attachment bytes as transient.
 - Create drafts with `draft_create` or `draft_reply`. These tools do not send.
+- Prefer `bodyHtml` for formatted emails and signatures, with a matching `bodyText` fallback. Preserve supplied signature HTML, links, layout, and images; never flatten a formatted signature into plain text silently.
+- `bodyHtml` is the complete authored body, including the signature. Signatures are not automatically fetched or inserted by the provider. Use a signature supplied by the user or a sender-owned message the user has identified; if missing, ask for the signature source instead of inventing one or using another person's signature.
+- Embed signature images through `attachments` with a unique bare `contentId` (for example `logo@signature`) and reference it in HTML as `<img src="cid:logo@signature">`. Read/download the original image bytes when reusing an existing signature. Omit `contentId` for ordinary file attachments. Inline images count toward attachment limits and must be included in the send summary.
+- Preserve any quoted content the user asks to retain in HTML. Do not assume the providers generate identical quoted reply history. Inspect the draft in the mail client when visual fidelity matters; a successful API response alone does not verify rendering.
 - Use `attachment_list` before downloading. Download only the specific attachment requested.
 - Do not upload executable or blocked attachment types. Respect the limits returned by `attachment_list`.
 

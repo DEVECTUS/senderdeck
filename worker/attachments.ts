@@ -29,7 +29,15 @@ export function attachmentLimits(env: Env): {
 export function validateAttachments(env: Env, attachments: AttachmentInput[] = []): void {
   const limits = attachmentLimits(env);
   let total = 0;
+  const contentIds = new Set<string>();
   for (const attachment of attachments) {
+    if (attachment.contentId !== undefined) {
+      if (!/^[A-Za-z0-9._@+-]{1,200}$/.test(attachment.contentId)) {
+        throw new HttpError(400, "Inline contentId must be a bare ID using letters, digits, dots, underscores, @, + or -.");
+      }
+      if (contentIds.has(attachment.contentId)) throw new HttpError(400, "Inline contentId values must be unique.");
+      contentIds.add(attachment.contentId);
+    }
     const filename = attachment.filename.trim();
     const contentType = attachment.contentType.trim().toLowerCase();
     if (!filename || filename.length > 255) {
