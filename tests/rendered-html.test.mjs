@@ -105,10 +105,28 @@ test("renders the protected SenderDeck configuration screen", async () => {
   const html = await response.text();
   assert.match(html, /Plugin &amp; account/);
   assert.match(html, /Make SenderDeck available in Codex/);
-  assert.match(html, /Open SenderDeck in Codex/);
-  assert.doesNotMatch(html, /codex plugin add senderdeck@personal/);
+  assert.match(html, /Open installation guide/);
+  assert.match(html, /href="\/install"/);
+  assert.doesNotMatch(html, /marketplacePath|codex:\/\/plugins/);
   assert.match(html, /Connected identities/);
   assert.match(html, /owner@example.com/);
+});
+
+test("publishes public installation paths for Codex and Claude", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(
+    new Request("http://localhost/install", { headers: { accept: "text/html" } }),
+    baseEnv,
+    context,
+  );
+
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Install SenderDeck for Codex or Claude/);
+  assert.match(html, /codex plugin marketplace add DEVECTUS\/senderdeck/);
+  assert.match(html, /claude plugin install senderdeck@devectus-senderdeck/);
+  assert.match(html, /https:\/\/senderdeck\.devectus\.com\.au\/api\/mcp/);
+  assert.doesNotMatch(html, /marketplacePath|C%3A%5CUsers/);
 });
 
 test("exposes a healthy stateless MCP contract", async () => {
