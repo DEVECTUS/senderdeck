@@ -108,3 +108,58 @@ Example tool arguments (image bytes abbreviated for illustration):
 After deploying the backend, refresh/reconnect the MCP client to load the updated
 tool schema and update the installed plugin skill. An existing session exposing
 only `bodyText` cannot use the new fields until its tools refresh.
+
+## Updating saved drafts
+
+`draft_update` edits the existing provider draft ID without sending or creating a
+second draft. Call `draft_inspect`, then pass `accountId`, `draftId`, and the
+returned `revision` as `expectedRevision`, plus only the fields to change:
+
+```json
+{
+  "accountId": "chosen-account-id",
+  "draftId": "existing-provider-draft-id",
+  "expectedRevision": "revision-from-draft-inspect",
+  "bodyHtml": "<p>Revised wording.</p><div>Existing signature HTML here</div>"
+}
+```
+
+Omitted fields preserve saved values. Empty strings clear subject/body values;
+empty arrays clear To/Cc/Bcc. `attachments` replaces the **whole** list, including
+inline files; `attachments: []` removes them all. Omit it for body-only edits.
+The update response and `draft_inspect` include saved body content, body format,
+thread/message IDs, attachment metadata and a revision scoped to account/draft.
+Gmail retains the original MIME attachment bytes and reply headers when omitted.
+Outlook updates only requested message properties and retains conversation context.
+
+Every send confirmation must now include `revision` copied from a fresh inspection,
+in addition to sender, To/Cc/Bcc, subject and attachment filenames/sizes. Changes to
+the body, attachments or provider version invalidate earlier approval. Existing
+clients must refresh their tool schemas; confirmations without revision fail.
+
+Provider limits:
+
+- Gmail uses [drafts.update](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.drafts/update)
+  to replace content under the same draft ID. The message ID changes. SenderDeck
+  checks the revision before editing and again immediately before writing, but
+  Gmail exposes no atomic compare-and-swap precondition for this operation. Avoid
+  simultaneous edits in another client. Signed/encrypted or malformed MIME is
+  rejected rather than silently rebuilt. Updated recipient headers use ASCII
+  email addresses; existing recipient headers remain untouched when omitted.
+- Gmail preserves `threadId`, `In-Reply-To` and `References`. Changing a reply's
+  subject can affect Gmail's thread grouping rules despite those preserved values.
+- Outlook stores one body rather than independent text/HTML alternatives. Its
+  `bodyText` inspection value for HTML is derived. Use `bodyHtml` for formatted
+  drafts; switching explicitly to text requires `bodyHtml: ""` plus `bodyText`.
+  Setting HTML on a text draft replaces the sole stored body with HTML.
+- Outlook [message updates](https://learn.microsoft.com/en-us/graph/api/message-update?view=graph-rest-1.0)
+  use PATCH and the available ETag. Attachment replacement takes separate calls,
+  uploads replacements before removing originals, and is not transactional. A
+  failure may leave partial changes; inspect the same draft before retrying.
+  New Outlook replacement files must each be smaller than 3 MB (upload sessions
+  are not implemented). Omitted large attachments remain untouched.
+- Inspection and sending are separate provider operations. Revision checking
+  rejects already-stale approvals, but cannot lock a mailbox against an external
+  change in the interval between the final check and the provider send operation.
+
+Tests use mocked provider APIs; no real messages are sent as part of validation.

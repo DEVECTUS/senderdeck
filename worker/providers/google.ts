@@ -1,14 +1,18 @@
+import { HttpError } from "../auth";
+import { sha256Base64Url } from "../crypto";
+import { updateRawMime } from "./mime-update";
 import type { Env, StoredAccount } from "../env";
 import type {
   AttachmentInfo,
   DraftDetail,
   DraftInput,
+  DraftUpdateInput,
   MessageDetail,
   MessageSummary,
 } from "../mail-types";
 import { getAccessToken } from "../accounts";
 import { validateAttachments, validateDownloadedAttachment } from "../attachments";
-import { buildMime, decodeBase64Url, encodeBase64Url, providerJson } from "./shared";
+import { buildMime, encodeBase64Url, providerJson, assertDraftRevision } from "./shared";
 
 const GMAIL = "https://gmail.googleapis.com/gmail/v1/users/me";
 
@@ -30,6 +34,7 @@ interface GmailMessage {
   id: string;
   threadId?: string;
   snippet?: string;
+  raw?: string;
   internalDate?: string;
   payload?: GmailPart;
 }
@@ -147,16 +152,30 @@ export async function getGoogleDraft(
     token,
   );
   const headers = headerMap(draft.message.payload);
+  // Gmail can return large body parts via attachmentId instead of inline data.
+  for (const part of bodyParts(draft.message.payload)) {
+    if (!part.filename && ["text/plain", "text/html"].includes(part.mimeType || "") && part.body?.attachmentId && !part.body.data) {
+      const body = await providerJson<{ data: string }>(`${GMAIL}/messages/${encodeURIComponent(draft.message.id)}/attachments/${encodeURIComponent(part.body.attachmentId)}`, token);
+      part.body.data = body.data;
+    }
+  }
+  const bodies = extractBodies(draft.message.payload);
   return {
     accountId: account.id,
     provider: "google",
     draftId: draft.id,
-    sender: account.email,
+    sender: headers.from?.match(/<([^>]+)>/)?.[1] || headers.from || account.email,
     to: splitAddresses(headers.to),
     cc: splitAddresses(headers.cc),
     bcc: splitAddresses(headers.bcc),
     subject: headers.subject || "",
     attachments: attachmentInfos(draft.message.payload),
+    bodyText: bodies.text ?? "",
+    bodyHtml: bodies.html,
+    bodyFormat: bodies.html !== undefined ? (bodies.text !== undefined ? "alternative" : "html") : "text",
+    threadId: draft.message.threadId,
+    messageId: draft.message.id,
+    revision: await sha256Base64Url(JSON.stringify({ accountId: account.id, draft })),
   };
 }
 
@@ -195,10 +214,14 @@ export async function downloadGoogleAttachment(
   const info = attachmentInfos(message.payload).find((item) => item.id === attachmentId);
   if (!info) throw new Error("Attachment was not found on the selected message.");
   validateDownloadedAttachment(env, info.filename, info.contentType, info.size);
-  const payload = await providerJson<{ data: string; size: number }>(
-    `${GMAIL}/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`,
-    token,
-  );
+  const embeddedPart = attachmentId.startsWith("part:")
+    ? flattenParts(message.payload).find((part, index) => `part:${part.partId ?? index}` === attachmentId)
+    : undefined;
+  const payload = embeddedPart?.body?.data !== undefined
+    ? { data: embeddedPart.body.data, size: embeddedPart.body.size ?? info.size }
+    : await providerJson<{ data: string; size: number }>(
+      `${GMAIL}/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`, token,
+    );
   const contentBase64 = payload.data.replaceAll("-", "+").replaceAll("_", "/").padEnd(
     Math.ceil(payload.data.length / 4) * 4,
     "=",
@@ -247,23 +270,37 @@ function flattenParts(payload?: GmailPart): GmailPart[] {
 
 function attachmentInfos(payload?: GmailPart): AttachmentInfo[] {
   return flattenParts(payload)
-    .filter((part) => Boolean(part.filename && part.body?.attachmentId))
-    .map((part) => ({
-      id: part.body!.attachmentId!,
-      filename: part.filename!,
-      contentType: part.mimeType || "application/octet-stream",
-      size: part.body?.size ?? 0,
-      contentId: headerMap(part)["content-id"]?.replace(/^<|>$/g, ""),
-      isInline: /^inline\b/i.test(headerMap(part)["content-disposition"] || "") || Boolean(headerMap(part)["content-id"]),
-    }));
+    .flatMap((part, index) => {
+      const headers = headerMap(part);
+      if (!(part.filename || (headers["content-id"] && !["text/plain", "text/html"].includes(part.mimeType || "")) || /^attachment\b/i.test(headers["content-disposition"] || "")) ||
+          (!part.body?.attachmentId && part.body?.data === undefined)) return [];
+      return [{
+        id: part.body?.attachmentId || `part:${part.partId ?? index}`,
+        filename: part.filename || "inline-image",
+        contentType: part.mimeType || "application/octet-stream",
+        size: part.body?.size ?? 0,
+        contentId: headers["content-id"]?.replace(/^<|>$/g, ""),
+        isInline: /^inline\b/i.test(headers["content-disposition"] || "") || Boolean(headers["content-id"]),
+      }];
+    });
+}
+
+function bodyParts(payload?: GmailPart): GmailPart[] {
+  if (!payload || payload.filename || payload.mimeType === "message/rfc822" || /^attachment\b/i.test(headerMap(payload)["content-disposition"] || "")) return [];
+  if (payload.mimeType?.startsWith("multipart/" ) || payload.parts) return (payload.parts ?? []).flatMap(bodyParts);
+  return [payload];
 }
 
 function extractBodies(payload?: GmailPart): { text?: string; html?: string } {
   const result: { text?: string; html?: string } = {};
-  for (const part of flattenParts(payload)) {
-    if (!part.body?.data || part.filename) continue;
-    if (part.mimeType === "text/plain" && !result.text) result.text = decodeBase64Url(part.body.data);
-    if (part.mimeType === "text/html" && !result.html) result.html = decodeBase64Url(part.body.data);
+  for (const part of bodyParts(payload)) {
+    if (part.body?.data === undefined) continue;
+    if (!["text/plain", "text/html"].includes(part.mimeType || "")) continue;
+    const charset = /charset\s*=\s*"?([^";\s]+)/i.exec(headerMap(part)["content-type"] || "")?.[1] || "utf-8";
+    const binary = atob(part.body.data.replaceAll("-", "+").replaceAll("_", "/"));
+    const value = new TextDecoder(charset).decode(Uint8Array.from(binary, (character) => character.charCodeAt(0)));
+    if (part.mimeType === "text/plain" && result.text === undefined) result.text = value;
+    if (part.mimeType === "text/html" && result.html === undefined) result.html = value;
   }
   return result;
 }
@@ -278,4 +315,28 @@ function replySubject(subject: string): string {
 
 function stripHtml(html: string): string {
   return html.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+export async function updateGoogleDraft(
+  env: Env, account: StoredAccount, draftId: string, input: DraftUpdateInput,
+): Promise<DraftDetail> {
+  const current = await getGoogleDraft(env, account, draftId);
+  assertDraftRevision(current.revision, input.expectedRevision);
+  validateAttachments(env, input.attachments);
+  if (input.attachments?.some((item) => item.contentId) && input.bodyHtml === undefined && current.bodyHtml === undefined) {
+    throw new HttpError(400, "Inline attachments require an HTML body.");
+  }
+  const token = await getAccessToken(env, account);
+  const draft = await providerJson<GmailDraft>(`${GMAIL}/drafts/${encodeURIComponent(draftId)}?format=raw`, token);
+  if (draft.message.id !== current.messageId) throw new HttpError(409, "The draft changed while reading it. Inspect it again.");
+  if (!draft.message.raw) throw new HttpError(502, "Gmail did not return the raw draft; no changes were made.");
+  const raw = updateRawMime(draft.message.raw, input);
+  // Gmail does not expose an atomic revision precondition for drafts.update.
+  // Recheck immediately before PUT, while retaining the same provider draft ID.
+  assertDraftRevision((await getGoogleDraft(env, account, draftId)).revision, input.expectedRevision);
+  await providerJson(`${GMAIL}/drafts/${encodeURIComponent(draftId)}`, token, {
+    method: "PUT",
+    body: JSON.stringify({ id: draftId, message: { raw, threadId: current.threadId } }),
+  });
+  return getGoogleDraft(env, account, draftId);
 }

@@ -50,6 +50,17 @@ export interface DraftDetail {
   bcc: string[];
   subject: string;
   attachments: AttachmentInfo[];
+  bodyText: string;
+  bodyHtml?: string;
+  bodyFormat: "text" | "html" | "alternative";
+  threadId?: string;
+  messageId?: string;
+  revision: string;
+  providerEtag?: string;
+}
+
+export interface DraftUpdateInput extends Partial<DraftInput> {
+  expectedRevision: string;
 }
 
 export interface DraftInput {

@@ -154,7 +154,8 @@ test("exposes a healthy stateless MCP contract", async () => {
   );
   const listed = await list.json();
   const names = listed.result.tools.map((tool) => tool.name);
-  assert.equal(names.length, 13);
+  assert.equal(names.length, 14);
+  assert.ok(names.includes("draft_update"));
   assert.ok(names.includes("email_send"));
   assert.ok(names.includes("attachment_download"));
   assert.ok(names.includes("account_list"));

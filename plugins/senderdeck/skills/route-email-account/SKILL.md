@@ -23,9 +23,17 @@ Use connected accounts deliberately. Never infer a sender when more than one acc
 - Prefer `bodyHtml` for formatted emails and signatures, with a matching `bodyText` fallback. Preserve supplied signature HTML, links, layout, and images; never flatten a formatted signature into plain text silently.
 - `bodyHtml` is the complete authored body, including the signature. Signatures are not automatically fetched or inserted by the provider. Use a signature supplied by the user or a sender-owned message the user has identified; if missing, ask for the signature source instead of inventing one or using another person's signature.
 - Embed signature images through `attachments` with a unique bare `contentId` (for example `logo@signature`) and reference it in HTML as `<img src="cid:logo@signature">`. Read/download the original image bytes when reusing an existing signature. Omit `contentId` for ordinary file attachments. Inline images count toward attachment limits and must be included in the send summary.
-- Preserve any quoted content the user asks to retain in HTML. Do not assume the providers generate identical quoted reply history. Inspect the draft in the mail client when visual fidelity matters; a successful API response alone does not verify rendering.
+- Preserve any quoted content the user asks to retain in HTML. Do not assume the providers generate identical quoted reply history. Use saved HTML from `draft_inspect` for review; do not use browser control for email unless explicitly requested. A successful API response alone does not verify mail-client rendering.
 - Use `attachment_list` before downloading. Download only the specific attachment requested.
 - Do not upload executable or blocked attachment types. Respect the limits returned by `attachment_list`.
+
+## Update an existing draft
+
+- For wording or recipient changes to an existing draft, use `draft_update` with its explicit `accountId` and `draftId`. Do not create a duplicate or use browser control to edit email.
+- Call `draft_inspect` first. It returns saved `bodyText`, `bodyHtml`, `bodyFormat`, thread/message IDs, attachments and `revision`. Pass that revision as `expectedRevision` to `draft_update`.
+- Send only changed fields. Omission preserves the saved value; `""` clears a requested string and `[]` clears a recipient list. `attachments` replaces the entire attachment list, including inline images; omit it for wording edits. Include every file/image to retain when explicitly replacing attachments.
+- Gmail keeps independent text and HTML alternatives: update both when wording must match. Outlook has one stored body; its text view of HTML is derived. For Outlook HTML drafts, update `bodyHtml` only. A deliberate conversion to text requires `bodyHtml: ""` and `bodyText`. Never silently flatten a signature.
+- Reinspect after updating and review the saved content. Any change invalidates prior send approval. A conflict requires a fresh inspection and reconsideration of the edit; do not blindly retry. Outlook attachment replacement may partially succeed; inspect the same draft to determine its saved state before retrying. Do not create another draft to recover.
 
 ## Confirm and send
 
@@ -36,7 +44,7 @@ Use connected accounts deliberately. Never infer a sender when more than one acc
    - subject;
    - attachment filenames and sizes, including an explicit `none` when empty.
 3. Ask for an unambiguous confirmation to send those exact details.
-4. Call `email_send` only after that confirmation, with `confirmed: true` and a confirmation object copied from the inspected draft.
+4. Call `email_send` only after that confirmation, with `confirmed: true` and a confirmation object copied from the inspected draft, including its `revision`. Obtain fresh explicit approval after every edit.
 5. If the tool reports that the draft changed, inspect it again and obtain a new confirmation.
 
 Never send automatically, on a timer, as part of a bulk operation, or based on an earlier general instruction.

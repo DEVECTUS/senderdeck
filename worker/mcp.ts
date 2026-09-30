@@ -10,7 +10,7 @@ import {
 } from "./accounts";
 import { attachmentLimits } from "./attachments";
 import type { Env, Provider, StoredAccount } from "./env";
-import type { AttachmentInput, DraftDetail, DraftInput } from "./mail-types";
+import type { AttachmentInput, DraftDetail, DraftInput, DraftUpdateInput } from "./mail-types";
 import {
   createGoogleDraft,
   createGoogleReplyDraft,
@@ -20,6 +20,7 @@ import {
   readGoogle,
   searchGoogle,
   sendGoogleDraft,
+  updateGoogleDraft,
 } from "./providers/google";
 import {
   createMicrosoftDraft,
@@ -30,6 +31,7 @@ import {
   readMicrosoft,
   searchMicrosoft,
   sendMicrosoftDraft,
+  updateMicrosoftDraft,
 } from "./providers/microsoft";
 
 const PROTOCOL_VERSION = "2025-03-26";
@@ -154,9 +156,16 @@ const tools = [
     annotations: toolAnnotations("Create a reply draft", false, false, false),
   },
   {
+    name: "draft_update",
+    description: "Edit an existing draft in place; never sends or creates another draft. Inspect first and pass expectedRevision. Omitted fields are preserved; empty strings/arrays clear requested values. attachments replaces ALL files, including inline images. Outlook has one body: use bodyHtml for HTML drafts, or bodyHtml: empty string plus bodyText to explicitly switch to text.",
+    inputSchema: draftUpdateSchema(),
+    securitySchemes: oauthSecurity(),
+    annotations: toolAnnotations("Update an email draft", false, false, true),
+  },
+  {
     name: "draft_inspect",
     description:
-      "Re-read a provider-hosted draft and return the exact sender, recipients, subject, and attachments that must be confirmed before sending.",
+      "Re-read saved body, formatting, thread metadata, sender, recipients, subject, attachments and revision. Inspect immediately before reviewing edits or requesting fresh send confirmation.",
     inputSchema: {
       type: "object",
       properties: { accountId: { type: "string" }, draftId: { type: "string" } },
@@ -179,6 +188,7 @@ const tools = [
         confirmation: {
           type: "object",
           properties: {
+            revision: { type: "string", description: "Copy revision from the immediately preceding draft_inspect. Any edit invalidates earlier approval." },
             sender: { type: "string" },
             to: { type: "array", items: { type: "string" } },
             cc: { type: "array", items: { type: "string" } },
@@ -197,7 +207,7 @@ const tools = [
               },
             },
           },
-          required: ["sender", "to", "cc", "bcc", "subject", "attachments"],
+          required: ["revision", "sender", "to", "cc", "bcc", "subject", "attachments"],
           additionalProperties: false,
         },
       },
@@ -417,6 +427,24 @@ async function callTool(
       ? createGoogleReplyDraft(env, account, messageId, input)
       : createMicrosoftReplyDraft(env, account, messageId, input);
   }
+  if (name === "draft_update") {
+    const account = await selectedAccount(env, userId, args);
+    const draftId = stringValue(args.draftId, "draftId");
+    const allowed = ["accountId", "draftId", "expectedRevision", "subject", "to", "cc", "bcc", "bodyText", "bodyHtml", "attachments"];
+    if (Object.keys(args).some((key) => !allowed.includes(key))) throw new HttpError(400, "Unknown draft update field.");
+    const input: DraftUpdateInput = { expectedRevision: stringValue(args.expectedRevision, "expectedRevision") };
+    for (const key of ["subject", "bodyText", "bodyHtml"] as const) {
+      if (args[key] !== undefined) input[key] = stringValue(args[key], key, true);
+    }
+    for (const key of ["to", "cc", "bcc"] as const) {
+      if (args[key] !== undefined) input[key] = stringArray(args[key], key);
+    }
+    if (args.attachments !== undefined) input.attachments = attachmentInputs(args.attachments);
+    if (Object.keys(input).length === 1) throw new HttpError(400, "Specify at least one field to update.");
+    return account.provider === "google"
+      ? updateGoogleDraft(env, account, draftId, input)
+      : updateMicrosoftDraft(env, account, draftId, input);
+  }
   if (name === "draft_inspect") {
     const account = await selectedAccount(env, userId, args);
     return inspectDraft(env, account, stringValue(args.draftId, "draftId"));
@@ -473,6 +501,7 @@ async function inspectDraft(
 
 function assertConfirmation(draft: DraftDetail, confirmation: Record<string, unknown>): void {
   const actual = {
+    revision: draft.revision,
     sender: normalizeEmail(draft.sender),
     to: normalizedRecipients(draft.to),
     cc: normalizedRecipients(draft.cc),
@@ -483,6 +512,7 @@ function assertConfirmation(draft: DraftDetail, confirmation: Record<string, unk
       .sort(),
   };
   const confirmed = {
+    revision: stringValue(confirmation.revision, "confirmation.revision"),
     sender: normalizeEmail(stringValue(confirmation.sender, "confirmation.sender")),
     to: normalizedRecipients(stringArray(confirmation.to, "confirmation.to")),
     cc: normalizedRecipients(stringArray(confirmation.cc, "confirmation.cc")),
@@ -559,6 +589,22 @@ function draftInputSchema(reply: boolean): Record<string, unknown> {
       ? ["accountId", "messageId", "bodyText"]
       : ["accountId", "to", "subject", "bodyText"],
     additionalProperties: false,
+  };
+}
+
+function draftUpdateSchema(): Record<string, unknown> {
+  const base = draftInputSchema(false);
+  return {
+    ...base,
+    properties: {
+      ...(base.properties as Record<string, unknown>),
+      bodyText: { type: "string", description: "Selective plain-text update. Gmail preserves omitted HTML. Outlook HTML drafts require bodyHtml edits, or bodyHtml: empty string plus bodyText to explicitly switch to text." },
+      bodyHtml: { type: "string", description: "Selective HTML update including signature. Empty string clears HTML content; omission preserves it. Outlook stores only one body format." },
+      attachments: { ...((base.properties as Record<string, Record<string, unknown>>).attachments), description: "Replaces ALL saved attachments, including inline images. Omit to preserve them; [] removes all." },
+      draftId: { type: "string" },
+      expectedRevision: { type: "string", description: "Revision returned by draft_inspect; stale updates fail." },
+    },
+    required: ["accountId", "draftId", "expectedRevision"],
   };
 }
 

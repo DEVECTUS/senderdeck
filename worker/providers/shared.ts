@@ -78,20 +78,20 @@ export function buildMime(input: {
   return `${headers.join("\r\n")}\r\n${body}`;
 }
 
-function textPart(type: string, content: string): string {
+export function textPart(type: string, content: string): string {
   // Base64 preserves Unicode, long HTML lines, and boundary-like content safely.
   const encoded = encodeBase64Url(content).replaceAll("-", "+").replaceAll("_", "/");
   const padded = encoded.padEnd(Math.ceil(encoded.length / 4) * 4, "=");
   return `Content-Type: ${type}; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${wrapBase64(padded)}`;
 }
 
-function multipart(type: string, parts: string[]): string {
+export function multipart(type: string, parts: string[]): string {
   const boundary = `=_senderdeck_${crypto.randomUUID()}`;
   return `Content-Type: multipart/${type}; boundary="${boundary}"\r\n\r\n` +
     parts.map((part) => `--${boundary}\r\n${part}\r\n`).join("") + `--${boundary}--\r\n`;
 }
 
-function attachmentPart(attachment: AttachmentInput): string {
+export function attachmentPart(attachment: AttachmentInput): string {
   const filename = escapeHeader(attachment.filename).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
   return [
     `Content-Type: ${escapeHeader(attachment.contentType)}; name="${filename}"`,
@@ -105,4 +105,8 @@ function attachmentPart(attachment: AttachmentInput): string {
 
 function wrapBase64(value: string): string {
   return value.replace(/\s/g, "").match(/.{1,76}/g)?.join("\r\n") ?? "";
+}
+
+export function assertDraftRevision(actual: string, expected: string): void {
+  if (actual !== expected) throw new HttpError(409, "The draft changed. Inspect it again before editing or requesting fresh send confirmation.");
 }
