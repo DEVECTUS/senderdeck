@@ -52,9 +52,9 @@ The plugin and connector should share the same production endpoint, safety behav
 - [x] Implement a vendor-neutral SenderDeck sign-in using Google or Microsoft, while retaining the OpenAI-hosted identity as a compatibility fallback.
 - [ ] Deploy and smoke-test identity linking, session expiry, sign-out, and first-mailbox connection from both Codex and Claude.
 - [x] Update privacy, terms, account deletion, and support procedures for the vendor-neutral identity flow and Anthropic processing.
-- [ ] Decide and add an explicit source license. Anthropic plugin submissions require a public repository and do not accept closed-source plugins.
-- [ ] Confirm the public GitHub repository URL and that the submitter can grant Anthropic review access without private dependencies.
-- [ ] Run `claude plugin validate .` with the current Claude Code release and resolve all warnings.
+- [x] Decide and add an explicit source license. The repository and plugin manifest declare MIT.
+- [x] Confirm the public GitHub repository URL: https://github.com/DEVECTUS/senderdeck.
+- [x] Run `claude plugin validate .` and `claude plugin validate plugins/senderdeck`; both passed on 2 October 2026.
 - [ ] Verify tool names are at most 64 characters and that every tool exposes accurate `title`, `readOnlyHint`, and `destructiveHint` annotations.
 - [ ] Verify production error messages are actionable and tool results remain proportionate in size.
 - [ ] Complete an independent security review, including OAuth redirect validation, token rotation, account isolation, attachment handling, and confirmation mismatch enforcement.
@@ -82,5 +82,7 @@ The plugin and connector should share the same production endpoint, safety behav
 - Security review report and remediation record.
 
 ## Go/no-go gates
+
+On 2 October 2026, the Claude directory submission portal at https://claude.ai/directory/manage/new required sign-in in the in-app browser. No public Claude submission or custom connector installation was completed in this inspection. Cross-surface OAuth tests, reviewer video, independent security review, and legal approval remain unverified gates.
 
 Do not submit broadly until the vendor-neutral identity migration, legal approval, explicit source licensing decision, production deployment, cross-surface OAuth tests, and independent security review are complete. Do not publish a send-capable listing if the exact-confirmation negative tests fail on either Claude or Codex.

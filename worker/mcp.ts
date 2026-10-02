@@ -125,7 +125,7 @@ const tools = [
       additionalProperties: false,
     },
     securitySchemes: oauthSecurity(),
-    annotations: toolAnnotations("Search email", true, false, false),
+    annotations: toolAnnotations("Search email", true, true, false),
   },
   {
     name: "email_read",
@@ -137,7 +137,7 @@ const tools = [
       additionalProperties: false,
     },
     securitySchemes: oauthSecurity(),
-    annotations: toolAnnotations("Read an email", true, false, false),
+    annotations: toolAnnotations("Read an email", true, true, false),
   },
   {
     name: "draft_create",
@@ -145,7 +145,7 @@ const tools = [
       "Create a provider-hosted email draft. This does not send. Optional attachment bytes are passed directly to the provider.",
     inputSchema: draftInputSchema(false),
     securitySchemes: oauthSecurity(),
-    annotations: toolAnnotations("Create an email draft", false, false, false),
+    annotations: toolAnnotations("Create an email draft", false, true, false),
   },
   {
     name: "draft_reply",
@@ -153,14 +153,14 @@ const tools = [
       "Create a provider-hosted reply draft for a message. This does not send.",
     inputSchema: draftInputSchema(true),
     securitySchemes: oauthSecurity(),
-    annotations: toolAnnotations("Create a reply draft", false, false, false),
+    annotations: toolAnnotations("Create a reply draft", false, true, false),
   },
   {
     name: "draft_update",
     description: "Edit an existing draft in place; never sends or creates another draft. Inspect first and pass expectedRevision. Omitted fields are preserved; empty strings/arrays clear requested values. attachments replaces ALL files, including inline images. Outlook has one body: use bodyHtml for HTML drafts, or bodyHtml: empty string plus bodyText to explicitly switch to text.",
     inputSchema: draftUpdateSchema(),
     securitySchemes: oauthSecurity(),
-    annotations: toolAnnotations("Update an email draft", false, false, true),
+    annotations: toolAnnotations("Update an email draft", false, true, true),
   },
   {
     name: "draft_inspect",
@@ -173,7 +173,7 @@ const tools = [
       additionalProperties: false,
     },
     securitySchemes: oauthSecurity(),
-    annotations: toolAnnotations("Inspect an email draft", true, false, false),
+    annotations: toolAnnotations("Inspect an email draft", true, true, false),
   },
   {
     name: "email_send",
@@ -227,7 +227,7 @@ const tools = [
       additionalProperties: false,
     },
     securitySchemes: oauthSecurity(),
-    annotations: toolAnnotations("List email attachments", true, false, false),
+    annotations: toolAnnotations("List email attachments", true, true, false),
   },
   {
     name: "attachment_download",
@@ -244,7 +244,7 @@ const tools = [
       additionalProperties: false,
     },
     securitySchemes: oauthSecurity(),
-    annotations: toolAnnotations("Download an email attachment", true, false, false),
+    annotations: toolAnnotations("Download an email attachment", true, true, false),
   },
 ] as const;
 

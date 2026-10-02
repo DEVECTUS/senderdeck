@@ -92,14 +92,24 @@ Prepared 4 August 2026 for the initial public submission. Updated 3 September 20
 | `account_label` | No | No | No | Changes only a SenderDeck routing label. |
 | `account_disconnect` | No | No | Yes | Deletes the stored encrypted connection after confirmation. |
 | `route_account` | Yes | No | No | Resolves an account without guessing. |
-| `email_search` | Yes | No | No | Reads provider data on demand. |
-| `email_read` | Yes | No | No | Reads one selected message. |
-| `draft_create` | No | No | No | Creates a reversible provider-hosted draft. |
-| `draft_reply` | No | No | No | Creates a reversible provider-hosted reply draft. |
-| `draft_inspect` | Yes | No | No | Reads the current draft state. |
+| `email_search` | Yes | Yes | No | Reads provider data on demand. |
+| `email_read` | Yes | Yes | No | Reads one selected message. |
+| `draft_create` | No | Yes | No | Creates a reversible provider-hosted draft. |
+| `draft_reply` | No | Yes | No | Creates a reversible provider-hosted reply draft. |
+| `draft_inspect` | Yes | Yes | No | Reads the current draft state. |
 | `email_send` | No | Yes | Yes | Sends an external message after exact confirmation. |
-| `attachment_list` | Yes | No | No | Reads attachment metadata only. |
-| `attachment_download` | Yes | No | No | Reads bytes after configured security checks. |
+| `attachment_list` | Yes | Yes | No | Reads attachment metadata only. |
+| `attachment_download` | Yes | Yes | No | Reads bytes after configured security checks. |
+
+Provider-backed tools interact with independently controlled Google or Microsoft systems, so they declare `openWorldHint: true`, including read-only and draft operations.
+
+## Portal status verified 2 October 2026
+
+OpenAI lists version 0.3.2 as **In review** and **Not published**. The MCP endpoint is configured, OAuth is authorised, and the domain is verified. Uploading changes is disabled while this review is active. This inspection did not submit a review or accept attestations.
+
+A fresh portal scan flagged `openWorldHint: false` on seven provider-backed tools: `email_search`, `email_read`, `draft_create`, `draft_reply`, `draft_inspect`, `attachment_list`, and `attachment_download`. Repository annotations and submission justifications have been corrected; the newer `draft_update` tool has the same correction. These source changes are not confirmation that the production deployment or pending review snapshot has changed.
+
+The current portal did not expose reviewer credentials, starter prompts, country availability, release notes, or the final attestations for the locked review. Those fields were not independently reverified in this inspection.
 
 ## Initial release notes
 

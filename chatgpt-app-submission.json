@@ -49,42 +49,42 @@
       }
     },
     "email_search": {
-      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "annotations": { "readOnlyHint": true, "openWorldHint": true, "destructiveHint": false },
       "justifications": {
         "read_only_justification": "Searches messages and returns matching metadata without changing the mailbox.",
-        "open_world_justification": "Accesses only the selected authenticated Google or Microsoft mailbox rather than arbitrary external resources.",
+        "open_world_justification": "Calls the independently controlled Google or Microsoft provider API for the selected authenticated mailbox.",
         "destructive_justification": "Does not send, delete, move, mark, or edit any message."
       }
     },
     "email_read": {
-      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "annotations": { "readOnlyHint": true, "openWorldHint": true, "destructiveHint": false },
       "justifications": {
         "read_only_justification": "Retrieves one message for viewing without changing that message or its mailbox state.",
-        "open_world_justification": "Reads only from the selected authenticated mailbox through its supported provider API.",
+        "open_world_justification": "Calls the independently controlled Google or Microsoft provider API for the selected authenticated mailbox.",
         "destructive_justification": "Does not send, delete, move, mark, or edit messages."
       }
     },
     "draft_create": {
-      "annotations": { "readOnlyHint": false, "openWorldHint": false, "destructiveHint": false },
+      "annotations": { "readOnlyHint": false, "openWorldHint": true, "destructiveHint": false },
       "justifications": {
         "read_only_justification": "Creates a provider-hosted draft, which changes mailbox state.",
-        "open_world_justification": "Writes only to the selected authenticated mailbox and does not contact arbitrary external systems.",
+        "open_world_justification": "Calls the independently controlled Google or Microsoft provider API for the selected authenticated mailbox.",
         "destructive_justification": "The result remains an unsent draft that the user can inspect, edit, or delete before any external delivery."
       }
     },
     "draft_reply": {
-      "annotations": { "readOnlyHint": false, "openWorldHint": false, "destructiveHint": false },
+      "annotations": { "readOnlyHint": false, "openWorldHint": true, "destructiveHint": false },
       "justifications": {
         "read_only_justification": "Creates an unsent reply draft in the selected authenticated mailbox.",
-        "open_world_justification": "Writes only to the selected authenticated mailbox and the specified existing conversation.",
+        "open_world_justification": "Calls the independently controlled Google or Microsoft provider API for the selected authenticated mailbox.",
         "destructive_justification": "The reply remains a reversible, unsent draft and does not deliver a message."
       }
     },
     "draft_inspect": {
-      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "annotations": { "readOnlyHint": true, "openWorldHint": true, "destructiveHint": false },
       "justifications": {
         "read_only_justification": "Reads the current provider-hosted draft and returns its sender, recipients, subject, body, and attachments.",
-        "open_world_justification": "Reads only the selected authenticated mailbox's draft record.",
+        "open_world_justification": "Calls the independently controlled Google or Microsoft provider API for the selected authenticated mailbox.",
         "destructive_justification": "Does not edit, delete, or send the draft."
       }
     },
@@ -97,18 +97,18 @@
       }
     },
     "attachment_list": {
-      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "annotations": { "readOnlyHint": true, "openWorldHint": true, "destructiveHint": false },
       "justifications": {
         "read_only_justification": "Lists attachment metadata for a selected message without changing the message or files.",
-        "open_world_justification": "Reads only from the selected authenticated mailbox and message.",
+        "open_world_justification": "Calls the independently controlled Google or Microsoft provider API for the selected authenticated mailbox.",
         "destructive_justification": "Does not delete, upload, replace, or transmit an attachment to another party."
       }
     },
     "attachment_download": {
-      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "annotations": { "readOnlyHint": true, "openWorldHint": true, "destructiveHint": false },
       "justifications": {
         "read_only_justification": "Retrieves the bytes of a selected attachment without changing the source message or attachment.",
-        "open_world_justification": "Reads only from the selected authenticated mailbox and attachment identifier.",
+        "open_world_justification": "Calls the independently controlled Google or Microsoft provider API for the selected authenticated mailbox.",
         "destructive_justification": "Does not delete, alter, upload, or send the attachment."
       }
     }
