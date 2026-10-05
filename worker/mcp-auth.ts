@@ -71,7 +71,11 @@ async function routeMcpAuthentication(
   const url = new URL(request.url);
   const origin = url.origin;
 
-  if (url.pathname === "/.well-known/oauth-protected-resource") {
+  if ([
+    "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-protected-resource/api/mcp",
+    "/api/mcp/.well-known/oauth-protected-resource",
+  ].includes(url.pathname)) {
     return json({
       resource: resourceUrl(origin),
       authorization_servers: [origin],

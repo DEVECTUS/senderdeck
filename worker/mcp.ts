@@ -45,6 +45,12 @@ interface JsonRpcRequest {
   params?: Record<string, unknown>;
 }
 
+interface SearchResult {
+  results: unknown[];
+  errors: Array<{ accountId: string; error: string }>;
+  successfulAccountIds: string[];
+}
+
 const tools = [
   {
     name: "account_connect",
@@ -113,7 +119,7 @@ const tools = [
   {
     name: "email_search",
     description:
-      "Search email on demand across selected connected accounts. No mailbox content is indexed or retained.",
+      "Search email on demand across selected connected accounts. Report per-account errors; failed searches do not mean there are no matching messages. No mailbox content is indexed or retained.",
     inputSchema: {
       type: "object",
       properties: {
@@ -286,9 +292,9 @@ export async function handleMcp(request: Request, env: Env): Promise<Response | 
       return rpcResult(rpc.id, {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "senderdeck", version: "0.3.2" },
+        serverInfo: { name: "senderdeck", version: "0.3.3" },
         instructions:
-          "Use account IDs explicitly. Drafts never send automatically. Before email_send, show the user and confirm sender, all recipients, subject, and attachments.",
+          "List connected accounts and use their actual account and message/draft IDs. Never invent labels or IDs or infer a sender. Ask the user to select a connected sender if the requested account is absent or ambiguous. Report provider failures and reconnection instructions; do not treat a failed search as no matches. Never harvest recipients or perform bulk, automatic or scheduled sending. Drafts never send automatically. Before email_send, inspect the current draft and show sender, To, Cc, Bcc, subject, attachment filenames/sizes and whether it will send now. Wait for a separate explicit send confirmation of these unchanged details; any edit invalidates previous approval.",
       });
     }
     if (rpc.method === "ping") return rpcResult(rpc.id, {});
@@ -298,7 +304,9 @@ export async function handleMcp(request: Request, env: Env): Promise<Response | 
       const name = stringValue(rpc.params?.name, "tool name");
       const args = objectValue(rpc.params?.arguments ?? {}, "arguments");
       const data = await callTool(name, args, request, env, userId);
-      return rpcResult(rpc.id, toolResult(data));
+      const search = name === "email_search" ? data as SearchResult : null;
+      const allSearchesFailed = Boolean(search && search.errors.length > 0 && search.successfulAccountIds.length === 0);
+      return rpcResult(rpc.id, { ...toolResult(data), ...(allSearchesFailed ? { isError: true } : {}) });
     }
     return rpcError(rpc.id, -32601, "Method not found");
   } catch (error) {
@@ -390,6 +398,7 @@ async function callTool(
     );
     return {
       results: settled.flatMap((result) => (result.status === "fulfilled" ? result.value : [])),
+      successfulAccountIds: settled.flatMap((result, index) => result.status === "fulfilled" ? [accounts[index].id] : []),
       errors: settled.flatMap((result, index) =>
         result.status === "rejected"
           ? [{ accountId: accounts[index].id, error: errorMessage(result.reason) }]

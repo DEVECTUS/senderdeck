@@ -1,6 +1,6 @@
 {
   "name": "senderdeck",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Safely search, read, draft, and send across multiple Google and Microsoft email accounts.",
   "author": {
     "name": "DEVECTUS"

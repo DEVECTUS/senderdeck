@@ -204,10 +204,17 @@ export async function getAccessToken(env: Env, account: StoredAccount): Promise<
     account.encrypted_refresh_token,
     env.TOKEN_ENCRYPTION_KEY,
   );
-  const refreshed =
-    account.provider === "google"
+  let refreshed: { accessToken: string; expiresIn: number };
+  try {
+    refreshed = account.provider === "google"
       ? await refreshGoogleToken(env, refreshToken)
       : await refreshMicrosoftToken(env, refreshToken);
+  } catch (error) {
+    if (error instanceof HttpError && /invalid_grant/.test(error.message)) {
+      throw new HttpError(401, `Reconnect ${account.email}; its provider authorization has expired or been revoked. No mailbox operation completed.`);
+    }
+    throw error;
+  }
   const encryptedAccessToken = await encrypt(
     refreshed.accessToken,
     env.TOKEN_ENCRYPTION_KEY,

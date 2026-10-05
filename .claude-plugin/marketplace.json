@@ -13,7 +13,7 @@
       "name": "senderdeck",
       "source": "./plugins/senderdeck",
       "description": "Safely use up to 10 Google and Microsoft inboxes.",
-      "version": "0.3.2",
+      "version": "0.3.3",
       "author": {
         "name": "DEVECTUS Pty Ltd",
         "url": "https://devectus.com.au/"
