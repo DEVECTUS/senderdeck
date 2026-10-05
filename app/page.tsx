@@ -81,9 +81,12 @@ export default async function Home() {
             Microsoft 365. Nothing sends until the sender, recipients, subject,
             and attachments are explicitly confirmed.
           </p>
-          <a className="primary hero-action" href={senderDeckSignInPath("/settings")}>
-            Sign in to manage accounts
-          </a>
+          <div className="hero-actions">
+            <a className="primary" href={senderDeckSignInPath("/settings")}>
+              Sign in to manage accounts
+            </a>
+            <Link className="secondary dark" href="/install">Install for Codex or Claude</Link>
+          </div>
         </section>
       )}
 
@@ -174,6 +177,7 @@ export default async function Home() {
             <Link href="/terms">Terms</Link>
             <Link href="/security">Security</Link>
             <Link href="/support">Support</Link>
+            <Link href="/install">Install</Link>
             <Link href="/settings">Configuration</Link>
           </div>
         </div>

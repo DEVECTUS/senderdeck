@@ -1,5 +1,4 @@
-const pluginDeepLink =
-  "codex://plugins/senderdeck?marketplacePath=C%3A%5CUsers%5Cbarsh%5C.agents%5Cplugins%5Cmarketplace.json";
+import Link from "next/link";
 
 export default function CodexSetup() {
   return (
@@ -24,39 +23,26 @@ export default function CodexSetup() {
         <li>
           <span className="step-number">02</span>
           <div>
-            <h3>Install or refresh the Codex plugin</h3>
-            <p>Open SenderDeck from your Personal marketplace and select Install or reinstall it.</p>
-            <a className="setup-plugin-link" href={pluginDeepLink}>Open SenderDeck in Codex</a>
-            <p className="setup-fallback">
-              If the button does not open the app: open <strong>Plugins</strong>, choose
-              <strong> Personal</strong>, then select <strong>SenderDeck</strong>.
+            <h3>Choose your AI client</h3>
+            <p>
+              Follow the public setup guide for Codex, ChatGPT, Claude Code, or Claude on the web.
+              It includes the exact marketplace commands and connector URL.
             </p>
+            <Link className="setup-plugin-link" href="/install">Open installation guide</Link>
           </div>
         </li>
         <li>
           <span className="step-number">03</span>
           <div>
-            <h3>Start a new Codex task</h3>
-            <p>New tasks load the latest plugin tools. Ask Codex to list your connected SenderDeck accounts.</p>
-            <blockquote>“List my connected SenderDeck email accounts.”</blockquote>
-          </div>
-        </li>
-        <li>
-          <span className="step-number">04</span>
-          <div>
-            <h3>Use SenderDeck in Claude</h3>
-            <p>
-              In Claude Code, add <strong>DEVECTUS/senderdeck</strong> as a plugin marketplace,
-              install <strong>senderdeck@devectus-senderdeck</strong>, then authenticate from the MCP panel.
-              In Claude.ai, add the production MCP URL as a custom connector.
-            </p>
+            <h3>Start a new task</h3>
+            <p>New tasks load the latest plugin tools. Ask your AI client to confirm the connection.</p>
             <blockquote>“List my connected SenderDeck email accounts.”</blockquote>
           </div>
         </li>
       </ol>
 
       <p className="setup-disclaimer">
-        This browser page cannot inspect your local Codex installation. Successful account connections
+        This browser page cannot inspect your local Codex or Claude installation. Account connections
         and plugin installation are shown separately so a problem is easier to diagnose.
       </p>
     </section>
