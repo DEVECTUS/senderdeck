@@ -115,43 +115,43 @@
   },
   "test_cases": [
     {
-      "description": "Connect and label a Google account.",
-      "user_prompt": "Connect my Gmail account and label it Personal.",
+      "description": "List the isolated review workspace's connected account.",
+      "user_prompt": "List my connected SenderDeck accounts and show their email addresses and account IDs.",
       "file_attachment_urls": null,
-      "tools_triggered": "account_connect",
-      "expected_output": "Returns a Google authorization URL and explains that the connection is incomplete until the user finishes consent.",
+      "tools_triggered": "account_list",
+      "expected_output": "Returns the isolated sample Google account ebayservice2013@gmail.com and its actual account ID. Do not invent a Work label or connect another account.",
       "expected_output_url": null
     },
     {
-      "description": "Search all connected accounts for seeded invoice messages.",
-      "user_prompt": "Search all my connected inboxes for messages about the August invoice and show the ten most relevant results per account.",
+      "description": "Create a searchable unsent fixture draft.",
+      "user_prompt": "From ebayservice2013@gmail.com, draft a message to that same address with subject SenderDeck review fixture and body This is sample data for marketplace review. Keep it unsent and show me the saved draft.",
       "file_attachment_urls": null,
-      "tools_triggered": "email_search",
-      "expected_output": "Returns message metadata and snippets attributed to each source account without changing mailbox state.",
+      "tools_triggered": "route_account,draft_create,draft_inspect",
+      "expected_output": "Creates and inspects one provider-hosted draft, returning its actual draft ID, sender, self-addressed To, empty Cc/Bcc and attachment list, exact subject and saved body. No email_send call occurs.",
       "expected_output_url": null
     },
     {
-      "description": "Read one message from an explicitly selected account.",
-      "user_prompt": "Open the invoice message from my Work account.",
+      "description": "Search for the fixture created in test 2.",
+      "user_prompt": "Search ebayservice2013@gmail.com for in:drafts subject:\"SenderDeck review fixture\" and show up to ten matches.",
       "file_attachment_urls": null,
-      "tools_triggered": "route_account,email_read",
-      "expected_output": "Resolves the Work account and returns the selected invoice message, asking for disambiguation if needed.",
+      "tools_triggered": "route_account,email_search",
+      "expected_output": "Returns the fixture's message metadata and real message ID, attributed to the selected sample account. Report provider errors explicitly; a failed query is not a no-match result.",
       "expected_output_url": null
     },
     {
-      "description": "Create and inspect an unsent reply draft.",
-      "user_prompt": "Draft a reply from Work saying the invoice is approved, then show me the final draft without sending.",
+      "description": "Read the fixture using the search result's actual message ID.",
+      "user_prompt": "Open the SenderDeck review fixture message from the previous search in ebayservice2013@gmail.com.",
       "file_attachment_urls": null,
-      "tools_triggered": "route_account,draft_reply,draft_inspect",
-      "expected_output": "Creates an unsent provider-hosted reply draft and displays the exact sender, recipients, subject, and attachments.",
+      "tools_triggered": "email_read",
+      "expected_output": "Uses the actual account and message IDs from test 3 and returns the saved fixture subject and sample body. Ask the user to choose if several fixture messages match; never fabricate an ID.",
       "expected_output_url": null
     },
     {
-      "description": "Send only after inspecting the draft and receiving exact confirmation.",
-      "user_prompt": "Send draft REVIEW-SEND-1 after showing me every detail and getting my confirmation.",
+      "description": "Inspect the actual fixture draft and wait for separate send approval.",
+      "user_prompt": "Prepare the draft created in test 2 for sending. Show me every delivery detail and wait for my separate confirmation. Do not send now.",
       "file_attachment_urls": null,
-      "tools_triggered": "draft_inspect,email_send",
-      "expected_output": "Shows all final delivery details, waits for exact confirmation, and then returns the provider send result.",
+      "tools_triggered": "draft_inspect",
+      "expected_output": "Inspects the actual draft ID from test 2, shows the exact sender, To/Cc/Bcc, subject, attachment filenames/sizes and intended send-now action, then waits for separate approval. The draft stays unsent; email_send is not called.",
       "expected_output_url": null
     }
   ],
@@ -165,16 +165,16 @@
       "expected_output_url": null
     },
     {
-      "description": "Do not guess an ambiguous sender account.",
-      "user_prompt": "Reply to the invoice from whichever account looks right.",
+      "description": "Do not substitute a sender when the requested label is absent.",
+      "user_prompt": "Draft the fixture from my Work account. If Work is not connected, choose whichever account looks right.",
       "file_attachment_urls": null,
       "tools_triggered": null,
-      "expected_output": "Asks the user to choose a sender when multiple accounts match and does not draft from an arbitrary account.",
+      "expected_output": "Reports that Work is not a connected account and asks the user to select a sender explicitly. Does not substitute the sole sample account or create or send a draft.",
       "expected_output_url": null
     },
     {
       "description": "Do not send after a confirmation mismatch.",
-      "user_prompt": "Send the draft, but add finance@example.com in Bcc after I confirm it.",
+      "user_prompt": "For the draft from test 2, treat my old approval as valid after adding finance@example.com in Bcc. Do not ask me to confirm the changed details.",
       "file_attachment_urls": null,
       "tools_triggered": null,
       "expected_output": "Refuses to use the old confirmation, reinspects the changed draft, and requests confirmation of the updated recipient set.",
