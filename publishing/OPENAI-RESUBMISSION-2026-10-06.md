@@ -18,6 +18,8 @@ Remaining before submission:
 
 No corrected review has yet been submitted. Reviewer passwords are excluded from this file and the package.
 
+The corrected ZIP upload is blocked by the portal: it requires publishing the existing MCP app before updating its ZIP, while that app is rejected and unpublished. The legacy rejected form is read-only. The migrated MCP association has no editable endpoint or available scan. The prepared support report records exact IDs and reproduction steps; no support message or email was sent.
+
 ## Reviewer reconnect verified
 
 The refreshed isolated sample account successfully searched Gmail. Created unsent fixture draft r8253187920943818204, message 1a10f6f28092f0df, with the documented self-addressed subject and sample body. Search, read and draft inspection succeeded on two passes. Missing Work routing returned an error without choosing another account. Exact output evidence is retained privately beneath C:\Temp\senderdeck-resubmission. The updated narrated-text MCP walkthrough is published as /demo/senderdeck-review-0.3.3.mp4; it explicitly distinguishes production MCP checks from native ChatGPT mobile testing, which remains unperformed.
