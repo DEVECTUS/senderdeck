@@ -17,3 +17,8 @@ Remaining before submission:
 - Upload the corrected ZIP to the existing plugin, confirm imported review information, and submit after resolving any required findings or unverifiable attestations.
 
 No corrected review has yet been submitted. Reviewer passwords are excluded from this file and the package.
+
+## Reviewer reconnect verified
+
+The refreshed isolated sample account successfully searched Gmail. Created unsent fixture draft r8253187920943818204, message 1a10f6f28092f0df, with the documented self-addressed subject and sample body. Search, read and draft inspection succeeded on two passes. Missing Work routing returned an error without choosing another account. Exact output evidence is retained privately beneath C:\Temp\senderdeck-resubmission. The updated narrated-text MCP walkthrough is published as /demo/senderdeck-review-0.3.3.mp4; it explicitly distinguishes production MCP checks from native ChatGPT mobile testing, which remains unperformed.
+

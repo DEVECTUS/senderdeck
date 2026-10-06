@@ -24,7 +24,7 @@ manifest.extensions = { "com.openai": {
   review: {
     test_cases: { positive: submission.test_cases.map(convert), negative: submission.negative_test_cases.map(convert) },
     commerce: false,
-    demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-publication-demo.mp4",
+    demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
   publication: { release_notes: "Version 0.3.3 reports revoked provider authorization explicitly, distinguishes failed searches from no matches, supports MCP OAuth resource discovery paths, and uses real account and draft IDs in review scenarios. Drafts remain unsent until separate exact confirmation." },
 } };
