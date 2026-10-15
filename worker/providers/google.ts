@@ -349,7 +349,10 @@ export async function updateGoogleDraft(
   assertDraftRevision((await getGoogleDraft(env, account, draftId)).revision, input.expectedRevision);
   await providerJson(`${GMAIL}/drafts/${encodeURIComponent(draftId)}`, token, {
     method: "PUT",
-    body: JSON.stringify({ id: draftId, message: { raw, threadId: current.threadId } }),
+    // The stable draft container, its current message and the conversation have
+    // distinct IDs. Bind the replacement to the inspected draft message, never
+    // the original (potentially received/sent) message at the head of the thread.
+    body: JSON.stringify({ id: draftId, message: { id: current.messageId, raw, threadId: current.threadId } }),
   });
   return getGoogleDraft(env, account, draftId);
 }

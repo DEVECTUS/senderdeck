@@ -240,3 +240,8 @@ After reloading, list accounts, select the owning account and authorised alias,
 create an unsent draft with `from`, and inspect its `sender`/`fromHeader` before
 preparing any separate send confirmation. Do not assume an alias is authorised
 merely because its domain belongs to the same organisation.
+
+Version 0.3.5 includes the currently inspected draft message ID in Gmail update
+requests, separately from the stable draft ID and conversation ID. Repeated edits
+use the newly returned message ID. Provider errors identify the failing HTTP
+method and endpoint without including credentials or request bodies.

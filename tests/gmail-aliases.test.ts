@@ -67,6 +67,11 @@ async function harness(t: TestContext) {
     assert.match(url, /\/drafts(?:\/draft)?(?:\?|$)/);
     if (method !== "GET") {
       assert.ok(method === "POST" || method === "PUT");
+      if (method === "PUT") {
+        assert.equal(body.id, "draft");
+        assert.equal(body.message.id, `message-${state.version}`);
+        assert.notEqual(body.message.id, body.message.threadId);
+      }
       state.raw = decodeBase64Url(body.message.raw); state.version++;
       return Response.json({ id: "draft", message: { id: `message-${state.version}`, threadId: "thread" } });
     }

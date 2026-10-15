@@ -293,7 +293,7 @@ export async function handleMcp(request: Request, env: Env): Promise<Response | 
       return rpcResult(rpc.id, {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "senderdeck", version: "0.3.4" },
+        serverInfo: { name: "senderdeck", version: "0.3.5" },
         instructions:
           "List connected accounts and use their actual account and message/draft IDs. Gmail senderIdentities are nested under the owning accountId. Select a user-chosen alias explicitly with from; inspect the saved sender and fromHeader. Never invent labels or IDs or infer a sender. Ask the user to select a connected sender if the requested account is absent or ambiguous. Report provider failures and reconnection instructions; do not treat a failed search as no matches. Never harvest recipients or perform bulk, automatic or scheduled sending. Drafts never send automatically. Before email_send, inspect the current draft and show sender, To, Cc, Bcc, subject, attachment filenames/sizes and whether it will send now. Wait for a separate explicit send confirmation of these unchanged details; any edit invalidates previous approval.",
       });

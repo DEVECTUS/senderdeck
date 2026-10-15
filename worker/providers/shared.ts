@@ -12,7 +12,7 @@ export async function providerJson<T>(
   const response = await fetch(url, { ...init, headers });
   if (!response.ok) {
     const detail = (await response.text()).slice(0, 800);
-    throw new HttpError(response.status, `Email provider request failed (${response.status}): ${detail}`);
+    throw new HttpError(response.status, `Email provider request failed (${response.status}) during ${init.method || "GET"} ${new URL(url).pathname}: ${detail}`);
   }
   if (response.status === 202 || response.status === 204) return undefined as T;
   return (await response.json()) as T;

@@ -76,6 +76,7 @@ async function harness(t: TestContext, provider: Provider) {
       assert.match(url, /\/drafts\/draft(?:\?|$)/);
       if (method === "PUT") {
         assert.equal(body.id, "draft"); assert.equal(body.message.threadId, "thread");
+        assert.equal(body.message.id, `message-${state.version}`);
         state.raw = decodeBase64Url(body.message.raw); state.version++;
       }
       if (state.raceOnRaw && url.includes("format=raw")) state.version++;
