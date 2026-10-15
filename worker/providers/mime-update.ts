@@ -1,4 +1,5 @@
 import { HttpError } from "../auth";
+import { senderAddress } from "../sender-address";
 import type { DraftUpdateInput } from "../mail-types";
 import { attachmentPart, multipart, textPart, encodeBase64Url } from "./shared";
 
@@ -107,6 +108,13 @@ function removeAttachments(part: Part): void {
 export function updateRawMime(rawBase64Url: string, input: DraftUpdateInput): string {
   const binary = atob(rawBase64Url.replaceAll("-", "+").replaceAll("_", "/"));
   const root = parse(binary);
+  if (input.from !== undefined) {
+    setHeader(root, "From", senderAddress(input.from));
+    // These describe the previous transmission identity, not the newly chosen
+    // From. Gmail supplies transport headers when sending the saved draft.
+    setHeader(root, "Sender");
+    setHeader(root, "Return-Path");
+  }
   const contentEdit = input.bodyText !== undefined || input.bodyHtml !== undefined || input.attachments !== undefined;
   if (contentEdit) {
     ensureEditable(root);

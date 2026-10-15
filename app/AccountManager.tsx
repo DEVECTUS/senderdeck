@@ -10,6 +10,8 @@ interface Account {
   email: string;
   label: string;
   connectedAt: string;
+  senderIdentities?: Array<{ email: string; isPrimary: boolean; isDefault: boolean }>;
+  senderDiscoveryError?: string;
 }
 
 interface AccountResponse {
@@ -109,7 +111,8 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
           <h2 id="connections-title">Connected identities</h2>
           <p className="connections-intro">
             This workspace belongs to <strong>{userEmail}</strong>. Every card below is an
-            independent email account and sender identity. Connect up to {limit}.
+            independent email account. Connect up to {limit}. Authorised Gmail aliases appear
+            beneath their owning account and share that connection.
           </p>
         </div>
         <div className="connection-summary">
@@ -158,9 +161,23 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
                     <strong>{account.label}</strong>
                     <span>{account.email}</span>
                     <small>
-                      Active sender · {account.provider === "google" ? "Google" : "Microsoft"} · Connected{" "}
+                      Primary address · {account.provider === "google" ? "Google" : "Microsoft"} · Connected{" "}
                       {new Date(account.connectedAt).toLocaleDateString()}
                     </small>
+                    {account.provider === "google" ? (
+                      <div className="sender-aliases">
+                        <small>Authorised send-as aliases</small>
+                        {account.senderDiscoveryError ? (
+                          <p role="status">Could not verify aliases: {account.senderDiscoveryError}</p>
+                        ) : account.senderIdentities?.some((identity) => !identity.isPrimary) ? (
+                          <ul>
+                            {account.senderIdentities.filter((identity) => !identity.isPrimary).map((identity) => (
+                              <li key={identity.email}>{identity.email}{identity.isDefault ? " · Gmail default" : ""}</li>
+                            ))}
+                          </ul>
+                        ) : <p>No verified aliases found.</p>}
+                      </div>
+                    ) : null}
                   </>
                 )}
               </div>

@@ -1,0 +1,748 @@
+{
+  "tools": [
+    {
+      "name": "account_connect",
+      "description": "Start a user-driven OAuth connection for a Google/Gmail or Microsoft/Outlook account. Returns a URL the user must open.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "google",
+              "microsoft"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "description": "A short user-facing label such as Work or Personal."
+          }
+        },
+        "required": [
+          "provider",
+          "label"
+        ],
+        "additionalProperties": false
+      },
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "senderdeck"
+          ]
+        }
+      ],
+      "annotations": {
+        "title": "Connect an email account",
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "account_list",
+      "description": "List connected accounts with senderIdentities nested under their owning account. Google identities are fetched live from Gmail sendAs: primary plus accepted aliases only. Aliases share the owner's accountId, never a separate OAuth account. Report senderDiscoveryError; do not infer missing aliases.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "senderdeck"
+          ]
+        }
+      ],
+      "annotations": {
+        "title": "List connected accounts",
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "account_label",
+      "description": "Change the local routing label for a connected account.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountId",
+          "label"
+        ],
+        "additionalProperties": false
+      },
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "senderdeck"
+          ]
+        }
+      ],
+      "annotations": {
+        "title": "Rename an account",
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "account_disconnect",
+      "description": "Disconnect an account and delete its encrypted tokens. Requires explicit confirmation.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "confirmed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accountId",
+          "confirmed"
+        ],
+        "additionalProperties": false
+      },
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "senderdeck"
+          ]
+        }
+      ],
+      "annotations": {
+        "title": "Disconnect an account",
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "route_account",
+      "description": "Resolve a label, primary email or exact authorised Gmail alias to one owning account. Exact email matches return selectedFrom; pass it explicitly as from when drafting. Never guesses when multiple accounts match.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "hint": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "google",
+              "microsoft"
+            ]
+          }
+        },
+        "required": [
+          "hint"
+        ],
+        "additionalProperties": false
+      },
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "senderdeck"
+          ]
+        }
+      ],
+      "annotations": {
+        "title": "Choose a sender account",
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "email_search",
+      "description": "Search email on demand across selected connected accounts. Report per-account errors; failed searches do not mean there are no matching messages. No mailbox content is indexed or retained.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Provider-supported email search terms."
+          },
+          "accountIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "maxResultsPerAccount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "senderdeck"
+          ]
+        }
+      ],
+      "annotations": {
+        "title": "Search email",
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "email_read",
+      "description": "Read one message from one explicitly selected account on demand.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "messageId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountId",
+          "messageId"
+        ],
+        "additionalProperties": false
+      },
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "senderdeck"
+          ]
+        }
+      ],
+      "annotations": {
+        "title": "Read an email",
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "draft_create",
+      "description": "Create a provider-hosted email draft. This does not send. Optional from selects a current authorised Gmail send-as identity under accountId; omission uses the connected primary address. Optional attachment bytes are passed directly to the provider.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "description": "One bare sender email. For Google, choose a current senderIdentities email from account_list under this accountId; only Gmail primary/accepted aliases are allowed. Omission uses the connected primary on create/reply and preserves saved From on update. Microsoft permits only its connected primary. Changing From invalidates all prior send approval."
+          },
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subject": {
+            "type": "string"
+          },
+          "bodyText": {
+            "type": "string",
+            "description": "Plain-text body or fallback matching bodyHtml, including signature text."
+          },
+          "bodyHtml": {
+            "type": "string",
+            "description": "Optional complete HTML body with formatting and sender signature. Prefer for rich email. Signatures are not automatically inserted. Use cid: references for embedded images."
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "filename": {
+                  "type": "string"
+                },
+                "contentType": {
+                  "type": "string"
+                },
+                "contentBase64": {
+                  "type": "string",
+                  "description": "Base64 bytes; passed directly to the provider."
+                },
+                "contentId": {
+                  "type": "string",
+                  "description": "For inline images: unique bare content ID, e.g. logo@signature, referenced as src=\"cid:logo@signature\" in bodyHtml. Omit for regular attachments."
+                }
+              },
+              "required": [
+                "filename",
+                "contentType",
+                "contentBase64"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "accountId",
+          "to",
+          "subject",
+          "bodyText"
+        ],
+        "additionalProperties": false
+      },
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "senderdeck"
+          ]
+        }
+      ],
+      "annotations": {
+        "title": "Create an email draft",
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "draft_reply",
+      "description": "Create a provider-hosted reply draft for a message. This does not send. Optional from selects a current authorised Gmail send-as identity under accountId; omission uses the connected primary address.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "description": "One bare sender email. For Google, choose a current senderIdentities email from account_list under this accountId; only Gmail primary/accepted aliases are allowed. Omission uses the connected primary on create/reply and preserves saved From on update. Microsoft permits only its connected primary. Changing From invalidates all prior send approval."
+          },
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subject": {
+            "type": "string"
+          },
+          "bodyText": {
+            "type": "string",
+            "description": "Plain-text body or fallback matching bodyHtml, including signature text."
+          },
+          "bodyHtml": {
+            "type": "string",
+            "description": "Optional complete HTML body with formatting and sender signature. Prefer for rich email. Signatures are not automatically inserted. Use cid: references for embedded images."
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "filename": {
+                  "type": "string"
+                },
+                "contentType": {
+                  "type": "string"
+                },
+                "contentBase64": {
+                  "type": "string",
+                  "description": "Base64 bytes; passed directly to the provider."
+                },
+                "contentId": {
+                  "type": "string",
+                  "description": "For inline images: unique bare content ID, e.g. logo@signature, referenced as src=\"cid:logo@signature\" in bodyHtml. Omit for regular attachments."
+                }
+              },
+              "required": [
+                "filename",
+                "contentType",
+                "contentBase64"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "messageId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountId",
+          "messageId",
+          "bodyText"
+        ],
+        "additionalProperties": false
+      },
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "senderdeck"
+          ]
+        }
+      ],
+      "annotations": {
+        "title": "Create a reply draft",
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "draft_update",
+      "description": "Edit an existing draft in place; never sends or creates another draft. Inspect first and pass expectedRevision. Optional from selects a current authorised Gmail identity; omission preserves saved From and empty from is invalid. Other omitted fields are preserved; empty strings/arrays clear requested values. attachments replaces ALL files, including inline images. Outlook has one body: use bodyHtml for HTML drafts, or bodyHtml: empty string plus bodyText to explicitly switch to text.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "description": "One bare sender email. For Google, choose a current senderIdentities email from account_list under this accountId; only Gmail primary/accepted aliases are allowed. Omission uses the connected primary on create/reply and preserves saved From on update. Microsoft permits only its connected primary. Changing From invalidates all prior send approval."
+          },
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subject": {
+            "type": "string"
+          },
+          "bodyText": {
+            "type": "string",
+            "description": "Selective plain-text update. Gmail preserves omitted HTML. Outlook HTML drafts require bodyHtml edits, or bodyHtml: empty string plus bodyText to explicitly switch to text."
+          },
+          "bodyHtml": {
+            "type": "string",
+            "description": "Selective HTML update including signature. Empty string clears HTML content; omission preserves it. Outlook stores only one body format."
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "filename": {
+                  "type": "string"
+                },
+                "contentType": {
+                  "type": "string"
+                },
+                "contentBase64": {
+                  "type": "string",
+                  "description": "Base64 bytes; passed directly to the provider."
+                },
+                "contentId": {
+                  "type": "string",
+                  "description": "For inline images: unique bare content ID, e.g. logo@signature, referenced as src=\"cid:logo@signature\" in bodyHtml. Omit for regular attachments."
+                }
+              },
+              "required": [
+                "filename",
+                "contentType",
+                "contentBase64"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Replaces ALL saved attachments, including inline images. Omit to preserve them; [] removes all."
+          },
+          "draftId": {
+            "type": "string"
+          },
+          "expectedRevision": {
+            "type": "string",
+            "description": "Revision returned by draft_inspect; stale updates fail."
+          }
+        },
+        "required": [
+          "accountId",
+          "draftId",
+          "expectedRevision"
+        ],
+        "additionalProperties": false
+      },
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "senderdeck"
+          ]
+        }
+      ],
+      "annotations": {
+        "title": "Update an email draft",
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "draft_inspect",
+      "description": "Re-read saved body, formatting, thread metadata, exact effective sender address, Gmail fromHeader, recipients, subject, attachments and revision. sender may be a Gmail alias under accountId. Inspect immediately before requesting fresh send confirmation.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "draftId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountId",
+          "draftId"
+        ],
+        "additionalProperties": false
+      },
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "senderdeck"
+          ]
+        }
+      ],
+      "annotations": {
+        "title": "Inspect an email draft",
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "email_send",
+      "description": "Send one existing draft only after a separate explicit confirmation of its exact sender, recipients, subject, attachments and inspected revision. Revalidates Gmail From against current authorised sendAs identities and rechecks the revision; revoked aliases or changed drafts fail. Never bulk or automatic send.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "draftId": {
+            "type": "string"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "const": true
+          },
+          "confirmation": {
+            "type": "object",
+            "properties": {
+              "revision": {
+                "type": "string",
+                "description": "Copy revision from the immediately preceding draft_inspect. Any edit invalidates earlier approval."
+              },
+              "sender": {
+                "type": "string"
+              },
+              "to": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "cc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "bcc": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "subject": {
+                "type": "string"
+              },
+              "attachments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "filename": {
+                      "type": "string"
+                    },
+                    "size": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "filename",
+                    "size"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "revision",
+              "sender",
+              "to",
+              "cc",
+              "bcc",
+              "subject",
+              "attachments"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "accountId",
+          "draftId",
+          "confirmed",
+          "confirmation"
+        ],
+        "additionalProperties": false
+      },
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "senderdeck"
+          ]
+        }
+      ],
+      "annotations": {
+        "title": "Send a confirmed email",
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      }
+    },
+    {
+      "name": "attachment_list",
+      "description": "List attachment metadata for one message without downloading bytes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "messageId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountId",
+          "messageId"
+        ],
+        "additionalProperties": false
+      },
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "senderdeck"
+          ]
+        }
+      ],
+      "annotations": {
+        "title": "List email attachments",
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      }
+    },
+    {
+      "name": "attachment_download",
+      "description": "Download one attachment on demand as base64 after configured size and security checks. The service does not retain it.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "messageId": {
+            "type": "string"
+          },
+          "attachmentId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "accountId",
+          "messageId",
+          "attachmentId"
+        ],
+        "additionalProperties": false
+      },
+      "securitySchemes": [
+        {
+          "type": "oauth2",
+          "scopes": [
+            "senderdeck"
+          ]
+        }
+      ],
+      "annotations": {
+        "title": "Download an email attachment",
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      }
+    }
+  ]
+}

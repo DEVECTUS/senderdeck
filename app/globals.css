@@ -776,3 +776,6 @@ footer > div:last-child { text-align: right; }
   .install-finish { grid-template-columns: 1fr; }
   .install-prerequisite .primary { grid-column: auto; justify-self: stretch; }
 }
+.sender-aliases { margin-top: 0.65rem; padding-left: 0.85rem; border-left: 2px solid #b5c4c0; }
+.sender-aliases ul { margin: 0.3rem 0 0; padding-left: 1.1rem; }
+.sender-aliases li, .sender-aliases p { margin: 0.2rem 0; font-size: 0.85rem; overflow-wrap: anywhere; }

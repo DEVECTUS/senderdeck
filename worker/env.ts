@@ -72,4 +72,15 @@ export interface AccountView {
   label: string;
   scopes: string[];
   connectedAt: string;
+  senderIdentities?: SenderIdentity[];
+  senderDiscoveryError?: string;
+  /** Present only when routing an exact sender email, not a label. */
+  selectedFrom?: string;
+}
+
+export interface SenderIdentity {
+  email: string;
+  displayName: string;
+  isPrimary: boolean;
+  isDefault: boolean;
 }

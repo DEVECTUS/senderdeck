@@ -58,7 +58,7 @@ for (const provider of ["google", "microsoft"] as const) {
           assert.doesNotMatch(url, /\/send$/);
           if (provider === "google") {
             if (url.includes("/messages/original")) return Response.json({ id: "original", threadId: "thread", payload: { headers: [{ name: "From", value: "to@example.com" }, { name: "Subject", value: "Test" }, { name: "Message-ID", value: "<original@example.com>" }] } });
-            return Response.json({ id: "draft", message: { id: "message", payload: { headers: [], parts: rich ? [{ filename: "logo.png", mimeType: "image/png", headers: [{ name: "Content-ID", value: "<logo@signature>" }], body: { attachmentId: "image", size: 5 } }] : [] } } });
+            return Response.json({ id: "draft", message: { id: "message", payload: { headers: [{ name: "From", value: account.email }], parts: rich ? [{ filename: "logo.png", mimeType: "image/png", headers: [{ name: "Content-ID", value: "<logo@signature>" }], body: { attachmentId: "image", size: 5 } }] : [] } } });
           }
           if (url.includes("/attachments")) return Response.json({ value: rich ? [{ id: "image", name: "logo.png", size: 5, isInline: true, contentId: "logo@signature" }] : [] });
           // Graph hasAttachments is false for inline-only messages.

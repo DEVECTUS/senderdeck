@@ -15,6 +15,19 @@ Use connected accounts deliberately. Never infer a sender when more than one acc
 4. If routing is ambiguous, show the matching labels and addresses and ask the user to choose. Do not pick the first result.
 5. State the chosen sender identity when presenting a draft.
 
+Google accounts include live `senderIdentities`: the primary address and Gmail-accepted
+send-as aliases. An alias belongs to its owning `accountId`; it is not a separate OAuth
+connection and does not count toward the account limit. Never infer alias permission
+from a domain, display name, recipient, signature, or previous email. Report
+`senderDiscoveryError` and resolve it before selecting an alias.
+
+When the user chooses an alias, pass its bare email explicitly as `from` to
+`draft_create`, `draft_reply`, or `draft_update`, with the owning `accountId`.
+`route_account` returns `selectedFrom` for exact email routing; carry it into `from`.
+Creation without `from` uses the connected primary address, even if Gmail has a
+different default. Update without `from` preserves the saved identity; empty `from`
+is invalid. Microsoft alias selection is not supported.
+
 ## Read and draft
 
 - Fetch messages only when needed with `email_search` and `email_read`.
@@ -39,13 +52,18 @@ Use connected accounts deliberately. Never infer a sender when more than one acc
 
 1. Call `draft_inspect` immediately before requesting send approval.
 2. Present the exact:
-   - sender account and address;
+   - owning sender account and the exact inspected `sender` address (which may be an alias), plus Gmail `fromHeader` when present;
    - To, Cc, and Bcc recipients;
    - subject;
    - attachment filenames and sizes, including an explicit `none` when empty.
-3. Ask for an unambiguous confirmation to send those exact details.
+3. State whether this is an unsent draft or will send now. Ask for a separate, unambiguous confirmation to send those exact details.
 4. Call `email_send` only after that confirmation, with `confirmed: true` and a confirmation object copied from the inspected draft, including its `revision`. Obtain fresh explicit approval after every edit.
 5. If the tool reports that the draft changed, inspect it again and obtain a new confirmation.
+
+Gmail aliases are revalidated before sending. A removed or unverified alias fails;
+never silently replace it with the primary sender. Changing From, even with unchanged
+recipients and body, invalidates earlier approval. Do not send until the user has
+confirmed the exact effective sender and all other details again.
 
 Never send automatically, on a timer, as part of a bulk operation, or based on an earlier general instruction.
 

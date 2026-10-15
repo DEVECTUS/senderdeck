@@ -1,4 +1,6 @@
 import { HttpError } from "../auth";
+import { inspectedSender } from "../sender-address";
+import { authorisedGoogleSender } from "./google-senders";
 import { sha256Base64Url } from "../crypto";
 import { updateRawMime } from "./mime-update";
 import type { Env, StoredAccount } from "../env";
@@ -92,8 +94,8 @@ export async function createGoogleDraft(
   const token = await getAccessToken(env, account);
   const raw = encodeBase64Url(
     buildMime({
-      from: account.email,
       ...input,
+      from: input.from === undefined ? account.email : await authorisedGoogleSender(token, account, input.from),
     }),
   );
   const draft = await providerJson<GmailDraft>(`${GMAIL}/drafts`, token, {
@@ -111,6 +113,7 @@ export async function createGoogleReplyDraft(
 ): Promise<DraftDetail> {
   validateAttachments(env, input.attachments);
   const token = await getAccessToken(env, account);
+  const from = input.from === undefined ? account.email : await authorisedGoogleSender(token, account, input.from);
   const original = await providerJson<GmailMessage>(
     `${GMAIL}/messages/${encodeURIComponent(messageId)}?format=full`,
     token,
@@ -122,7 +125,7 @@ export async function createGoogleReplyDraft(
   const references = [headers.references, messageIdHeader].filter(Boolean).join(" ");
   const raw = encodeBase64Url(
     buildMime({
-      from: account.email,
+      from,
       to,
       cc: input.cc,
       bcc: input.bcc,
@@ -164,7 +167,7 @@ export async function getGoogleDraft(
     accountId: account.id,
     provider: "google",
     draftId: draft.id,
-    sender: headers.from?.match(/<([^>]+)>/)?.[1] || headers.from || account.email,
+    ...inspectedSender(draft.message.payload?.headers),
     to: splitAddresses(headers.to),
     cc: splitAddresses(headers.cc),
     bcc: splitAddresses(headers.bcc),
@@ -183,8 +186,14 @@ export async function sendGoogleDraft(
   env: Env,
   account: StoredAccount,
   draftId: string,
+  inspected: DraftDetail,
 ): Promise<{ messageId: string; threadId?: string }> {
+  if (inspected.accountId !== account.id || inspected.draftId !== draftId) throw new HttpError(409, "Draft inspection belongs to another account or draft.");
   const token = await getAccessToken(env, account);
+  await authorisedGoogleSender(token, account, inspected.sender);
+  // Alias lookup is a separate request. Recheck the full revision after it so
+  // an intervening mailbox edit cannot reuse the prior exact-details approval.
+  assertDraftRevision((await getGoogleDraft(env, account, draftId)).revision, inspected.revision);
   const sent = await providerJson<GmailMessage>(`${GMAIL}/drafts/send`, token, {
     method: "POST",
     body: JSON.stringify({ id: draftId }),
@@ -330,6 +339,10 @@ export async function updateGoogleDraft(
   const draft = await providerJson<GmailDraft>(`${GMAIL}/drafts/${encodeURIComponent(draftId)}?format=raw`, token);
   if (draft.message.id !== current.messageId) throw new HttpError(409, "The draft changed while reading it. Inspect it again.");
   if (!draft.message.raw) throw new HttpError(502, "Gmail did not return the raw draft; no changes were made.");
+  const from = input.from === undefined ? current.sender : input.from;
+  if (input.from !== undefined || from !== account.email.toLowerCase()) {
+    await authorisedGoogleSender(token, account, from);
+  }
   const raw = updateRawMime(draft.message.raw, input);
   // Gmail does not expose an atomic revision precondition for drafts.update.
   // Recheck immediately before PUT, while retaining the same provider draft ID.

@@ -1,6 +1,7 @@
 import { decrypt, encrypt } from "./crypto";
 import type { AccountView, Env, Provider, StoredAccount } from "./env";
 import { HttpError } from "./auth";
+import { listGoogleSenders } from "./providers/google-senders";
 
 const MAX_ACCOUNTS = 10;
 
@@ -15,13 +16,25 @@ function accountView(account: StoredAccount): AccountView {
   };
 }
 
+async function accountWithSenders(env: Env, account: StoredAccount): Promise<AccountView> {
+  const view = accountView(account);
+  if (account.provider !== "google") return { ...view, senderIdentities: [{ email: account.email, displayName: "", isPrimary: true, isDefault: true }] };
+  try {
+    return { ...view, senderIdentities: await listGoogleSenders(await getAccessToken(env, account)) };
+  } catch (error) {
+    // Keep the owning connection visible so it can be reconnected/disconnected.
+    // A failed discovery must never advertise stale or unverified aliases.
+    return { ...view, senderIdentities: [], senderDiscoveryError: error instanceof Error ? error.message : "Gmail sender discovery failed." };
+  }
+}
+
 export async function listAccounts(env: Env, userId: string): Promise<AccountView[]> {
   const result = await env.DB.prepare(
     `SELECT * FROM email_accounts WHERE user_id = ? ORDER BY created_at ASC`,
   )
     .bind(userId)
     .all<StoredAccount>();
-  return result.results.map(accountView);
+  return Promise.all(result.results.map((account) => accountWithSenders(env, account)));
 }
 
 export async function getAccount(
@@ -67,19 +80,29 @@ export async function routeAccount(
   const accounts = (await resolveAccounts(env, userId)).filter(
     (account) => !provider || account.provider === provider,
   );
+  // Exact email routing includes aliases across every owning Google account.
+  // Do not resolve to the first account when the same alias belongs to two.
+  if (normalizedHint.includes("@")) {
+    const views = await Promise.all(accounts.map((account) => accountWithSenders(env, account)));
+    const matches = views.filter((account) => account.email.toLowerCase() === normalizedHint || account.senderIdentities?.some((identity) => identity.email.toLowerCase() === normalizedHint));
+    if (views.some((account) => account.senderDiscoveryError)) throw new HttpError(503, "Could not verify all sender identities. Use account_list to resolve provider errors and choose an explicit accountId and from address.");
+    if (matches.length === 1) return { ...matches[0], selectedFrom: normalizedHint };
+    if (matches.length > 1) throw new HttpError(409, "The sender address belongs to multiple accounts. Ask the user to select an account ID explicitly.");
+    throw new HttpError(404, "No account or authorised sender alias matches that address.");
+  }
   const exact = accounts.filter(
     (account) =>
       account.id.toLowerCase() === normalizedHint ||
       account.email.toLowerCase() === normalizedHint ||
       account.label.toLowerCase() === normalizedHint,
   );
-  if (exact.length === 1) return accountView(exact[0]);
+  if (exact.length === 1) return accountWithSenders(env, exact[0]);
   const partial = accounts.filter(
     (account) =>
       account.email.toLowerCase().includes(normalizedHint) ||
       account.label.toLowerCase().includes(normalizedHint),
   );
-  if (partial.length === 1) return accountView(partial[0]);
+  if (exact.length === 0 && partial.length === 1) return accountWithSenders(env, partial[0]);
   if (exact.length + partial.length === 0) {
     throw new HttpError(404, "No account matches that sender hint.");
   }
@@ -105,7 +128,7 @@ export async function updateAccountLabel(
   )
     .bind(cleanLabel, Date.now(), userId, accountId)
     .run();
-  return accountView(await getAccount(env, userId, accountId));
+  return accountWithSenders(env, await getAccount(env, userId, accountId));
 }
 
 export async function disconnectAccount(

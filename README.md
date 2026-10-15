@@ -163,3 +163,80 @@ Provider limits:
   change in the interval between the final check and the provider send operation.
 
 Tests use mocked provider APIs; no real messages are sent as part of validation.
+
+## Gmail send-as aliases (0.3.4)
+
+`account_list` returns `senderIdentities` beneath each owning account: Gmail's
+primary identity plus custom identities with `verificationStatus: accepted`.
+Pending or unknown identities are excluded. Aliases share the account's OAuth
+connection and `accountId`, and do not count as additional accounts. The settings
+page shows them beneath the owning Google account. Discovery failures are reported
+in `senderDiscoveryError`, with no cached aliases advertised.
+
+`route_account` accepts an exact alias email and returns the owner plus
+`selectedFrom`. Ambiguous ownership fails. Carry `selectedFrom` explicitly into
+the optional `from` field of `draft_create`, `draft_reply` or `draft_update`:
+
+```json
+{
+  "accountId": "owning-google-account-id",
+  "from": "support@example.com",
+  "to": [],
+  "subject": "Unsent alias test",
+  "bodyText": "Safe draft only."
+}
+```
+
+`from` must be one bare email address. Server-side checks fetch the selected
+account's current Gmail sendAs list and reject unknown, pending, malformed or
+other-account identities before writing. Creation without `from` still uses the
+connected primary address, even if Gmail's default is an alias. Updating without
+`from` preserves the saved identity; empty `from` is invalid. Microsoft permits
+only its connected primary address.
+
+`draft_inspect.sender` is the exact effective mailbox; `fromHeader` preserves the
+saved Gmail display name/header. Missing or ambiguous From headers fail closed.
+Changing From invalidates the previous revision and send confirmation. The send
+summary must show both the owning account and inspected alias. Sending revalidates
+the inspected identity with Gmail and rechecks the full draft revision after that
+lookup. Revoked aliases fail; they never silently fall back to the primary.
+
+The existing `gmail.readonly` scope authorises
+[sendAs.list](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.settings.sendAs/list).
+No OAuth scope expansion or Gmail settings-write permission is needed. Custom
+identities must have Gmail's
+[accepted verification status](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.settings.sendAs).
+No aliases are created or verified by SenderDeck. Alias signatures and SMTP
+settings are neither requested nor exposed. Gmail offers no atomic lock across
+alias validation, draft inspection and send, so concurrent external changes in
+that final interval remain a provider limitation.
+
+Release schemas are in `publishing/mcp-tools-0.3.4.json`. Run `npm run test:unit`
+for the provider-mocked security tests, or `npm test` for the full build and suite.
+
+### Loading the updated capabilities in an existing Codex chat
+
+The MCP URL remains `https://senderdeck.devectus.com.au/api/mcp`. A live server
+deployment does not itself prove an existing chat has refreshed tool definitions.
+Check that `draft_create`, `draft_reply` and `draft_update` expose optional `from`,
+and that `account_list` describes nested `senderIdentities`.
+
+- For the installed repository plugin, update SenderDeck from
+  `DEVECTUS/senderdeck` to 0.3.4, reload the plugin/MCP connection or restart Codex,
+  then reopen the existing chat and verify those fields before using them. If that
+  chat retains its old tool definitions, start a new chat after updating. Updating
+  the remote schema does not migrate an already loaded skill package.
+- For the published OpenAI-directory connector, open its existing developer-portal
+  listing, select **MCPs**, choose the server, then **Issues → Rescan**. Confirm
+  that the **Live definition** includes `from`; a held update can retain older
+  metadata even when the server is deployed. Update the package for the revised
+  skill, then reload the connector in Codex and verify its tool definitions.
+  See [OpenAI's MCP update process](https://developers.openai.com/plugins/deploy/submission).
+- No mailbox reconnection is needed solely for this feature when the existing
+  grant already has SenderDeck's documented scopes. A revoked or incomplete
+  provider grant still requires reconnection through the normal account flow.
+
+After reloading, list accounts, select the owning account and authorised alias,
+create an unsent draft with `from`, and inspect its `sender`/`fromHeader` before
+preparing any separate send confirmation. Do not assume an alias is authorised
+merely because its domain belongs to the same organisation.

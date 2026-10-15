@@ -45,6 +45,8 @@ export interface DraftDetail {
   provider: "google" | "microsoft";
   draftId: string;
   sender: string;
+  /** Exact saved Gmail From header, including any display name. */
+  fromHeader?: string;
   to: string[];
   cc: string[];
   bcc: string[];
@@ -64,6 +66,8 @@ export interface DraftUpdateInput extends Partial<DraftInput> {
 }
 
 export interface DraftInput {
+  /** Explicit Gmail send-as identity. Omission uses the primary on creation. */
+  from?: string;
   to: string[];
   cc?: string[];
   bcc?: string[];

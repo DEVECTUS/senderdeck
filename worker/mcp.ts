@@ -1,4 +1,5 @@
 import { HttpError } from "./auth";
+import { senderAddress } from "./sender-address";
 import { McpAuthenticationError, requireMcpUserId } from "./mcp-auth";
 import {
   disconnectAccount,
@@ -70,7 +71,7 @@ const tools = [
   },
   {
     name: "account_list",
-    description: "List the current user's connected email accounts and sender identities.",
+    description: "List connected accounts with senderIdentities nested under their owning account. Google identities are fetched live from Gmail sendAs: primary plus accepted aliases only. Aliases share the owner's accountId, never a separate OAuth account. Report senderDiscoveryError; do not infer missing aliases.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     securitySchemes: oauthSecurity(),
     annotations: toolAnnotations("List connected accounts", true, false, false),
@@ -103,7 +104,7 @@ const tools = [
   {
     name: "route_account",
     description:
-      "Resolve a sender/account hint such as a label or email to one unambiguous account. Never guesses when multiple accounts match.",
+      "Resolve a label, primary email or exact authorised Gmail alias to one owning account. Exact email matches return selectedFrom; pass it explicitly as from when drafting. Never guesses when multiple accounts match.",
     inputSchema: {
       type: "object",
       properties: {
@@ -148,7 +149,7 @@ const tools = [
   {
     name: "draft_create",
     description:
-      "Create a provider-hosted email draft. This does not send. Optional attachment bytes are passed directly to the provider.",
+      "Create a provider-hosted email draft. This does not send. Optional from selects a current authorised Gmail send-as identity under accountId; omission uses the connected primary address. Optional attachment bytes are passed directly to the provider.",
     inputSchema: draftInputSchema(false),
     securitySchemes: oauthSecurity(),
     annotations: toolAnnotations("Create an email draft", false, true, false),
@@ -156,14 +157,14 @@ const tools = [
   {
     name: "draft_reply",
     description:
-      "Create a provider-hosted reply draft for a message. This does not send.",
+      "Create a provider-hosted reply draft for a message. This does not send. Optional from selects a current authorised Gmail send-as identity under accountId; omission uses the connected primary address.",
     inputSchema: draftInputSchema(true),
     securitySchemes: oauthSecurity(),
     annotations: toolAnnotations("Create a reply draft", false, true, false),
   },
   {
     name: "draft_update",
-    description: "Edit an existing draft in place; never sends or creates another draft. Inspect first and pass expectedRevision. Omitted fields are preserved; empty strings/arrays clear requested values. attachments replaces ALL files, including inline images. Outlook has one body: use bodyHtml for HTML drafts, or bodyHtml: empty string plus bodyText to explicitly switch to text.",
+    description: "Edit an existing draft in place; never sends or creates another draft. Inspect first and pass expectedRevision. Optional from selects a current authorised Gmail identity; omission preserves saved From and empty from is invalid. Other omitted fields are preserved; empty strings/arrays clear requested values. attachments replaces ALL files, including inline images. Outlook has one body: use bodyHtml for HTML drafts, or bodyHtml: empty string plus bodyText to explicitly switch to text.",
     inputSchema: draftUpdateSchema(),
     securitySchemes: oauthSecurity(),
     annotations: toolAnnotations("Update an email draft", false, true, true),
@@ -171,7 +172,7 @@ const tools = [
   {
     name: "draft_inspect",
     description:
-      "Re-read saved body, formatting, thread metadata, sender, recipients, subject, attachments and revision. Inspect immediately before reviewing edits or requesting fresh send confirmation.",
+      "Re-read saved body, formatting, thread metadata, exact effective sender address, Gmail fromHeader, recipients, subject, attachments and revision. sender may be a Gmail alias under accountId. Inspect immediately before requesting fresh send confirmation.",
     inputSchema: {
       type: "object",
       properties: { accountId: { type: "string" }, draftId: { type: "string" } },
@@ -184,7 +185,7 @@ const tools = [
   {
     name: "email_send",
     description:
-      "Send an existing provider-hosted draft only after explicit confirmation of the exact sender, recipients, subject, and attachment list.",
+      "Send one existing draft only after a separate explicit confirmation of its exact sender, recipients, subject, attachments and inspected revision. Revalidates Gmail From against current authorised sendAs identities and rechecks the revision; revoked aliases or changed drafts fail. Never bulk or automatic send.",
     inputSchema: {
       type: "object",
       properties: {
@@ -292,9 +293,9 @@ export async function handleMcp(request: Request, env: Env): Promise<Response | 
       return rpcResult(rpc.id, {
         protocolVersion: PROTOCOL_VERSION,
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "senderdeck", version: "0.3.3" },
+        serverInfo: { name: "senderdeck", version: "0.3.4" },
         instructions:
-          "List connected accounts and use their actual account and message/draft IDs. Never invent labels or IDs or infer a sender. Ask the user to select a connected sender if the requested account is absent or ambiguous. Report provider failures and reconnection instructions; do not treat a failed search as no matches. Never harvest recipients or perform bulk, automatic or scheduled sending. Drafts never send automatically. Before email_send, inspect the current draft and show sender, To, Cc, Bcc, subject, attachment filenames/sizes and whether it will send now. Wait for a separate explicit send confirmation of these unchanged details; any edit invalidates previous approval.",
+          "List connected accounts and use their actual account and message/draft IDs. Gmail senderIdentities are nested under the owning accountId. Select a user-chosen alias explicitly with from; inspect the saved sender and fromHeader. Never invent labels or IDs or infer a sender. Ask the user to select a connected sender if the requested account is absent or ambiguous. Report provider failures and reconnection instructions; do not treat a failed search as no matches. Never harvest recipients or perform bulk, automatic or scheduled sending. Drafts never send automatically. Before email_send, inspect the current draft and show sender, To, Cc, Bcc, subject, attachment filenames/sizes and whether it will send now. Wait for a separate explicit send confirmation of these unchanged details; any edit invalidates previous approval.",
       });
     }
     if (rpc.method === "ping") return rpcResult(rpc.id, {});
@@ -424,6 +425,7 @@ async function callTool(
     const account = await selectedAccount(env, userId, args);
     const messageId = stringValue(args.messageId, "messageId");
     const input = {
+      from: args.from === undefined ? undefined : senderAddress(args.from),
       to: optionalStringArray(args.to),
       cc: optionalStringArray(args.cc),
       bcc: optionalStringArray(args.bcc),
@@ -439,9 +441,10 @@ async function callTool(
   if (name === "draft_update") {
     const account = await selectedAccount(env, userId, args);
     const draftId = stringValue(args.draftId, "draftId");
-    const allowed = ["accountId", "draftId", "expectedRevision", "subject", "to", "cc", "bcc", "bodyText", "bodyHtml", "attachments"];
+    const allowed = ["accountId", "draftId", "expectedRevision", "from", "subject", "to", "cc", "bcc", "bodyText", "bodyHtml", "attachments"];
     if (Object.keys(args).some((key) => !allowed.includes(key))) throw new HttpError(400, "Unknown draft update field.");
     const input: DraftUpdateInput = { expectedRevision: stringValue(args.expectedRevision, "expectedRevision") };
+    if (args.from !== undefined) input.from = senderAddress(args.from);
     for (const key of ["subject", "bodyText", "bodyHtml"] as const) {
       if (args[key] !== undefined) input[key] = stringValue(args[key], key, true);
     }
@@ -466,9 +469,9 @@ async function callTool(
     assertConfirmation(draft, objectValue(args.confirmation, "confirmation"));
     const sent =
       account.provider === "google"
-        ? await sendGoogleDraft(env, account, draftId)
+        ? await sendGoogleDraft(env, account, draftId, draft)
         : await sendMicrosoftDraft(env, account, draftId);
-    return { sent: true, accountId: account.id, sender: account.email, ...sent };
+    return { sent: true, accountId: account.id, sender: draft.sender, ...sent };
   }
   if (name === "attachment_list") {
     const account = await selectedAccount(env, userId, args);
@@ -544,6 +547,7 @@ function assertConfirmation(draft: DraftDetail, confirmation: Record<string, unk
 
 function draftInput(args: Record<string, unknown>): DraftInput {
   return {
+    from: args.from === undefined ? undefined : senderAddress(args.from),
     to: stringArray(args.to, "to"),
     cc: optionalStringArray(args.cc),
     bcc: optionalStringArray(args.bcc),
@@ -569,6 +573,7 @@ function attachmentInputs(value: unknown): AttachmentInput[] {
 function draftInputSchema(reply: boolean): Record<string, unknown> {
   const properties: Record<string, unknown> = {
     accountId: { type: "string" },
+    from: { type: "string", description: "One bare sender email. For Google, choose a current senderIdentities email from account_list under this accountId; only Gmail primary/accepted aliases are allowed. Omission uses the connected primary on create/reply and preserves saved From on update. Microsoft permits only its connected primary. Changing From invalidates all prior send approval." },
     to: { type: "array", items: { type: "string" } },
     cc: { type: "array", items: { type: "string" } },
     bcc: { type: "array", items: { type: "string" } },

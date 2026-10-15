@@ -1,5 +1,6 @@
 import { sha256Base64Url } from "../crypto";
 import { HttpError } from "../auth";
+import { validateMicrosoftFrom } from "../sender-address";
 import { getAccessToken } from "../accounts";
 import { validateAttachments, validateDownloadedAttachment } from "../attachments";
 import type { Env, StoredAccount } from "../env";
@@ -97,6 +98,7 @@ export async function createMicrosoftDraft(
   account: StoredAccount,
   input: DraftInput,
 ): Promise<DraftDetail> {
+  validateMicrosoftFrom(account, input.from);
   validateAttachments(env, input.attachments);
   if (input.attachments?.some((attachment) => attachment.contentId) && input.bodyHtml === undefined) {
     throw new HttpError(400, "Inline attachments require bodyHtml.");
@@ -129,6 +131,7 @@ export async function createMicrosoftReplyDraft(
   messageId: string,
   input: Omit<DraftInput, "subject" | "to"> & { to?: string[]; subject?: string },
 ): Promise<DraftDetail> {
+  validateMicrosoftFrom(account, input.from);
   validateAttachments(env, input.attachments);
   if (input.attachments?.some((attachment) => attachment.contentId) && input.bodyHtml === undefined) {
     throw new HttpError(400, "Inline attachments require bodyHtml.");
@@ -314,6 +317,7 @@ function stripHtml(html: string): string {
 export async function updateMicrosoftDraft(
   env: Env, account: StoredAccount, draftId: string, input: DraftUpdateInput,
 ): Promise<DraftDetail> {
+  validateMicrosoftFrom(account, input.from);
   const current = await getMicrosoftDraft(env, account, draftId);
   assertDraftRevision(current.revision, input.expectedRevision);
   validateAttachments(env, input.attachments);
