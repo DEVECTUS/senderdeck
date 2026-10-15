@@ -26,7 +26,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.3.5 adds verified Gmail send-as identities beneath each owning account, explicit From selection for drafts and revisions, and live alias revalidation before confirmed sending. OAuth scopes are unchanged; drafts remain unsent until separate exact confirmation." },
+  publication: { release_notes: "Version 0.3.6 adds verified Gmail send-as identities beneath each owning account, explicit From selection for drafts and revisions, and live alias revalidation before confirmed sending. OAuth scopes are unchanged; drafts remain unsent until separate exact confirmation." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

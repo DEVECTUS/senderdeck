@@ -108,6 +108,10 @@ function removeAttachments(part: Part): void {
 export function updateRawMime(rawBase64Url: string, input: DraftUpdateInput): string {
   const binary = atob(rawBase64Url.replaceAll("-", "+").replaceAll("_", "/"));
   const root = parse(binary);
+  // Gmail replaces the immutable message inside the stable draft container.
+  // Let it assign the replacement's RFC Message-ID; a copied ID can identify an
+  // existing non-draft message. Parent In-Reply-To/References remain untouched.
+  setHeader(root, "Message-ID");
   if (input.from !== undefined) {
     setHeader(root, "From", senderAddress(input.from));
     // These describe the previous transmission identity, not the newly chosen

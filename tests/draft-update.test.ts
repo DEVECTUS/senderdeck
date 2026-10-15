@@ -45,6 +45,15 @@ test("metadata updates preserve entire original MIME payload, including binary b
   assert.equal(edited.split("\r\n\r\n")[1], raw.split("\r\n\r\n")[1]);
 });
 
+test("Gmail MIME replacement drops its own old Message-ID but preserves parent reply IDs", () => {
+  const raw = 'Message-ID: <old-draft@example.com>\r\n' + originalRaw;
+  const edited = decodeBase64Url(updateRawMime(encodeBase64Url(raw), { expectedRevision: "r", from: "support@example.com" }));
+  assert.doesNotMatch(edited, /^Message-ID:/mi);
+  assert.match(edited, /In-Reply-To: <parent@example.com>/);
+  assert.match(edited, /References: <root@example.com> <parent@example.com>/);
+  assert.equal(edited.slice(edited.indexOf("\r\n\r\n")), raw.slice(raw.indexOf("\r\n\r\n")));
+});
+
 test("MIME editor fails closed on malformed or cryptographically protected content", () => {
   assert.throws(() => updateRawMime(encodeBase64Url("Broken"), { expectedRevision: "r", bodyText: "x" }), /Malformed/);
   const signed = 'Content-Type: multipart/signed; boundary="x"\r\n\r\n--x\r\nContent-Type: text/plain\r\n\r\nSigned\r\n--x--\r\n';
