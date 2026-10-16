@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,16 +7,16 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const output = path.resolve(process.argv[2] || "C:/Temp/senderdeck-resubmission/openai-plugin");
 if (!output.toLowerCase().startsWith("c:\\temp\\")) throw new Error("Package staging must be beneath C:\\Temp.");
+await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 await cp(path.join(root, "plugins/senderdeck"), output, { recursive: true });
+await rm(path.join(output, ".claude-plugin"), { recursive: true, force: true });
 const manifestPath = path.join(output, ".codex-plugin/plugin.json");
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 const submission = JSON.parse(await readFile(path.join(root, "chatgpt-app-submission.json"), "utf8"));
-manifest.name = "app-6a87125f6b308191ac268739218eac27";
 manifest.author.name = "DEVECTUS Pty Ltd";
 manifest.interface.developerName = "DEVECTUS Pty Ltd";
 manifest.interface.shortDescription = "Manage multiple inboxes safely";
-manifest.interface.supportURL = "https://senderdeck.devectus.com.au/support";
 const convert = ({ description, user_prompt, tools_triggered, expected_output }) => ({
   description, prompt: user_prompt, ...(tools_triggered ? { tools_triggered } : {}), expected_behavior: expected_output,
 });
@@ -26,7 +26,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.3.6 adds verified Gmail send-as identities beneath each owning account, explicit From selection for drafts and revisions, and live alias revalidation before confirmed sending. OAuth scopes are unchanged; drafts remain unsent until separate exact confirmation." },
+  publication: { release_notes: "Version 0.3.6 adds verified Gmail send-as identities, explicit From selection, and live alias revalidation. It also regenerates the RFC Message-ID when replacing a Gmail draft while preserving reply threading. OAuth scopes are unchanged; drafts remain unsent until separate exact confirmation." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

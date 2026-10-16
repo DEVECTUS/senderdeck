@@ -22,7 +22,8 @@
     "longDescription": "Connect and label multiple Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts. Search and read on demand, create drafts, handle attachments within configured limits, and send only after an exact confirmation.",
     "developerName": "DEVECTUS",
     "category": "Productivity",
-    "websiteURL": "https://senderdeck.devectus.com.au/settings",
+    "websiteURL": "https://senderdeck.devectus.com.au/",
+    "supportURL": "https://senderdeck.devectus.com.au/support",
     "privacyPolicyURL": "https://senderdeck.devectus.com.au/privacy",
     "termsOfServiceURL": "https://senderdeck.devectus.com.au/terms",
     "capabilities": [
