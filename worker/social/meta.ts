@@ -29,13 +29,15 @@ export async function graph(token: string, path: string, params: Record<string, 
   const url = new URL(path, GRAPH);
   if (url.origin !== "https://graph.facebook.com" || !url.pathname.startsWith(`/${GRAPH_VERSION}/`)) throw new HttpError(502, "Provider pagination URL was rejected.");
   url.searchParams.delete("access_token");
-  const headers = new Headers({ authorization: `Bearer ${token}` });
+  const headers = new Headers();
+  if (token) headers.set("authorization", `Bearer ${token}`);
   let body: URLSearchParams | undefined;
   if (method === "GET") for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
   else { body = new URLSearchParams(params); headers.set("content-type", "application/x-www-form-urlencoded"); }
   let response: Response;
-  try { response = await fetch(url, { method, headers, body, redirect: "error", signal: AbortSignal.timeout(15000) }); }
-  catch { throw new HttpError(502, "Meta could not be reached; delivery may be uncertain for writes."); }
+  try { response = await fetch(url, { method, headers, body, redirect: "manual", signal: AbortSignal.timeout(15000) }); }
+  catch { throw new HttpError(502, method === "GET" ? "Meta could not be reached. No credential verdict was obtained." : "Meta could not be reached. Check the operation before retrying any message delivery."); }
+  if (response.status >= 300 && response.status < 400) throw new HttpError(502, "Meta returned an unexpected redirect. The request was not followed.");
   const data = await response.json().catch(() => ({})) as GraphObject;
   if (!response.ok || data.error) {
     const error = data.error as { code?: number } | undefined;

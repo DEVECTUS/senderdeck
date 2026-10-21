@@ -55,7 +55,11 @@ export async function checkOperatorApp(env: Env, user: string) {
   requirePlatformOperator(env, user);
   env = await resolveMetaSecrets(env);
   if (!env.META_APP_ID || !env.META_APP_SECRET) throw new HttpError(409, "Configure the platform app ID and enter its secret in platform setup first.");
-  const app = await graph(`${env.META_APP_ID}|${env.META_APP_SECRET}`, env.META_APP_ID, {fields:"id,name"});
+  // App name/id are publicly readable; validate the secret through a server-side
+  // client-credentials exchange before checking identity. Never put it in a URL.
+  const grant = await graph("", "oauth/access_token", {client_id:env.META_APP_ID, client_secret:env.META_APP_SECRET, grant_type:"client_credentials"}, "POST");
+  if (typeof grant.access_token !== "string" || !grant.access_token) throw new HttpError(502, "Meta did not verify the configured app credentials.");
+  const app = await graph(grant.access_token, env.META_APP_ID, {fields:"id,name"});
   if (app.id !== env.META_APP_ID) throw new HttpError(409, "The configured Meta app identity was not verified.");
   return { appVerified:true, appId:String(app.id), name:String(app.name || ""), businessVerification:"not_checked", customerAccessApproval:"not_checked",
     note:"App credentials were accepted for this app ID. This does not verify business ownership, App Review, login configuration, customer consent or account capabilities." };

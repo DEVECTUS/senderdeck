@@ -270,7 +270,7 @@ test("operator readiness masks native secrets and does not infer review or event
 });
 test("app credential check is operator-only and does not certify business or customer access",async(t)=>{
   const f=await fixture();const env={...f.env,SOCIAL_OPERATOR_USER_IDS:"platform-operator"};let calls=0;
-  t.mock.method(globalThis,"fetch",async()=>{calls++;return Response.json({id:"platform",name:"Test platform app"});});
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>{calls++;if(String(input).includes("oauth/access_token")){assert.equal(init?.method,"POST");assert.equal(new URLSearchParams(String(init?.body)).get("client_secret"),"app-secret");assert.ok(!String(input).includes("app-secret"));return Response.json({access_token:"verified-app-token"});}return Response.json({id:"platform",name:"Test platform app"});});
   await assert.rejects(checkOperatorApp(env,"alice"),/administrator/);assert.equal(calls,0);
   const result=await checkOperatorApp(env,"platform-operator");assert.equal(result.appVerified,true);assert.equal(result.businessVerification,"not_checked");assert.equal(result.customerAccessApproval,"not_checked");
   assert.doesNotMatch(JSON.stringify(result),/app-secret/);
@@ -343,6 +343,6 @@ test("webhook signature validation and app checks use the encrypted configuratio
   const body=JSON.stringify({object:"page",entry:[]});
   const delivery=await handleSocial(new Request("https://senderdeck.test/api/social/webhooks/meta",{method:"POST",headers:{"x-hub-signature-256":`sha256=${await hmac(app,body)}`},body}),f.env,()=>{});
   assert.equal(delivery!.status,200);
-  t.mock.method(globalThis,"fetch",async(_input:RequestInfo|URL,init?:RequestInit)=>{assert.equal(new Headers(init?.headers).get("authorization"),`Bearer platform|${app}`);return Response.json({id:"platform",name:"Test app"});});
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>{if(String(input).includes("oauth/access_token")){assert.equal(new URLSearchParams(String(init?.body)).get("client_secret"),app);assert.ok(!String(input).includes(app));return Response.json({access_token:"verified-app-token"});}assert.equal(new Headers(init?.headers).get("authorization"),"Bearer verified-app-token");return Response.json({id:"platform",name:"Test app"});});
   assert.equal((await checkOperatorApp(f.env,"verified-operator")).appVerified,true);
 });

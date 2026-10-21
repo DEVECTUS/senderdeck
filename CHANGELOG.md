@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.5 · 21 October 2026
+
+- Run hosted social maintenance through a secret-authenticated GitHub Actions schedule, independent of a local computer; retain the recent-run activation gate.
+- Fix Meta requests failing before network dispatch because Cloudflare does not accept the error redirect mode. Use manual redirects and explicitly reject redirect responses.
+- Verify app secrets through a POST client-credentials exchange before reading app identity; public app metadata alone is insufficient proof.
+
 ## 0.4.4 · 21 October 2026
 
 - Add masked write-only Meta secret entry for verified, hosting-allowlisted platform operators with session-bound CSRF, same-origin HTTPS JSON and bounded key/value validation.
