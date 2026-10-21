@@ -64,7 +64,9 @@ export async function searchGoogle(
   return Promise.all(
     (list.messages ?? []).map(async ({ id }) => {
       const message = await providerJson<GmailMessage>(
-        `${GMAIL}/messages/${encodeURIComponent(id)}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`,
+        // METADATA omits MIME parts, so it cannot establish hasAttachments.
+        // FULL is processed transiently; only the summary leaves this operation.
+        `${GMAIL}/messages/${encodeURIComponent(id)}?format=full`,
         token,
       );
       return summary(account, message);
@@ -172,7 +174,7 @@ export async function getGoogleDraft(
     cc: splitAddresses(headers.cc),
     bcc: splitAddresses(headers.bcc),
     subject: headers.subject || "",
-    attachments: attachmentInfos(draft.message.payload),
+    attachments: attachmentInfos(account, draft.message),
     bodyText: bodies.text ?? "",
     bodyHtml: bodies.html,
     bodyFormat: bodies.html !== undefined ? (bodies.text !== undefined ? "alternative" : "html") : "text",
@@ -220,22 +222,29 @@ export async function downloadGoogleAttachment(
     `${GMAIL}/messages/${encodeURIComponent(messageId)}?format=full`,
     token,
   );
-  const info = attachmentInfos(message.payload).find((item) => item.id === attachmentId);
-  if (!info) throw new Error("Attachment was not found on the selected message.");
+  const entry = attachmentEntries(account, message).find(({ info, part }) =>
+    info.id === attachmentId || part.body?.attachmentId === attachmentId,
+  );
+  if (!entry) throw new HttpError(404, "Attachment was not found on the selected message. Read or list its attachments again to obtain a current ID.");
+  const { info, part } = entry;
   validateDownloadedAttachment(env, info.filename, info.contentType, info.size);
-  const embeddedPart = attachmentId.startsWith("part:")
-    ? flattenParts(message.payload).find((part, index) => `part:${part.partId ?? index}` === attachmentId)
-    : undefined;
-  const payload = embeddedPart?.body?.data !== undefined
-    ? { data: embeddedPart.body.data, size: embeddedPart.body.size ?? info.size }
-    : await providerJson<{ data: string; size: number }>(
-      `${GMAIL}/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`, token,
-    );
+  // Gmail's external attachment token can change between full-message reads.
+  // Resolve the selected MIME part first, then use its current token (or data).
+  const payload = part.body?.attachmentId
+    ? await providerJson<{ data?: string }>(
+      `${GMAIL}/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(part.body.attachmentId)}`, token,
+    )
+    : part.body;
+  if (typeof payload?.data !== "string") throw new HttpError(502, "Gmail did not return attachment data.");
   const contentBase64 = payload.data.replaceAll("-", "+").replaceAll("_", "/").padEnd(
     Math.ceil(payload.data.length / 4) * 4,
     "=",
   );
-  return { ...info, size: payload.size, contentBase64 };
+  let size: number;
+  try { size = atob(contentBase64).length; }
+  catch { throw new HttpError(502, "Gmail returned invalid attachment data."); }
+  validateDownloadedAttachment(env, info.filename, info.contentType, size);
+  return { ...info, size, contentBase64 };
 }
 
 function summary(account: StoredAccount, message: GmailMessage): MessageSummary {
@@ -250,7 +259,7 @@ function summary(account: StoredAccount, message: GmailMessage): MessageSummary 
     to: splitAddresses(headers.to),
     receivedAt: headers.date || (message.internalDate ? new Date(Number(message.internalDate)).toISOString() : undefined),
     snippet: message.snippet || "",
-    hasAttachments: attachmentInfos(message.payload).length > 0,
+    hasAttachments: attachmentInfos(account, message).length > 0,
   };
 }
 
@@ -262,7 +271,7 @@ function detail(account: StoredAccount, message: GmailMessage): MessageDetail {
     cc: splitAddresses(headerMap(message.payload).cc),
     bodyText: bodies.text || stripHtml(bodies.html || ""),
     bodyHtml: bodies.html || undefined,
-    attachments: attachmentInfos(message.payload),
+    attachments: attachmentInfos(account, message),
   };
 }
 
@@ -277,20 +286,28 @@ function flattenParts(payload?: GmailPart): GmailPart[] {
   return [payload, ...(payload.parts ?? []).flatMap(flattenParts)];
 }
 
-function attachmentInfos(payload?: GmailPart): AttachmentInfo[] {
-  return flattenParts(payload)
+function attachmentInfos(account: StoredAccount, message: GmailMessage): AttachmentInfo[] {
+  return attachmentEntries(account, message).map(({ info }) => info);
+}
+
+function attachmentEntries(account: StoredAccount, message: GmailMessage): Array<{ info: AttachmentInfo; part: GmailPart }> {
+  return flattenParts(message.payload)
     .flatMap((part, index) => {
       const headers = headerMap(part);
       if (!(part.filename || (headers["content-id"] && !["text/plain", "text/html"].includes(part.mimeType || "")) || /^attachment\b/i.test(headers["content-disposition"] || "")) ||
           (!part.body?.attachmentId && part.body?.data === undefined)) return [];
-      return [{
-        id: part.body?.attachmentId || `part:${part.partId ?? index}`,
+      // partId is immutable within a Gmail message. Scope our public reference
+      // to its account and message, not a thread or filename. Tag the index
+      // fallback separately so missing partIds cannot collide with real IDs.
+      const reference = [account.id, message.id, part.partId === undefined ? ["index", index] : ["partId", part.partId]];
+      return [{ part, info: {
+        id: `gmail-part:${encodeBase64Url(JSON.stringify(reference))}`,
         filename: part.filename || "inline-image",
         contentType: part.mimeType || "application/octet-stream",
         size: part.body?.size ?? 0,
         contentId: headers["content-id"]?.replace(/^<|>$/g, ""),
         isInline: /^inline\b/i.test(headers["content-disposition"] || "") || Boolean(headers["content-id"]),
-      }];
+      } }];
     });
 }
 

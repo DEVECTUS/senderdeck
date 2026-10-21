@@ -19,6 +19,15 @@ const context = {
   passThroughOnException() {},
 };
 
+test("health and MCP initialization report the packaged release version", async () => {
+  const { version } = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  const worker = await loadWorker();
+  const health = await worker.fetch(new Request("https://example.com/health"), baseEnv, context);
+  assert.equal((await health.json()).version, version);
+  const initialized = await worker.fetch(new Request("https://example.com/api/mcp", { method: "POST", body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize" }) }), baseEnv, context);
+  assert.equal((await initialized.json()).result.serverInfo.version, version);
+});
+
 test("packages the public Sites MCP server with per-user OAuth", async () => {
   const config = JSON.parse(
     await readFile(new URL("../plugins/senderdeck/.mcp.json", import.meta.url), "utf8"),

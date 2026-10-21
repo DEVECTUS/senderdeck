@@ -26,7 +26,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.3.6 adds verified Gmail send-as identities, explicit From selection, and live alias revalidation. It also regenerates the RFC Message-ID when replacing a Gmail draft while preserving reply threading. OAuth scopes are unchanged; drafts remain unsent until separate exact confirmation." },
+  publication: { release_notes: "Version 0.3.7 fixes Gmail attachment downloads when provider attachment tokens change between reads, using account/message-scoped MIME part references. Gmail search now reports attachment presence from full MIME structure, including inline files. Download size/type checks and OAuth permissions remain enforced; drafts require separate exact send confirmation." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

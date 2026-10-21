@@ -131,7 +131,13 @@ for (const provider of ["google", "microsoft"] as const) {
     assert.equal(saved.draftId, "draft"); assert.equal(saved.threadId, "thread");
     assert.equal(saved.bodyHtml, '<p>Updated</p><img src="cid:logo@signature">');
     assert.deepEqual(saved.to, before.to); assert.deepEqual(saved.cc, before.cc);
-    assert.deepEqual(saved.attachments, before.attachments); assert.notEqual(saved.revision, before.revision);
+    // Gmail replaces the underlying message when editing a draft. Attachment
+    // content/metadata survives, but references must belong to the new message.
+    const metadata = (attachments: typeof before.attachments) => attachments.map(item => ({ ...item, id: undefined }));
+    assert.deepEqual(metadata(saved.attachments), metadata(before.attachments));
+    if (provider === "google") assert.notEqual(saved.attachments[0].id, before.attachments[0].id);
+    else assert.deepEqual(saved.attachments, before.attachments);
+    assert.notEqual(saved.revision, before.revision);
     const writes = h.calls.filter((call) => call.method !== "GET");
     assert.equal(writes.length, 1); assert.equal(writes[0].method, provider === "google" ? "PUT" : "PATCH");
     if (provider === "google") assert.match(h.state.raw, /In-Reply-To: <parent@example.com>/);

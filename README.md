@@ -46,6 +46,21 @@ Optional configuration is documented in `.env.example`. The Microsoft tenant def
 
 Run `npm run db:generate`, `npm run typecheck`, and `npm run build`. For local MCP calls without Sites identity forwarding, set `ALLOW_DEV_AUTH=true` and send an `x-dev-user-email` request header.
 
+## Attachment references (0.3.7)
+
+Treat attachment IDs as opaque and pass the exact `accountId`, `messageId`, and
+attachment `id` from `email_read` or `attachment_list` to `attachment_download`.
+Gmail references now identify the MIME part within that account/message; the
+download resolves Gmail's latest attachment token. Nested and inline parts use
+the same path. IDs from older versions may require another read/list if Gmail
+has rotated the underlying token. Editing a Gmail draft replaces its message,
+so use the IDs from the new inspection after an edit.
+
+Gmail search now reads the full MIME structure transiently to determine
+`hasAttachments`, including inline files, and returns only summary fields. It
+does not fetch external attachment bytes during search. This corrects the
+metadata-only response's false negatives independently of download ID mapping.
+
 The packaged plugin points to the Sites deployment at `/api/mcp`. Sites reserves `/mcp` at its edge, so production MCP clients must use `/api/mcp`. Public plugin connections use OAuth 2.1 authorization code flow with PKCE and per-user bearer tokens. Local development may opt into the `x-dev-user-email` shortcut only by setting `ALLOW_DEV_AUTH=true`; production must keep it disabled.
 
 ## OAuth permissions

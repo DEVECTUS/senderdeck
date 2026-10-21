@@ -2,6 +2,7 @@
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import type { Env } from "./env";
+import { version } from "../package.json";
 import { handleAccountApi } from "./account-api";
 import { handleMcp } from "./mcp";
 import { handleOAuthRoute } from "./oauth";
@@ -28,7 +29,7 @@ const worker = {
       return Response.json({
         status: "ok",
         service: "senderdeck",
-        version: "0.3.2",
+        version,
         storage: "d1",
         retention: "provider-on-demand",
       });
