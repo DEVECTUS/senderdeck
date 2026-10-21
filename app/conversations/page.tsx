@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Conversations | SenderDeck", descrip
 export default async function ConversationsPage() {
   const user = await requireSenderDeckUser("/conversations");
   return <main className="social-page">
-    <WorkspaceNav email={user.email} active="conversations" />
+    <WorkspaceNav source={user.authSource} email={user.email} active="conversations" />
     <Conversations userId={user.userId} />
     <footer className="social-footer"><span>SenderDeck by DEVECTUS · Human approval before every reply</span><div><Link href="/social-setup">Provider setup</Link><Link href="/privacy">Privacy</Link><Link href="/security">Security</Link></div></footer>
   </main>;

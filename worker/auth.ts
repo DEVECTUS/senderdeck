@@ -5,6 +5,7 @@ const AUTH_USER_ID_HEADER = "oai-authenticated-user-id";
 const AUTH_EMAIL_HEADER = "oai-authenticated-user-email";
 export const SENDERDECK_USER_ID_HEADER = "x-senderdeck-user-id";
 export const SENDERDECK_USER_EMAIL_HEADER = "x-senderdeck-user-email";
+export const SENDERDECK_AUTH_SOURCE_HEADER = "x-senderdeck-auth-source";
 export const SESSION_COOKIE = "senderdeck_session";
 
 export interface AuthenticatedUser {
@@ -70,9 +71,11 @@ export async function withAuthenticatedUserHeaders(
   const headers = new Headers(request.headers);
   headers.delete(SENDERDECK_USER_ID_HEADER);
   headers.delete(SENDERDECK_USER_EMAIL_HEADER);
+  headers.delete(SENDERDECK_AUTH_SOURCE_HEADER);
   if (!user) return new Request(request, { headers });
   headers.set(SENDERDECK_USER_ID_HEADER, user.userId);
   headers.set(SENDERDECK_USER_EMAIL_HEADER, user.email);
+  headers.set(SENDERDECK_AUTH_SOURCE_HEADER, user.source);
   return new Request(request, { headers });
 }
 

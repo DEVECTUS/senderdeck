@@ -31,4 +31,5 @@ test("overview preserves successful connections and reports partial failures wit
   assert.equal(result.emailAvailable, false); assert.equal(result.socialComplete, false);
   assert.equal(result.accounts.length, 1); assert.equal(result.workspace?.brands.length, 2);
   assert.equal(result.errors.length, 2); assert.match(result.errors.join(" "), /Unavailable brand/);
+  assert.deepEqual(result.failedBrandIds, ["failed"]);
 });

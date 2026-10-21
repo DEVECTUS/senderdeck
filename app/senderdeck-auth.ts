@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 export type SenderDeckUser = {
   userId: string;
   email: string;
+  authSource: "senderdeck" | "openai" | "development";
 };
 
 const USER_ID_HEADER = "x-senderdeck-user-id";
@@ -16,7 +17,8 @@ export async function getSenderDeckUser(): Promise<SenderDeckUser | null> {
   const userId = requestHeaders.get(USER_ID_HEADER)?.trim();
   const email = requestHeaders.get(USER_EMAIL_HEADER)?.trim();
   if (!userId || !email) return null;
-  return { userId, email };
+  const source = requestHeaders.get("x-senderdeck-auth-source");
+  return { userId, email, authSource: source === "openai" || source === "development" ? source : "senderdeck" };
 }
 
 export async function requireSenderDeckUser(returnTo: string): Promise<SenderDeckUser> {

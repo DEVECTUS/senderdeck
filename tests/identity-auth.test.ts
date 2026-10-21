@@ -111,11 +111,13 @@ test("removes spoofed internal identity headers from anonymous requests", async 
     headers: {
       "x-senderdeck-user-id": "attacker",
       "x-senderdeck-user-email": "attacker@example.com",
+      "x-senderdeck-auth-source": "senderdeck",
     },
   });
   const sanitized = await withAuthenticatedUserHeaders(request, {} as Env);
   assert.equal(sanitized.headers.get("x-senderdeck-user-id"), null);
   assert.equal(sanitized.headers.get("x-senderdeck-user-email"), null);
+  assert.equal(sanitized.headers.get("x-senderdeck-auth-source"), null);
 });
 
 test("routes unauthenticated MCP authorization through SenderDeck sign-in", async () => {

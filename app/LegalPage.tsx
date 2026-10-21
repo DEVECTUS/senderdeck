@@ -1,3 +1,4 @@
+import VersionBadge from "./VersionBadge";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -29,7 +30,7 @@ export default function LegalPage({
             height={1024}
             priority
           />
-          <span className="wordmark">SenderDeck</span>
+          <span className="wordmark">SenderDeck</span><VersionBadge />
         </Link>
         <Link className="quiet-link" href="/">Back to SenderDeck</Link>
       </nav>

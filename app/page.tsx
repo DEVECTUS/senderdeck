@@ -1,3 +1,4 @@
+import VersionBadge from "./VersionBadge";
 import type { Metadata } from "next";
 import Image from "next/image";
 import AccountOverview from "./AccountOverview";
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const user = await getSenderDeckUser();
-  if (user) return <main className="workspace-page"><WorkspaceNav email={user.email} active="overview" /><header className="workspace-heading"><div><p className="workspace-kicker">YOUR WORKSPACE</p><h1>Overview</h1><p>See your connections and choose where to work.</p></div><Link className="secondary dark" href="/conversations">Open conversations →</Link></header><AccountOverview /></main>;
+  if (user) return <main className="workspace-page"><WorkspaceNav source={user.authSource} email={user.email} active="overview" /><header className="workspace-heading"><div><p className="workspace-kicker">YOUR WORKSPACE</p><h1>Overview</h1><p>See your connections and choose where to work.</p></div><Link className="secondary dark" href="/conversations">Open conversations →</Link></header><AccountOverview authSource={user.authSource} /></main>;
   return (
     <main className="product-page">
       <nav>
@@ -28,7 +29,7 @@ export default async function Home() {
             height={1024}
             priority
           />
-          <span className="wordmark">SenderDeck</span>
+          <span className="wordmark">SenderDeck</span><VersionBadge />
         </Link>
         <div className="nav-user"><a className="quiet-link" href="#capabilities">Capabilities</a><Link className="quiet-link" href="/install">Install</Link><a className="quiet-link" href={senderDeckSignInPath("/accounts")}>Sign in</a></div>
       </nav>

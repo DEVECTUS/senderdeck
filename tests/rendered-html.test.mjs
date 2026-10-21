@@ -101,11 +101,24 @@ test("signed-in home and Accounts lead with the account directory rather than ma
     assert.match(html, /Search connected accounts/);
     assert.match(html, /aria-label="Main navigation"/);
     assert.match(html, /href="\/accounts"/);
+    assert.match(html, /OpenAI sign-in/);
+    const { version } = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+    assert.ok(html.includes(`v${version}`));
     assert.doesNotMatch(html, /Every inbox|Your final say|Public code\. Human stakes/);
   }
   const anonymous = await worker.fetch(new Request("http://localhost/accounts", { headers: { accept: "text/html" } }), baseEnv, context);
   assert.ok([302, 303, 307].includes(anonymous.status));
   assert.match(anonymous.headers.get("location"), /signin\?return_to=%2Faccounts/);
+});
+
+test("a signed-in visitor can deliberately open the provider chooser without merging identities", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(new Request("http://localhost/signin/switch", { headers: { accept: "text/html", "oai-authenticated-user-email": "owner@example.com" } }), baseEnv, context);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /does not merge workspaces/);
+  assert.match(html, /Continue with Google/);
+  assert.match(html, /OpenAI.*sign-in/);
 });
 
 test("offers one vendor-neutral sign-in for Codex and Claude", async () => {

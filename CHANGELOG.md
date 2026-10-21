@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.10 · 21 October 2026
+
+- Group social accounts visibly beneath customer/organisation and brand, retaining empty and failed brand branches and search ancestors. Keep personal email accounts separate.
+- Explain when no brands are available to the current sign-in instead of suggesting an unrelated search problem. Identify the OpenAI versus SenderDeck sign-in source and provide an intentional provider chooser without merging access by email.
+- Display the packaged release version in workspace and public headers.
+- Make the explicit Page event-install button call the protected operation directly, avoiding an additional browser confirmation dialog that can be suppressed by embedded browsers.
+
 ## 0.4.9 · 21 October 2026
 
 - Add CSRF-protected operator Page callback registration with server-side credentials and encrypted verification-token generation that preserves existing values. Read subscriptions back and preserve unrelated fields/callbacks.

@@ -35,6 +35,8 @@ Email drafts remain with Google or Microsoft. Email search/read and attachment d
 3. List accounts and explicitly select a sender before creating a draft. Sending requires a separate confirmation after inspecting the exact message details.
 4. Open [Conversations](https://senderdeck.devectus.com.au/conversations) to create a customer and brand and configure rules, then use the [Meta connection wizard](https://senderdeck.devectus.com.au/connect/meta) to check readiness, authorise and select accounts.
 
+The Accounts page groups social connections under customer/organisation, then brand, then account. Email mailboxes remain owned by the signed-in identity. The header shows the release version and sign-in source. If an older OpenAI sign-in shows a different workspace from a SenderDeck provider sign-in, use **Switch sign-in** and choose the provider identity used for the brands; matching email text does not merge access.
+
 Customers do not need to create developer apps or run local relays for the hosted product. The service operator must complete the provider setup. Installing the plugin or saving a monitoring preference does not activate social access.
 
 ## Social activation and limits

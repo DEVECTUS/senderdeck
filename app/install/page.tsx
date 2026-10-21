@@ -1,3 +1,4 @@
+import VersionBadge from "../VersionBadge";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -18,7 +19,7 @@ export default function InstallPage() {
       <nav>
         <Link className="brand-lockup" href="/" aria-label="SenderDeck home">
           <Image className="senderdeck-mark" src="/senderdeck-mark.svg" alt="" width={1024} height={1024} priority />
-          <span className="wordmark">SenderDeck</span>
+          <span className="wordmark">SenderDeck</span><VersionBadge />
         </Link>
         <Link className="quiet-link" href="/">Back to SenderDeck</Link>
       </nav>
