@@ -16,6 +16,7 @@ async function harness(t: TestContext, ids: string[], failure = "invalid_grant")
   })));
   const env = { TOKEN_ENCRYPTION_KEY: key, GOOGLE_CLIENT_ID: "test", GOOGLE_CLIENT_SECRET: "test",
     DB: { prepare(query: string) { return { bind() { return this; }, async first() {
+      if (query.includes("social_runtime")) return null;
       assert.match(query, /mcp_oauth_tokens/);
       return { user_id: "owner", resource: "https://example.com/api/mcp", scope: "senderdeck" };
     }, async all() { return { results: accounts }; } }; } },

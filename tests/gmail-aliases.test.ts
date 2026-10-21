@@ -35,6 +35,7 @@ async function harness(t: TestContext) {
   const env = { TOKEN_ENCRYPTION_KEY: key, DB: { prepare(query: string) {
     let values: unknown[] = [];
     return { bind(...args: unknown[]) { values = args; return this; }, async first() {
+      if (query.includes("social_runtime")) return null;
       if (query.includes("mcp_oauth_tokens")) return { user_id: "owner", resource: "https://example.com/api/mcp", scope: "senderdeck" };
       assert.match(query, /WHERE user_id = \? AND id = \?/);
       return state.accounts.find((item) => item.user_id === values[0] && item.id === values[1]) ?? null;

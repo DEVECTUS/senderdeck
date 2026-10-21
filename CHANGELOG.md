@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.13 · 22 October 2026
+
+- Add an expiring, hosting-controlled operation to retire one duplicate legacy account and move its social connections into an explicitly selected, matching provider-owned brand.
+- Revoke retired users' browser and MCP access while preserving other OpenAI sign-ins, retained mailbox credentials and unrelated workspaces.
+
 ## 0.4.12 · 22 October 2026
 
 - Identify existing Meta account assignments during discovery. Show the existing brand only when the signed-in user has current membership; otherwise provide sign-in guidance without disclosing private workspace details.

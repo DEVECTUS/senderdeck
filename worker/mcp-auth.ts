@@ -1,5 +1,6 @@
 import { authenticatedUser, HttpError } from "./auth";
 import type { Env } from "./env";
+import { isUserRetired } from "./retired-users";
 
 const AUTH_REQUEST_TTL_SECONDS = 10 * 60;
 const AUTH_CODE_TTL_SECONDS = 5 * 60;
@@ -141,7 +142,7 @@ export async function requireMcpUserId(request: Request, env: Env): Promise<stri
   )
     .bind(tokenHash, now)
     .first<TokenRow>();
-  if (!token || token.resource !== resourceUrl(origin) || !token.scope.split(" ").includes(SCOPE)) {
+  if (!token || token.resource !== resourceUrl(origin) || !token.scope.split(" ").includes(SCOPE) || await isUserRetired(env, token.user_id)) {
     throw new McpAuthenticationError(challenge);
   }
   return token.user_id;
@@ -382,6 +383,7 @@ async function issueTokens(
   resource: string,
   now: number,
 ): Promise<Response> {
+  if (await isUserRetired(env, userId)) return oauthError("invalid_grant", "Reconnect using an active SenderDeck sign-in.", 400);
   const accessToken = randomToken(32);
   const refreshToken = randomToken(40);
   await env.DB.batch([

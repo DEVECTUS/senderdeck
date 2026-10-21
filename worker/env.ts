@@ -37,6 +37,8 @@ export interface Env {
   MICROSOFT_CLIENT_SECRET?: string;
   MICROSOFT_TENANT?: string;
   ALLOW_DEV_AUTH?: string;
+  /** Expiring, narrowly scoped hosting-operator retirement plan. Absent by default. */
+  ACCOUNT_RETIREMENT_PLAN?: string;
   MAX_ATTACHMENT_BYTES?: string;
   MAX_TOTAL_ATTACHMENT_BYTES?: string;
   BLOCKED_ATTACHMENT_EXTENSIONS?: string;

@@ -13,6 +13,7 @@ import { isPlatformOperator } from "./social/setup";
 import { resolveMetaSecrets } from "./social/config";
 import { handleSocial } from "./social/api";
 import { runHostedMaintenance } from "./social/webhooks";
+import { handleAccountRetirement } from "./account-retirement";
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -45,6 +46,9 @@ const worker = {
         headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
       });
     }
+
+    const retirementResponse = await handleAccountRetirement(request, env);
+    if (retirementResponse) return retirementResponse;
 
     const identityResponse = await handleIdentityAuthRoute(request, env);
     if (identityResponse) return identityResponse;

@@ -9,6 +9,7 @@ async function loadWorker() {
 }
 
 const baseEnv = {
+  DB: { prepare() { return { bind() { return this; }, async first() { return null; } }; } },
   ASSETS: {
     fetch: async () => new Response("Not found", { status: 404 }),
   },

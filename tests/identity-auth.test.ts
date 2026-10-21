@@ -48,6 +48,7 @@ test("reviewer credentials create a short-lived SenderDeck session", async () =>
           async run() {
             return { success: true, results: [] };
           },
+          async first() { return null; },
         };
       },
     },
@@ -70,7 +71,7 @@ test("reviewer credentials create a short-lived SenderDeck session", async () =>
   assert.equal(response.status, 303);
   assert.equal(response.headers.get("location"), "https://senderdeck.example/settings");
   assert.match(response.headers.get("set-cookie") || "", /Max-Age=86400/);
-  assert.equal(boundRows[0]?.[1], "review-user");
+  assert.equal(boundRows.find(row => row.length === 5)?.[1], "review-user");
 });
 
 test("resolves an opaque SenderDeck session before platform identity", async () => {

@@ -1,5 +1,6 @@
 import type { Env } from "./env";
 import { sha256Base64Url } from "./crypto";
+import { isUserRetired } from "./retired-users";
 
 const AUTH_USER_ID_HEADER = "oai-authenticated-user-id";
 const AUTH_EMAIL_HEADER = "oai-authenticated-user-email";
@@ -28,6 +29,7 @@ export async function authenticatedUser(
       .bind(await sha256Base64Url(sessionToken), now)
       .first<{ user_id: string; email: string }>();
     if (session) {
+      if (await isUserRetired(env, session.user_id)) return null;
       return {
         userId: session.user_id,
         email: session.email,
@@ -39,6 +41,7 @@ export async function authenticatedUser(
   const stableUserId = request.headers.get(AUTH_USER_ID_HEADER)?.trim();
   const email = request.headers.get(AUTH_EMAIL_HEADER)?.trim().toLowerCase();
   if (stableUserId || email) {
+    if (await isUserRetired(env, stableUserId || email!)) return null;
     return {
       userId: stableUserId || email!,
       email: email || "OpenAI user",

@@ -64,6 +64,7 @@ async function harness(t: TestContext, provider: Provider) {
   const key = Buffer.alloc(32, 2).toString("base64");
   const account: StoredAccount = { id: "account", user_id: "owner", provider, provider_account_id: "p", email: "sender@example.com", label: "Sender", encrypted_access_token: await encrypt("provider-token", key), encrypted_refresh_token: null, token_expires_at: null, scopes: "", created_at: 0, updated_at: 0 };
   const env = { TOKEN_ENCRYPTION_KEY: key, DB: { prepare(query: string) { let values: unknown[]; return { bind(...args: unknown[]) { values = args; return this; }, async first() {
+    if (query.includes("social_runtime")) return null;
     if (query.includes("mcp_oauth_tokens")) return { user_id: "owner", resource: "https://example.com/api/mcp", scope: "senderdeck" };
     assert.match(query, /WHERE user_id = \? AND id = \?/);
     return values[0] === "owner" && values[1] === "account" ? account : null;

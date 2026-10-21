@@ -5,6 +5,7 @@ import {
 } from "./auth";
 import { saveAccount } from "./accounts";
 import { randomBase64Url, sha256Base64Url } from "./crypto";
+import { isUserRetired } from "./retired-users";
 import type { Env, Provider } from "./env";
 import {
   assertProviderConfigured,
@@ -166,6 +167,7 @@ async function finishSignInIfMatched(
       || stored.linking_user_id
       || `usr_${randomBase64Url(18)}`;
     const now = Date.now();
+    if (await isUserRetired(env, userId)) throw new HttpError(403, "This SenderDeck account has been retired. Use an active sign-in.");
     await env.DB.prepare(
       `INSERT INTO senderdeck_identities
         (provider, provider_account_id, user_id, email, created_at, updated_at)
@@ -280,6 +282,7 @@ async function createSessionResponse(
   destination: string,
   ttlSeconds: number,
 ): Promise<Response> {
+  if (await isUserRetired(env, userId)) throw new HttpError(403, "This SenderDeck account has been retired.");
   const now = Date.now();
   const sessionToken = randomBase64Url(32);
   await env.DB.prepare(
