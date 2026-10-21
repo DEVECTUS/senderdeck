@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security or privacy report
+    url: https://github.com/DEVECTUS/senderdeck/blob/main/SECURITY.md
+    about: Report sensitive issues privately using the existing DEVECTUS contact channels.
+  - name: Hosted service support
+    url: https://senderdeck.devectus.com.au/support
+    about: Get help with account connections, provider activation and the hosted product.

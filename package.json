@@ -1,6 +1,6 @@
 {
   "name": "senderdeck",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "license": "MIT",
   "private": true,
   "engines": {
@@ -41,5 +41,22 @@
     "vite": "8.0.13",
     "wrangler": "4.92.0"
   },
-  "type": "module"
+  "type": "module",
+  "description": "Open-source email and brand conversation tools for Codex and Claude. Google and Microsoft mailboxes, customer workspaces and explicit reply approvals, with a gated Meta social module.",
+  "homepage": "https://senderdeck.devectus.com.au/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DEVECTUS/senderdeck.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DEVECTUS/senderdeck/issues"
+  },
+  "keywords": [
+    "mcp",
+    "email",
+    "brand-management",
+    "conversation-management",
+    "codex",
+    "claude"
+  ]
 }

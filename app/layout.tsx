@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
     : "senderdeck.devectus.com.au";
   const imageUrl = `https://${safeHost}/og.png`;
   const description =
-    "One secure workspace to connect and manage multiple Gmail, Google Workspace, Outlook, and Microsoft 365 email identities.";
+    "Open-source email and brand conversation tools for Codex and Claude. Manage Google and Microsoft mailboxes, brand policies and approved replies, with clear social activation requirements.";
 
   return {
     title: "SenderDeck by DEVECTUS",

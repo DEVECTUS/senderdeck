@@ -14,9 +14,12 @@ await rm(path.join(output, ".claude-plugin"), { recursive: true, force: true });
 const manifestPath = path.join(output, ".codex-plugin/plugin.json");
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 const submission = JSON.parse(await readFile(path.join(root, "chatgpt-app-submission.json"), "utf8"));
+// The directory listing was migrated from an Apps SDK submission. Keep its
+// verified package identity; repository installs continue to use "senderdeck".
+manifest.name = "app-6a87125f6b308191ac268739218eac27";
 manifest.author.name = "DEVECTUS Pty Ltd";
 manifest.interface.developerName = "DEVECTUS Pty Ltd";
-manifest.interface.shortDescription = "Manage multiple inboxes safely";
+// Preserve the current listing copy from the maintained plugin manifest.
 const convert = ({ description, user_prompt, tools_triggered, expected_output }) => ({
   description, prompt: user_prompt, ...(tools_triggered ? { tools_triggered } : {}), expected_behavior: expected_output,
 });
@@ -26,7 +29,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.0 adds customer and brand workspaces, gated Meta OAuth and conversation adapters, encrypted local drafts, exact revision approval, signed webhook processing and explicit monitoring coverage. LinkedIn and unvalidated provider capabilities remain pending. Existing email contracts and the 0.3.7 attachment fixes are preserved." },
+  publication: { release_notes: "Version 0.4.1 updates the website, plugin descriptions and open-source documentation for email and brand conversations. It clarifies provider activation limits and data retention, and adds contribution, architecture, security and release guidance. Social activation remains gated; mailbox permissions and send approval controls are unchanged." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

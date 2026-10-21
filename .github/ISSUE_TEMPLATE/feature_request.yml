@@ -1,0 +1,25 @@
+name: Feature proposal
+description: Describe a user problem and the proposed outcome.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Explain the workflow without including private messages or account details.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Proposed behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Provider access and approval considerations
+      description: Note any official API requirement, capability gap, account scope or send approval impact.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

@@ -1,0 +1,39 @@
+name: Bug report
+description: Report a reproducible SenderDeck issue using sanitised examples.
+body:
+  - type: markdown
+    attributes:
+      value: "For vulnerabilities or privacy incidents, use SECURITY.md. Do not include credentials, private messages, files, email addresses or customer identifiers in a public issue."
+  - type: input
+    id: version
+    attributes:
+      label: Release or commit
+      placeholder: "For example: 0.4.1"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Client, provider and channel
+      placeholder: "For example: Codex, Gmail attachment download"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Use synthetic data and explain account selection without exposing real identifiers.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour and sanitised errors
+    validations:
+      required: true

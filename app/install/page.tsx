@@ -28,11 +28,11 @@ export default function InstallPage() {
       <header className="install-hero">
         <div>
           <p className="eyebrow">{"// Install SenderDeck"}</p>
-          <h1>Add the right sender<br /><span>to your AI client.</span></h1>
+          <h1>Email and brand tools<br /><span>for your AI client.</span></h1>
         </div>
         <p className="lede">
           Choose Codex or Claude, install the public plugin or connector, then authenticate with
-          the same SenderDeck identity you use to manage your email accounts.
+          the same SenderDeck identity you use for email accounts and brand workspaces.
         </p>
       </header>
 
@@ -47,6 +47,8 @@ export default function InstallPage() {
         </div>
         <a className="primary" href={senderDeckSignInPath("/settings")}>Connect accounts</a>
       </section>
+
+      <section className="install-scope" aria-labelledby="included-tools"><h2 id="included-tools">Email tools and brand workflows</h2><p>The plugin bundles 14 email tools, 24 customer/social workspace tools and two workflow skills. Email routing covers sender selection, attachments and inspected draft approval. The social skill covers brand policy, complete available history, escalation and approval of an exact reply revision.</p><p>Customer and brand workspaces are available. Live Facebook and Instagram access requires provider and hosting activation; LinkedIn remains pending. Installing or updating this package does not connect a social account or start monitoring. Read the <Link href="/social-setup">provider requirements</Link> before relying on channel coverage.</p></section>
 
       <section className="client-install-grid" aria-label="AI client installation choices">
         <article className="client-install-card codex-card">

@@ -1,7 +1,7 @@
 {
   "name": "senderdeck",
-  "version": "0.4.0",
-  "description": "Email account routing and a gated social conversation workspace with brand rules and exact reply approvals.",
+  "version": "0.4.1",
+  "description": "Open-source email and brand conversation tools for Codex and Claude. Google and Microsoft mailboxes, customer workspaces and explicit reply approvals, with a gated Meta social module.",
   "author": {
     "name": "DEVECTUS",
     "url": "https://devectus.com.au/"
@@ -14,7 +14,11 @@
     "gmail",
     "outlook",
     "microsoft-365",
-    "productivity"
+    "brand-management",
+    "social-conversations",
+    "mcp",
+    "codex",
+    "claude"
   ],
   "mcpServers": "./.mcp.json"
 }

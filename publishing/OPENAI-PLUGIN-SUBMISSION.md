@@ -2,13 +2,15 @@
 
 Prepared 4 August 2026 for the initial public submission. Updated 3 September 2026 for the v0.3.2 review-access release.
 
+Current listing copy updated 21 October 2026 for 0.4.1. Historical review notes below remain dated evidence, not a claim of current directory approval. Read [listing status and publication boundaries](LISTING-STATUS.md) before a new submission.
+
 ## Listing
 
 - **Plugin name:** SenderDeck by DEVECTUS
 - **Developer:** DEVECTUS Pty Ltd
 - **Category:** Productivity
-- **Short description:** Safely use up to 10 Google and Microsoft inboxes.
-- **Long description:** Connect and label multiple Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts. Search and read messages on demand, create provider-hosted drafts, work with attachments within configured safety limits, and send only after confirming the exact sender, recipients, subject, and attachment list.
+- **Short description:** Email & brand conversations
+- **Long description:** SenderDeck is an MIT-licensed, open-source workspace for email and brand conversations through Codex or Claude. Connect up to 10 Gmail, Google Workspace, Outlook.com and Microsoft 365 accounts per user. Search and read on demand, download attachments, select authorised Gmail aliases and create, update and inspect provider-hosted drafts. Email sending requires a separate confirmation of the exact sender, recipients, subject, attachments and current revision. Customer and brand workspaces add role controls, language and tone settings, source-labelled verified facts, escalation rules, enquiry ownership and an activity feed. Social history snapshots and immutable local drafts are encrypted and expire. Replies require approval of the exact brand, account, target, text and revision. Facebook and Instagram adapters are implemented, but live access requires platform approval, owner consent, verified assets and subscriptions, and a working hosted scheduler. Social sending and hosted monitoring are not active in the current deployment. LinkedIn community access and Page messaging, Instagram mentions and social attachment sending remain unavailable pending approval or validation. Coverage gaps are reported explicitly.
 - **Website:** https://senderdeck.devectus.com.au/
 - **Support:** https://senderdeck.devectus.com.au/support
 - **Privacy:** https://senderdeck.devectus.com.au/privacy

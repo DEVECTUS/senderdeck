@@ -3,13 +3,17 @@
   "schema_version": 1,
   "app_info": {
     "display_name": "SenderDeck by DEVECTUS",
-    "subtitle": "Manage multiple inboxes safely",
-    "description": "Connect and label Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts. Search and read messages on demand, create provider-hosted drafts, work with attachments, and send only after confirming the exact sender, recipients, subject, and attachments.",
+    "subtitle": "Email & brand conversations",
+    "description": "SenderDeck is an MIT-licensed, open-source workspace for email and brand conversations through Codex or Claude. Connect up to 10 Gmail, Google Workspace, Outlook.com and Microsoft 365 accounts per user. Search and read on demand, download attachments, select authorised Gmail aliases and create, update and inspect provider-hosted drafts. Email sending requires a separate confirmation of the exact sender, recipients, subject, attachments and current revision.\n\nCustomer and brand workspaces add role controls, language and tone settings, source-labelled verified facts, escalation rules, enquiry ownership and an activity feed. Social history snapshots and immutable local drafts are encrypted and expire. Replies require approval of the exact brand, account, target, text and revision.\n\nFacebook and Instagram adapters are implemented, but live access requires platform approval, owner consent, verified assets and subscriptions, and a working hosted scheduler. Social sending and hosted monitoring are not active in the current deployment. LinkedIn community access and Page messaging, Instagram mentions and social attachment sending remain unavailable pending approval or validation. Coverage gaps are reported explicitly.",
     "category": "PRODUCTIVITY"
   },
   "tools": {
     "account_connect": {
-      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
       "justifications": {
         "read_only_justification": "Returns an authorization URL and creates only short-lived transaction metadata without changing mailbox content or account settings.",
         "open_world_justification": "Prepares authorization only for SenderDeck's supported Google or Microsoft providers and does not contact arbitrary external services.",
@@ -17,7 +21,11 @@
       }
     },
     "account_list": {
-      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
       "justifications": {
         "read_only_justification": "Reads the authenticated user's SenderDeck connection records without modifying them.",
         "open_world_justification": "Queries only SenderDeck's closed set of connected-account records for the current user.",
@@ -25,7 +33,11 @@
       }
     },
     "account_label": {
-      "annotations": { "readOnlyHint": false, "openWorldHint": false, "destructiveHint": false },
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
       "justifications": {
         "read_only_justification": "Changes the user-defined label stored for an existing SenderDeck account connection.",
         "open_world_justification": "Updates only SenderDeck's local record for the selected connected account.",
@@ -33,7 +45,11 @@
       }
     },
     "account_disconnect": {
-      "annotations": { "readOnlyHint": false, "openWorldHint": false, "destructiveHint": true },
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
       "justifications": {
         "read_only_justification": "Removes the selected account connection and its stored provider credentials from SenderDeck.",
         "open_world_justification": "Operates only on the authenticated user's SenderDeck connection record.",
@@ -41,7 +57,11 @@
       }
     },
     "route_account": {
-      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
       "justifications": {
         "read_only_justification": "Evaluates connected-account metadata and returns the best matching sender identity without modifying data.",
         "open_world_justification": "Routes only among the authenticated user's known SenderDeck accounts.",
@@ -49,7 +69,11 @@
       }
     },
     "email_search": {
-      "annotations": { "readOnlyHint": true, "openWorldHint": true, "destructiveHint": false },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
       "justifications": {
         "read_only_justification": "Searches messages and returns matching metadata without changing the mailbox.",
         "open_world_justification": "Calls the independently controlled Google or Microsoft provider API for the selected authenticated mailbox.",
@@ -57,7 +81,11 @@
       }
     },
     "email_read": {
-      "annotations": { "readOnlyHint": true, "openWorldHint": true, "destructiveHint": false },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
       "justifications": {
         "read_only_justification": "Retrieves one message for viewing without changing that message or its mailbox state.",
         "open_world_justification": "Calls the independently controlled Google or Microsoft provider API for the selected authenticated mailbox.",
@@ -65,7 +93,11 @@
       }
     },
     "draft_create": {
-      "annotations": { "readOnlyHint": false, "openWorldHint": true, "destructiveHint": false },
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
       "justifications": {
         "read_only_justification": "Creates a provider-hosted draft, which changes mailbox state.",
         "open_world_justification": "Calls the independently controlled Google or Microsoft provider API for the selected authenticated mailbox.",
@@ -73,7 +105,11 @@
       }
     },
     "draft_reply": {
-      "annotations": { "readOnlyHint": false, "openWorldHint": true, "destructiveHint": false },
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
       "justifications": {
         "read_only_justification": "Creates an unsent reply draft in the selected authenticated mailbox.",
         "open_world_justification": "Calls the independently controlled Google or Microsoft provider API for the selected authenticated mailbox.",
@@ -81,7 +117,11 @@
       }
     },
     "draft_inspect": {
-      "annotations": { "readOnlyHint": true, "openWorldHint": true, "destructiveHint": false },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
       "justifications": {
         "read_only_justification": "Reads the current provider-hosted draft and returns its sender, recipients, subject, body, and attachments.",
         "open_world_justification": "Calls the independently controlled Google or Microsoft provider API for the selected authenticated mailbox.",
@@ -89,7 +129,11 @@
       }
     },
     "email_send": {
-      "annotations": { "readOnlyHint": false, "openWorldHint": true, "destructiveHint": true },
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": true,
+        "destructiveHint": true
+      },
       "justifications": {
         "read_only_justification": "Sends a message from the selected provider account and therefore changes mailbox state.",
         "open_world_justification": "Communicates with external recipient mail systems using addresses confirmed by the user.",
@@ -97,7 +141,11 @@
       }
     },
     "attachment_list": {
-      "annotations": { "readOnlyHint": true, "openWorldHint": true, "destructiveHint": false },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
       "justifications": {
         "read_only_justification": "Lists attachment metadata for a selected message without changing the message or files.",
         "open_world_justification": "Calls the independently controlled Google or Microsoft provider API for the selected authenticated mailbox.",
@@ -105,7 +153,11 @@
       }
     },
     "attachment_download": {
-      "annotations": { "readOnlyHint": true, "openWorldHint": true, "destructiveHint": false },
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
       "justifications": {
         "read_only_justification": "Retrieves the bytes of a selected attachment without changing the source message or attachment.",
         "open_world_justification": "Calls the independently controlled Google or Microsoft provider API for the selected authenticated mailbox.",

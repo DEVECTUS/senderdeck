@@ -6,7 +6,7 @@ import { getSenderDeckUser, senderDeckSignInPath, senderDeckSignOutPath } from "
 export const metadata: Metadata = {
   title: "SenderDeck by DEVECTUS",
   description:
-    "Open, inspectable infrastructure for safe, on-demand access to multiple email accounts.",
+    "Open-source email and brand conversation tools for Codex and Claude. Manage Gmail and Microsoft accounts, brand rules and approved replies, with clear social activation requirements.",
 };
 
 export const dynamic = "force-dynamic";
@@ -44,7 +44,7 @@ export default async function Home() {
             <a className="quiet-link" href={senderDeckSignOutPath("/")}>Sign out</a>
           </div>
         ) : (
-          <a className="quiet-link" href={senderDeckSignInPath("/")}>Sign in</a>
+          <div className="nav-user"><a className="quiet-link" href="#capabilities">Capabilities</a><a className="quiet-link" href={senderDeckSignInPath("/")}>Sign in</a></div>
         )}
       </nav>
 
@@ -52,60 +52,72 @@ export default async function Home() {
         <>
           <section className="workspace-hero">
             <div>
-              <p className="eyebrow">{"// Your email workspace"}</p>
-              <h1>One user.<br /><span>Many email identities.</span></h1>
+              <p className="eyebrow">{"// Your conversation workspace"}</p>
+              <h1>Your accounts.<br /><span>Your brands.</span></h1>
             </div>
             <p className="lede">
-              Every connected mailbox remains a separate sender identity. Add,
-              label, review, and disconnect accounts here—then choose the exact
-              account whenever you search, draft, or send.
+              Manage your Google and Microsoft email identities, then organise customer
+              brands, reply policies and social enquiries. Choose the exact account for
+              each conversation and review every response before approving it.
             </p>
           </section>
           <section className="configuration-callout" aria-labelledby="configuration-title">
             <div>
               <p className="eyebrow">{"// Configuration"}</p>
-              <h2 id="configuration-title">Configure accounts and AI clients.</h2>
+              <h2 id="configuration-title">Connect accounts and organise your brands.</h2>
               <p>
-                Manage Google and Microsoft sender identities, review which SenderDeck identity owns
-                them, and connect the plugin to Codex or Claude in one place.
+                Configuration manages email identities and AI clients. Conversations holds
+                customer workspaces, brand rules, enquiries and social connection readiness.
               </p>
             </div>
             <Link className="primary" href="/settings">Open configuration</Link>
+            <Link className="secondary dark" href="/conversations">Open Conversations</Link>
           </section>
         </>
       ) : (
         <section className="hero">
-          <p className="eyebrow">{"// Built in public by DEVECTUS"}</p>
-          <h1>Every inbox.<br /><span>The right sender.</span><br />Your final say.</h1>
+          <p className="eyebrow">{"// Open-source conversation tools by DEVECTUS"}</p>
+          <h1>Every inbox.<br /><span>Every brand.</span><br />Your final say.</h1>
           <p className="lede">
-            One secure workspace for Gmail, Google Workspace, Outlook.com, and
-            Microsoft 365. Nothing sends until the sender, recipients, subject,
-            and attachments are explicitly confirmed.
+            An open-source workspace for email and brand conversations, connected to Codex
+            or Claude. Use Gmail and Microsoft email today. Organise brands, enquiries and
+            reply approvals, with Facebook and Instagram activation subject to provider approval.
+            Nothing sends until the exact message and account are explicitly confirmed.
           </p>
           <div className="hero-actions">
             <a className="primary" href={senderDeckSignInPath("/settings")}>
-              Sign in to manage accounts
+              Connect email accounts
             </a>
             <Link className="secondary dark" href="/install">Install for Codex or Claude</Link>
           </div>
         </section>
       )}
 
+      <section className="product-capabilities" id="capabilities" aria-labelledby="capabilities-title">
+        <div className="product-section-heading"><div><p className="eyebrow">{"// What SenderDeck does"}</p><h2 id="capabilities-title">Email today.<br /><span>A foundation for every brand.</span></h2></div><p>One project, distinct provider capabilities. Each connection reports what it can actually read or send.</p></div>
+        <div className="product-capability-grid">
+          <article><span className="product-state available">Available</span><h3>Google &amp; Microsoft email</h3><p>Connect up to 10 mailboxes per user. Search and read messages, download attachments, choose an authorised Gmail alias and prepare or update provider-hosted drafts.</p><p>Inspect the sender, recipients, subject, files and current revision before a separate send confirmation.</p><Link href="/settings">Manage email accounts →</Link></article>
+          <article><span className="product-state available">Available</span><h3>Brands &amp; enquiry workflows</h3><p>Organise customers, brands and account associations. Set language, tone, verified facts and escalation rules. Track enquiry ownership, next actions and activity with customer role controls.</p><p>Social drafts and history snapshots are encrypted and expire. Replies require approval of the exact revision.</p><Link href="/conversations">Explore Conversations →</Link></article>
+          <article><span className="product-state pending">Activation pending</span><h3>Facebook &amp; Instagram</h3><p>Provider adapters cover Page messages, comment and reply trees, hosted OAuth and explicit asset selection. Signed webhooks and reconciliation support hosted monitoring.</p><p>Live access requires an approved platform app, owner consent, verified subscriptions and a working scheduler. Social sending is currently disabled.</p><Link href="/social-setup">See activation requirements →</Link></article>
+          <article><span className="product-state pending">Approval pending</span><h3>LinkedIn &amp; coverage limits</h3><p>LinkedIn community access needs programme and data-use approval. Page messaging requires separate partner access. No LinkedIn inbox coverage is currently provided.</p><p>Instagram mentions, social attachment sending and unsupported history remain explicit gaps for native review.</p><Link href="/social-setup#linkedin">Review provider limits →</Link></article>
+        </div>
+      </section>
+
       <section className="principles" aria-label="Product principles">
         <article>
           <span>01</span>
-          <h2>On demand</h2>
-          <p>Messages are fetched when requested. Mailboxes are not synchronized or indexed.</p>
+          <h2>Explicit account scope</h2>
+          <p>Choose one sender or brand account for each action. Mailbox credentials stay with their owner; customer roles control social access.</p>
         </article>
         <article>
           <span>02</span>
           <h2>Deliberate sending</h2>
-          <p>Drafts stay with the email provider and require an exact confirmation before send.</p>
+          <p>Email drafts stay with the provider. Social drafts expire locally. Each send requires a separate confirmation of the inspected message.</p>
         </article>
         <article>
           <span>03</span>
-          <h2>Minimal retention</h2>
-          <p>Only encrypted OAuth tokens and account preferences are stored by this service.</p>
+          <h2>Clear data boundaries</h2>
+          <p>Email content is fetched on demand. Optional social content is encrypted with expiry controls, while policies and enquiry metadata support review.</p>
         </article>
       </section>
 
@@ -115,7 +127,7 @@ export default async function Home() {
           <h2 id="open-source-title">Public code.<br /><span>Human stakes.</span></h2>
           <p>
             Trust should be inspectable. SenderDeck is open source under the MIT License, so people
-            can examine how it handles identity, consent, and email—not just take our word for it.
+            can inspect how it handles identity, account routing, brand policies, stored data and reply approvals.
           </p>
           <a
             className="source-link"
@@ -144,8 +156,8 @@ export default async function Home() {
           <article>
             <span>03</span>
             <div>
-              <h3>Useful beats heroic</h3>
-              <p>We contribute focused work, honest constraints, and a few late nights to make human–AI collaboration safer.</p>
+              <h3>Contribute with context</h3>
+              <p>Explore the architecture, report reproducible issues or contribute code and documentation. Provider activation requirements are documented alongside the implementation.</p>
             </div>
           </article>
         </div>
@@ -171,8 +183,8 @@ export default async function Home() {
           <p>Bespoke software and automation platforms for Australian organisations.</p>
         </div>
         <div>
-          <p>Up to 10 connected accounts per user.</p>
-          <p>Background monitoring, bulk email, calendars, and automatic sending are not included.</p>
+          <p>Up to 10 email accounts per user, plus customer and brand workspaces.</p>
+          <p>Social access and hosted monitoring await activation. Automatic sending is disabled.</p>
           <div className="footer-links">
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
@@ -180,6 +192,9 @@ export default async function Home() {
             <Link href="/support">Support</Link>
             <Link href="/install">Install</Link>
             <Link href="/settings">Configuration</Link>
+            <Link href="/conversations">Conversations</Link>
+            <Link href="/social-setup">Provider status</Link>
+            <a href="https://github.com/DEVECTUS/senderdeck/blob/main/CONTRIBUTING.md">Contribute</a>
           </div>
         </div>
       </footer>

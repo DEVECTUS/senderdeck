@@ -1,30 +1,76 @@
 # SenderDeck by DEVECTUS
 
-A production-candidate Streamable HTTP MCP server for Codex and Claude that works with up to 10 Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts per user.
+**Open-source email and brand conversation tools for Codex and Claude.**
 
-## What is implemented
+SenderDeck connects AI clients to explicitly selected accounts so you can review messages, prepare replies and retain control over delivery. It combines on-demand Google and Microsoft email workflows with customer workspaces, brand rules and an optional social conversation module. The source is available under the [MIT License](LICENSE).
 
-- Per-user connect, label, list, route, and disconnect account tools.
-- Google and Microsoft multi-account OAuth with PKCE and encrypted token storage.
-- Cross-account search and on-demand message reading.
-- Provider-hosted new drafts and reply drafts.
-- Exact sender, recipient, subject, and attachment confirmation before sending.
-- On-demand attachment listing and base64 download with configurable size, extension, and MIME-type controls.
-- D1 storage for encrypted tokens, account preferences, provider identity links, opaque sessions, and short-lived OAuth state.
-- Dual Codex and Claude plugin manifests plus a shared sender-routing skill in `plugins/senderdeck/`.
-- Repository marketplaces for Codex in `.agents/plugins/marketplace.json` and Claude in `.claude-plugin/marketplace.json`.
+[Use SenderDeck](https://senderdeck.devectus.com.au/) · [Install the plugin](https://senderdeck.devectus.com.au/install) · [Releases](https://github.com/DEVECTUS/senderdeck/releases) · [Contribute](CONTRIBUTING.md) · [Report a security issue](SECURITY.md)
 
-The email service does not synchronize or index mailboxes, retain email message bodies, send automatically, perform bulk email, or expose calendar/shared-mailbox functions. Optional social storage and monitoring are described below.
+## What you can use
 
-## Social workspace (0.4.0)
+| Area | Capabilities | Current status |
+| --- | --- | --- |
+| Google and Microsoft email | Up to 10 Gmail, Google Workspace, Outlook.com or Microsoft 365 accounts per user; explicit routing; search/read; attachments; authorised Gmail aliases; create/update/inspect drafts | Implemented and deployed; provider consent and valid grants required |
+| Customer and brand workspaces | Multiple brands, account associations, customer roles, tone/language/punctuation settings, verified facts and escalation rules | Available in Conversations |
+| Enquiries and approvals | Status, assigned owner, next action, minimal audit records, encrypted expiring social drafts, exact revision approval | Implemented; social sending disabled in the current deployment |
+| Facebook and Instagram | Hosted Meta OAuth, asset discovery/verification, messages, comment/reply trees, signed webhooks and reconciliation adapters | Activation pending platform approval, owner consent, live validation and hosted scheduling |
+| LinkedIn | Explicit capability blockers and programme/data-use requirements | No live community or inbox access; Page messaging requires separate partner access |
+| Other social capabilities | Instagram mentions, social attachment sending and provider-specific history extensions | Unavailable pending validation |
 
-`/conversations` adds customers, role-based memberships, brands, configurable policies, explicit account routing, enquiry review and an activity feed. Email tools and their contracts are preserved; linking an email account to a brand does not delegate its owner's mailbox access.
+The project currently exposes **38 MCP tools**: 14 email tools and 24 social/workspace tools. A deployed adapter is not proof that a provider has approved access or that an inbox was checked. The hosted service reports connection capabilities and coverage limits explicitly.
 
-The optional Meta module implements hosted OAuth, verified asset selection, encrypted tokens, current permission/task checks, paginated message and comment reads, expiring encrypted drafts, exact revision approval, 24-hour private reply windows and atomic send claims. Signed webhooks enter a durable deduplicated queue. A scheduled handler and authenticated maintenance endpoint support reconciliation and cleanup. Notifications are local workspace/MCP records, not external messages.
+## Typical workflows
 
-**Activation is gated.** No provider credentials, customer grants or live social coverage are included in the release. Meta external-customer access requires a DEVECTUS platform app and Advanced Access. Social sending defaults off. A real hosted maintenance run is required before OAuth activation. LinkedIn community APIs, Page messaging, Instagram mentions and social attachment sends remain explicitly unavailable pending approval/validation. Existing browser monitoring must continue until actual API coverage is established.
+- Search selected email accounts for messages needing attention, keeping each result attributed to its account.
+- Prepare a reply from the chosen mailbox or authorised Gmail alias, inspect the saved draft and wait for separate approval.
+- Organise customers and brands, record verified business information and define which enquiries need owner escalation.
+- Review provider readiness, enquiry ownership and suggested social replies without presenting pending social access as active.
 
-The plugin adds 24 `social_*` tools and the `social-conversations` skill alongside the existing 14 email tools. See [activation and verification requirements](docs/SOCIAL-ACTIVATION.md) and the [hosted setup guide](https://senderdeck.devectus.com.au/social-setup).
+Email drafts remain with Google or Microsoft. Email search/read and attachment downloads are transient; the service does not synchronise or index whole mailboxes. The optional social module stores encrypted tokens, expiring history snapshots and drafts, plus policies and minimal enquiry metadata. See [architecture and data handling](docs/ARCHITECTURE.md) and the [privacy statement](https://senderdeck.devectus.com.au/privacy).
+
+## Get started
+
+1. Open the [hosted portal](https://senderdeck.devectus.com.au/) and sign in with Google or Microsoft. Review provider consent and connect the mailboxes you intend to use.
+2. Follow the [Codex and Claude installation guide](https://senderdeck.devectus.com.au/install). The repository includes both plugin formats and a shared remote MCP endpoint: `https://senderdeck.devectus.com.au/api/mcp`.
+3. List accounts and explicitly select a sender before creating a draft. Sending requires a separate confirmation after inspecting the exact message details.
+4. Open [Conversations](https://senderdeck.devectus.com.au/conversations) to create a customer and brand, configure rules and inspect social connection readiness.
+
+Customers do not need to create developer apps or run local relays for the hosted product. The service operator must complete the provider setup. Installing the plugin or saving a monitoring preference does not activate social access.
+
+## Social activation and limits
+
+Facebook and Instagram access requires a DEVECTUS-owned platform app, appropriate App Review/Advanced Access, customer consent, explicit asset verification, working subscriptions and a hosted maintenance/reconciliation trigger. Social sending is off by default and also requires brand enablement and exact draft approval. No unattended replies are sent.
+
+The current deployment has no Meta/LinkedIn credentials or customer grants and no active social scheduler. Existing browser monitoring should continue until actual API coverage is proved. Meta may expose only 20 recent message details; Instagram Requests and media have additional limits. Unsupported history and attachments require native review. LinkedIn has separate programme, messaging and data-use restrictions.
+
+See [activation and live acceptance requirements](docs/SOCIAL-ACTIVATION.md) or the [hosted provider guide](https://senderdeck.devectus.com.au/social-setup). Configuration switches are not a substitute for provider approval or successful live tests.
+
+## Open-source development
+
+The application uses TypeScript, React, Next.js through Vinext, Cloudflare Workers and D1, with Drizzle migrations. OAuth credentials are encrypted server-side. The web portal and MCP server share backend account and approval controls.
+
+```text
+npm ci
+npm run typecheck
+npm test
+npm run dev
+```
+
+Node.js 22.13 or newer is required. Use synthetic data and mocked providers for tests. Local UI development needs environment values and local database bindings; deployment requires your own hosting and provider registrations. The hosted DEVECTUS app credentials and approval do not transfer to forks. See [CONTRIBUTING.md](CONTRIBUTING.md), [architecture](docs/ARCHITECTURE.md) and [.env.example](.env.example).
+
+The 0.4.0 release passed 121 unit tests and 14 built-page tests. See the [changelog](CHANGELOG.md) for release scope and the actual validation recorded for each release. Public issues and pull requests are welcome; do not include private messages, tokens, reviewer credentials or customer account data.
+
+## Project documentation
+
+- [Contribution guide](CONTRIBUTING.md), [community expectations](CODE_OF_CONDUCT.md) and [security reporting](SECURITY.md)
+- [Architecture, authorisation and storage](docs/ARCHITECTURE.md)
+- [Social provider activation](docs/SOCIAL-ACTIVATION.md)
+- [Changelog](CHANGELOG.md) and [GitHub releases](https://github.com/DEVECTUS/senderdeck/releases)
+- [Plugin listing status](publishing/LISTING-STATUS.md) and maintained OpenAI/Claude submission copy
+
+## Licence and support
+
+MIT licensed. Copyright © 2026 DEVECTUS Pty Ltd. Open source does not imply provider approval, unlimited hosted capacity, a support SLA or endorsement by Google, Microsoft, Meta, LinkedIn, OpenAI or Anthropic. For product support, see [Support](https://senderdeck.devectus.com.au/support); for sensitive reports use [SECURITY.md](SECURITY.md).
 
 ## Runtime configuration
 
@@ -54,7 +100,7 @@ Optional configuration is documented in `.env.example`. The Microsoft tenant def
 
 ## Local validation
 
-Run `npm run db:generate`, `npm run typecheck`, and `npm run build`. For local MCP calls without Sites identity forwarding, set `ALLOW_DEV_AUTH=true` and send an `x-dev-user-email` request header.
+Run `npm run typecheck` and `npm test` after installing dependencies. Generate a new migration with `npm run db:generate` only when changing `db/schema.ts`; preserve existing migrations. `ALLOW_DEV_AUTH=true` enables a local browser/account API identity shortcut, not an unauthenticated MCP connection. MCP calls still require SenderDeck OAuth bearer tokens.
 
 ## Attachment references (0.3.7)
 
@@ -251,7 +297,7 @@ Check that `draft_create`, `draft_reply` and `draft_update` expose optional `fro
 and that `account_list` describes nested `senderIdentities`.
 
 - For the installed repository plugin, update SenderDeck from
-  `DEVECTUS/senderdeck` to 0.3.4, reload the plugin/MCP connection or restart Codex,
+  `DEVECTUS/senderdeck` to the latest release, reload the plugin/MCP connection or restart Codex,
   then reopen the existing chat and verify those fields before using them. If that
   chat retains its old tool definitions, start a new chat after updating. Updating
   the remote schema does not migrate an already loaded skill package.
