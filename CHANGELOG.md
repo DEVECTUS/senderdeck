@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.12 · 22 October 2026
+
+- Identify existing Meta account assignments during discovery. Show the existing brand only when the signed-in user has current membership; otherwise provide sign-in guidance without disclosing private workspace details.
+- Replace misleading Connect actions and disconnect/restart advice for accounts assigned elsewhere. Preserve account credentials, conversations and workspace boundaries.
+
+
 ## 0.4.11 · 22 October 2026
 
 - Simplify Meta connection to brand selection, Meta sign-in and account selection, with compact headings and plain account access summaries.

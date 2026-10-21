@@ -51,7 +51,21 @@ async function getGrant(env: Env, user: string, brandId: string, grantId: string
 export async function grantAssets(env: Env, user: string, brandId: string, grantId: string) {
   const grant = await getGrant(env, user, brandId, grantId);
   const current = await discover(env,grant.userToken);
-  return { assets: current.candidates.map(({ token: _token, ...asset }) => asset), permissions: current.permissions, diagnostics:current.diagnostics||null, expiresIn: "up to ten minutes" };
+  const assets = [];
+  for (const { token: _token, ...asset } of current.candidates) {
+    const assignment = await assetAssignment(env, user, brandId, asset.provider, asset.assetId);
+    assets.push({ ...asset, assignment });
+  }
+  return { assets, permissions: current.permissions, diagnostics:current.diagnostics||null, expiresIn: "up to ten minutes" };
+}
+async function assetAssignment(env: Env, user: string, brandId: string, provider: string, assetId: string) {
+  const existing = await env.DB.prepare("SELECT id,brand_id FROM social_accounts WHERE provider=? AND asset_id=?").bind(provider,assetId).first<{id:string;brand_id:string}>();
+  if (!existing) return { state: "available" as const };
+  if (existing.brand_id === brandId) return { state: "this_brand" as const };
+  // A provider grant does not confer membership of another SenderDeck tenant.
+  // Disclose its name/ID only after independently checking current membership.
+  const visible = await env.DB.prepare("SELECT b.id,b.name FROM social_brands b JOIN social_members m ON m.customer_id=b.customer_id WHERE b.id=? AND m.user_id=?").bind(existing.brand_id,user).first<{id:string;name:string}>();
+  return visible ? { state: "other_brand" as const, brandId:visible.id, brandName:visible.name } : { state: "other_workspace" as const };
 }
 export async function selectAsset(env: Env, user: string, brandId: string, grantId: string, provider: string, assetId: string) {
   const saved = await getGrant(env, user, brandId, grantId);
@@ -60,7 +74,7 @@ export async function selectAsset(env: Env, user: string, brandId: string, grant
   const asset = grant.candidates.find(a => a.provider === provider && a.assetId === assetId);
   if (!asset) throw new HttpError(403, "The selected asset is not present in the current authorisation.");
   const existing = await env.DB.prepare("SELECT id, brand_id FROM social_accounts WHERE provider = ? AND asset_id = ?").bind(provider, assetId).first<{id: string; brand_id: string}>();
-  if (existing && existing.brand_id !== brandId) throw new HttpError(409, "This asset is already assigned. Disconnect it from its existing brand first.");
+  if (existing && existing.brand_id !== brandId) throw new HttpError(409, "This account is already connected to another SenderDeck brand. Use its original workspace or sign-in to manage it. The existing connection has been preserved.");
   const tokenInfo = await inspectToken(env, asset.token);
   const account: SocialAccount = { id: existing?.id || id(), brand_id: brandId, provider: asset.provider, asset_id: assetId, parent_id: asset.parentId,
     provider_user_id: grant.providerUserId, name: asset.name, token: await encrypt(asset.token, env.TOKEN_ENCRYPTION_KEY), user_token: await encrypt(grant.userToken, env.TOKEN_ENCRYPTION_KEY),

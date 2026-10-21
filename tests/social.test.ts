@@ -137,6 +137,25 @@ test("asset selection rejects an ID absent from live OAuth discovery",async(t)=>
   t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>String(input).includes("debug_token")?Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes}}):Response.json({data:[]}));
   await assert.rejects(selectAsset(f.env,"alice",f.brandId,"grant","facebook","invented"),/not present/);
 });
+
+test("asset discovery identifies existing assignments without exposing another workspace or altering its data",async t=>{
+  const f=await fixture();provider(t);
+  const second=await socialAction("social_brand_create",{customerId:f.customerId,name:"Second brand"},f.env,"alice") as {brandId:string};
+  const grant={userToken:"user-token",providerUserId:"meta-user",permissions:scopes,candidates:[],expiresAt:null};
+  const insert=async(id:string,brand:string)=>f.sql.prepare("INSERT INTO social_grants (id,user_id,brand_id,encrypted,expires_at) VALUES (?,'alice',?,?,?)").run(id,brand,await encrypt(JSON.stringify(grant),f.env.TOKEN_ENCRYPTION_KEY),Date.now()+60000);
+  await insert("own",f.brandId);await insert("second",second.brandId);
+  const own=await grantAssets(f.env,"alice",f.brandId,"own");assert.deepEqual(own.assets.find(a=>a.provider==="facebook")!.assignment,{state:"this_brand"});assert.deepEqual(own.assets.find(a=>a.provider==="instagram")!.assignment,{state:"available"});
+  const visible=await grantAssets(f.env,"alice",second.brandId,"second");assert.deepEqual(visible.assets.find(a=>a.provider==="facebook")!.assignment,{state:"other_brand",brandId:f.brandId,brandName:"Brand A"});
+  const before=f.sql.prepare("SELECT * FROM social_accounts WHERE id=?").get(f.account.id);
+  await assert.rejects(selectAsset(f.env,"alice",second.brandId,"second","facebook","page-a"),/existing connection has been preserved/);
+  assert.deepEqual(f.sql.prepare("SELECT * FROM social_accounts WHERE id=?").get(f.account.id),before);assert.equal(f.sql.prepare("SELECT count(*) n FROM social_threads").get()!.n,1);
+  f.sql.prepare("DELETE FROM social_members WHERE customer_id=? AND user_id='alice'").run(f.customerId);
+  const hidden=await grantAssets(f.env,"alice",second.brandId,"second").catch(()=>null);
+  // Second brand must be in a different accessible customer for the hidden case.
+  assert.equal(hidden,null);
+  const customer=await socialAction("social_customer_create",{name:"Separate workspace"},f.env,"alice") as {customerId:string};const other=await socialAction("social_brand_create",{customerId:customer.customerId,name:"Target brand"},f.env,"alice") as {brandId:string};await insert("hidden",other.brandId);
+  const inaccessible=await grantAssets(f.env,"alice",other.brandId,"hidden");assert.deepEqual(inaccessible.assets.find(a=>a.provider==="facebook")!.assignment,{state:"other_workspace"});assert.doesNotMatch(JSON.stringify(inaccessible),new RegExp(f.brandId));
+});
 test("Meta pagination follows short pages and rejects foreign token-exfiltration URLs",async(t)=>{
   let calls=0;t.mock.method(globalThis,"fetch",async()=>{calls++;return Response.json(calls===1?{data:[{id:1}],paging:{next:"https://graph.facebook.com/v26.0/page/feed?after=next&access_token=ignored"}}:{data:[{id:2}]});});
   const result=await graphPages("token","page/feed");assert.equal(result.rows.length,2);assert.equal(result.coverage.complete,true);
