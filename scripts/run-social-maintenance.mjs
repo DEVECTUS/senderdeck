@@ -5,7 +5,7 @@ const ENDPOINT = "https://senderdeck.devectus.com.au/api/social/maintenance";
 export async function runMaintenance(token, fetcher = fetch) {
   if (!token) throw new Error("The maintenance secret is not configured.");
   let response;
-  try { response = await fetcher(ENDPOINT, {method:"POST", headers:{authorization:`Bearer ${token}`}, redirect:"manual", signal:AbortSignal.timeout(60000)}); }
+  try { response = await fetcher(ENDPOINT, {method:"POST", headers:{authorization:`Bearer ${token}`,"x-senderdeck-maintenance-source":process.env.GITHUB_EVENT_NAME === "schedule" ? "github_schedule" : "github_dispatch"}, redirect:"manual", signal:AbortSignal.timeout(60000)}); }
   catch { throw new Error("The maintenance endpoint could not be reached."); }
   if (!response.ok) throw new Error(`The maintenance endpoint returned HTTP ${response.status}.`);
   const result = await response.json().catch(()=>null);

@@ -34,17 +34,21 @@ export async function verifiedOperator(request: Request, env: Env) {
 async function sessionBinding(request: Request) {
   return sha256Base64Url(cookieValue(request.headers.get("cookie"), SESSION_COOKIE) || "platform-authenticated-session");
 }
-export async function operatorCsrf(request: Request, env: Env) {
+export async function operatorCsrf(request: Request, env: Env, purpose = "meta-secret-write") {
   const user = await verifiedOperator(request, env);
-  return encrypt(JSON.stringify({ purpose: "meta-secret-write", user: user.userId, session: await sessionBinding(request), expires: Date.now() + 600000, nonce: randomBase64Url() }), env.TOKEN_ENCRYPTION_KEY);
+  return encrypt(JSON.stringify({ purpose, user: user.userId, session: await sessionBinding(request), expires: Date.now() + 600000, nonce: randomBase64Url() }), env.TOKEN_ENCRYPTION_KEY);
 }
-export async function saveMetaSecrets(request: Request, env: Env) {
+export async function verifyOperatorWrite(request: Request, env: Env, purpose: string) {
   const user = await verifiedOperator(request, env);
   if (new URL(request.url).protocol !== "https:" || request.headers.get("origin") !== new URL(request.url).origin || !/^application\/json(?:;|$)/i.test(request.headers.get("content-type") || "") || request.headers.get("sec-fetch-site") === "cross-site") throw new HttpError(403, "Same-origin HTTPS JSON request required.");
   try {
     const csrf = JSON.parse(await decrypt(request.headers.get("x-senderdeck-csrf") || "", env.TOKEN_ENCRYPTION_KEY));
-    if (csrf.purpose !== "meta-secret-write" || csrf.user !== user.userId || csrf.session !== await sessionBinding(request) || csrf.expires <= Date.now() || csrf.expires > Date.now() + 600000) throw new Error();
+    if (csrf.purpose !== purpose || csrf.user !== user.userId || csrf.session !== await sessionBinding(request) || csrf.expires <= Date.now() || csrf.expires > Date.now() + 600000) throw new Error();
   } catch { throw new HttpError(403, "Setup session expired. Refresh the page before saving."); }
+  return user;
+}
+export async function saveMetaSecrets(request: Request, env: Env) {
+  const user = await verifyOperatorWrite(request,env,"meta-secret-write");
   // Bound the stream, including chunked requests. Never reflect a body or provider secret in errors.
   const reader = request.body?.getReader(); const chunks: Uint8Array[] = []; let size = 0;
   if (!reader) throw new HttpError(400, "Enter a supported Meta secret.");

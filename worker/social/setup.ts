@@ -1,6 +1,6 @@
 import { HttpError } from "../auth";
 import type { Env } from "../env";
-import { admins, brandFor } from "./model";
+import { admins, brandFor, maintenanceStatus } from "./model";
 import { graph, platformStatus } from "./meta";
 import { publicOrigin } from "./oauth";
 import { resolveMetaSecrets, storedMetaSecrets } from "./config";
@@ -14,10 +14,7 @@ export function requirePlatformOperator(env: Env, userId: string) {
   if (!isPlatformOperator(env, userId)) throw new HttpError(403, "Platform administrator access is required. Customer workspace roles do not grant this access.");
 }
 export async function setupRuntime(env: Env) {
-  const heartbeat = await env.DB.prepare("SELECT value FROM social_runtime WHERE key='maintenance'").first<{value:number}>();
-  const schedulerConfigured = env.SOCIAL_SCHEDULER_ENABLED === "true";
-  const schedulerRecent = !!heartbeat && Date.now() - heartbeat.value >= 0 && Date.now() - heartbeat.value <= 1200000;
-  return { schedulerConfigured, schedulerRecent, lastMaintenanceAt: heartbeat?.value || null };
+  return maintenanceStatus(env);
 }
 export async function customerSetup(env: Env, user: string, brandId: string) {
   const brand = await brandFor(env, user, brandId);
@@ -29,7 +26,7 @@ export async function customerSetup(env: Env, user: string, brandId: string) {
   return { brand: {id: brand.id, name: brand.name, customerId: brand.customer_id}, canConnect: blockers.length === 0, blockers,
     appConfigured: platform.meta.configured, businessVerification: "not_confirmed_by_senderdeck", customerAccess: platform.meta.customerAccess,
     reviewNote: "A configured app does not establish business verification or approved customer access. Meta consent and live asset checks determine actual access.",
-    runtime, sending: platform.sending, monitoringActive: false, needsCustomerDeveloperCredentials: false };
+    runtime, operatorMaintenanceAvailable:isPlatformOperator(env,user), sending: platform.sending, monitoringActive: false, needsCustomerDeveloperCredentials: false };
 }
 export async function operatorSetup(env: Env, user: string) {
   requirePlatformOperator(env, user);

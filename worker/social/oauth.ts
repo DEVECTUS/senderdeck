@@ -9,6 +9,9 @@ export function publicOrigin(env: Env) {
   if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/") throw new HttpError(503, "Social callback origin is not configured correctly.");
   return url.origin;
 }
+export function socialRedirect(env: Env, path: string) {
+  return new Response(null,{status:303,headers:{location:`${publicOrigin(env)}${path}`,"cache-control":"no-store","referrer-policy":"no-referrer"}});
+}
 export async function startOAuth(env: Env, user: string, brandId: string) {
   await brandFor(env, user, brandId, admins); requireMeta(env);
   await requireScheduler(env);
@@ -26,16 +29,16 @@ export async function oauthCallback(request: Request, env: Env) {
   const state = url.searchParams.get("state");
   if (!state || state.length > 1000) throw new HttpError(400, "Invalid OAuth state.");
   const row = await env.DB.prepare("DELETE FROM social_oauth WHERE hash = ? AND user_id = ? AND expires_at > ? RETURNING *").bind(await sha256Base64Url(state), user, Date.now()).first<{ brand_id: string; redirect_uri: string }>();
-  if (!row) throw new HttpError(400, "OAuth state expired, was already used or belongs to another session.");
+  if (!row) return socialRedirect(env,"/connect/meta?connection=restart_required");
   await brandFor(env, user, row.brand_id, admins);
   const code = url.searchParams.get("code");
-  if (!code || url.searchParams.has("error")) throw new HttpError(400, "Meta authorisation was not completed.");
+  if (!code || url.searchParams.has("error")) return socialRedirect(env,`/connect/meta?brand=${encodeURIComponent(row.brand_id)}&connection=cancelled`);
   const exchange = await graph(`${env.META_APP_ID}|${env.META_APP_SECRET}`, "oauth/access_token", { client_id: env.META_APP_ID!, client_secret: env.META_APP_SECRET!, redirect_uri: row.redirect_uri, code });
   if (typeof exchange.access_token !== "string") throw new HttpError(502, "Meta did not return an authorisation token.");
   const grant = await discover(env, exchange.access_token);
   const grantId = id();
   await env.DB.prepare("INSERT INTO social_grants (id, brand_id, user_id, encrypted, expires_at) VALUES (?, ?, ?, ?, ?)").bind(grantId, row.brand_id, user, await encrypt(JSON.stringify(grant), env.TOKEN_ENCRYPTION_KEY), Date.now() + 600000).run();
-  return Response.redirect(`${publicOrigin(env)}/connect/meta?brand=${encodeURIComponent(row.brand_id)}&grant=${encodeURIComponent(grantId)}`, 303);
+  return socialRedirect(env,`/connect/meta?brand=${encodeURIComponent(row.brand_id)}&grant=${encodeURIComponent(grantId)}`);
 }
 async function getGrant(env: Env, user: string, brandId: string, grantId: string) {
   await brandFor(env, user, brandId, admins);
@@ -45,7 +48,8 @@ async function getGrant(env: Env, user: string, brandId: string, grantId: string
 }
 export async function grantAssets(env: Env, user: string, brandId: string, grantId: string) {
   const grant = await getGrant(env, user, brandId, grantId);
-  return { assets: grant.candidates.map(({ token: _token, ...asset }) => asset), permissions: grant.permissions, expiresIn: "up to ten minutes" };
+  const current = await discover(env,grant.userToken);
+  return { assets: current.candidates.map(({ token: _token, ...asset }) => asset), permissions: current.permissions, diagnostics:current.diagnostics||null, expiresIn: "up to ten minutes" };
 }
 export async function selectAsset(env: Env, user: string, brandId: string, grantId: string, provider: string, assetId: string) {
   await requireScheduler(env);

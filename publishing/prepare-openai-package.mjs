@@ -29,7 +29,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.5 adds a customer Meta connection wizard and a separately protected platform administrator readiness view. Native hosting secrets remain outside tenant APIs. Setup distinguishes app configuration, provider approval, hosted maintenance and actual account capabilities. Social activation remains pending until those prerequisites are validated." },
+  publication: { release_notes: "Version 0.4.6 adds a customer Meta connection wizard and a separately protected platform administrator readiness view. Native hosting secrets remain outside tenant APIs. Setup distinguishes app configuration, provider approval, hosted maintenance and actual account capabilities. Social activation remains pending until those prerequisites are validated." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

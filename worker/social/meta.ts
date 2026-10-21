@@ -6,8 +6,12 @@ import { json, type SocialAccount, type History, type HistoryItem, type Coverage
 export const GRAPH_VERSION = "v26.0";
 const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}/`;
 type GraphObject = Record<string, unknown>;
-export interface Candidate { provider: "facebook" | "instagram"; assetId: string; parentId: string; name: string; token: string; tasks: string[] }
-export interface MetaGrant { candidates: Candidate[]; permissions: string[]; providerUserId: string; expiresAt: number | null; userToken: string }
+export class MetaProviderError extends HttpError {
+  constructor(status:number,message:string,public providerStatus:number,public providerCode:number|null){super(status,message);}
+}
+export interface Candidate { provider: "facebook" | "instagram"; assetId: string; parentId: string; name: string; token: string; tasks: string[]; discoverySource?:"accounts"|"granular_target" }
+export interface DiscoveryDiagnostics { returnedPages:number; eligibleAssets:number; pagesWithoutCredentials:number; grantedScopes:string[]; granularTargets:Array<{scope:string;ids:string[]}>; businessManagementGranted:boolean; directResolved:number; directUnresolved:number; directFailures:Array<{id:string;status:number|null;providerCode:number|null;reason:string}>; findings:string[] }
+export interface MetaGrant { candidates: Candidate[]; permissions: string[]; providerUserId: string; expiresAt: number | null; userToken: string; diagnostics?:DiscoveryDiagnostics }
 export function platformStatus(env: Env) {
   const missing = [!env.META_APP_ID && "META_APP_ID", !env.META_APP_SECRET && "META_APP_SECRET", !env.META_LOGIN_CONFIG_ID && "META_LOGIN_CONFIG_ID", !env.SOCIAL_PUBLIC_ORIGIN && "SOCIAL_PUBLIC_ORIGIN"].filter(Boolean);
   const tier = env.META_ACCESS_TIER === "advanced" ? "advanced" : "development";
@@ -42,7 +46,7 @@ export async function graph(token: string, path: string, params: Record<string, 
   if (!response.ok || data.error) {
     const error = data.error as { code?: number } | undefined;
     const status = error?.code === 190 ? 401 : response.status === 429 || [4, 17, 32, 613].includes(error?.code || 0) ? 429 : 502;
-    throw new HttpError(status, status === 401 ? "Meta authorisation expired or was revoked. Reconnect the account." : status === 429 ? "Meta rate limit reached; coverage is incomplete." : "Meta denied the operation or returned an unavailable object. Check permissions and asset access.");
+    throw new MetaProviderError(status, status === 401 ? "Meta authorisation expired or was revoked. Reconnect the account." : status === 429 ? "Meta rate limit reached; coverage is incomplete." : "Meta denied the operation or returned an unavailable object. Check permissions and asset access.",response.status,typeof error?.code==="number"?error.code:null);
   }
   return data;
 }
@@ -63,26 +67,58 @@ export async function graphPages(token: string, path: string, params: Record<str
 }
 export async function inspectToken(env: Env, token: string) {
   const raw = await graph(`${env.META_APP_ID}|${env.META_APP_SECRET}`, "debug_token", { input_token: token });
-  const data = raw.data as { app_id?: string; is_valid?: boolean; user_id?: string; scopes?: string[]; expires_at?: number; data_access_expires_at?: number } | undefined;
+  const data = raw.data as { app_id?: string; is_valid?: boolean; user_id?: string; scopes?: string[]; granular_scopes?:Array<{scope?:unknown;target_ids?:unknown}>; expires_at?: number; data_access_expires_at?: number } | undefined;
   if (!data?.is_valid || data.app_id !== env.META_APP_ID || !data.user_id) throw new HttpError(403, "Token does not belong to the configured platform app or is invalid.");
   const expiries = [data.expires_at, data.data_access_expires_at].filter((n): n is number => typeof n === "number" && n > 0);
   const expiresAt = expiries.length ? Math.min(...expiries) * 1000 : null;
   if (expiresAt && expiresAt <= Date.now()) throw new HttpError(403, "Meta authorisation has expired.");
-  return { permissions: data.scopes || [], providerUserId: data.user_id, expiresAt };
+  const granularTargets=(data.granular_scopes||[]).filter(item=>typeof item.scope === "string"&&/^[a-z_]{1,80}$/.test(item.scope)).slice(0,30).map(item=>({scope:String(item.scope),ids:Array.isArray(item.target_ids)?item.target_ids.filter((id):id is string=>typeof id==="string"&&/^\d{1,32}$/.test(id)).slice(0,200):[]}));
+  return { permissions: data.scopes || [], providerUserId: data.user_id, expiresAt, granularTargets };
 }
 export async function discover(env: Env, token: string): Promise<MetaGrant> {
   const details = await inspectToken(env, token);
   const result = await graphPages(token, "me/accounts", { fields: "id,name,access_token,tasks,instagram_business_account{id,username}" });
   if (!result.coverage.complete) throw new HttpError(409, "Asset discovery is incomplete. Retry before selecting an account.");
+  const pageTargets=[...new Set(details.granularTargets.filter(item=>item.scope==="pages_show_list").flatMap(item=>item.ids))];
+  // Only Meta's introspected Page targets may seed direct lookups. No caller-
+  // supplied IDs, business IDs, Instagram IDs or assumed Page tasks are used.
+  const pages=result.rows.filter(page=>!pageTargets.length||pageTargets.includes(String(page.id)));
+  const missingTargets=pageTargets.filter(id=>!pages.some(page=>page.id===id&&typeof page.access_token==="string"));
+  if (missingTargets.length>20) throw new HttpError(409,"Asset discovery exceeded the verified target lookup budget. Select fewer assets and authorise again.");
+  let directResolved=0,directUnresolved=0;
+  const directFailures:DiscoveryDiagnostics["directFailures"]=[];
+  for (const target of missingTargets) {
+    try {
+      const page=await graph(token,target,{fields:"id,name,access_token,instagram_business_account{id,username}"});
+      if (page.id!==target||typeof page.access_token!=="string"||!page.access_token) {directUnresolved++;directFailures.push({id:target,status:200,providerCode:null,reason:page.id!==target?"object_identity_mismatch":"connection_credential_not_returned"});continue;}
+      const credential=await inspectToken(env,page.access_token);
+      if (credential.providerUserId!==details.providerUserId) {directUnresolved++;directFailures.push({id:target,status:403,providerCode:null,reason:"credential_owner_not_verified"});continue;}
+      // Direct Page reads do not establish Page tasks. Keep those unknown;
+      // capability/send gates must never manufacture MANAGE or MESSAGING.
+      const previous=pages.findIndex(item=>item.id===target);
+      if(previous>=0)pages.splice(previous,1);
+      pages.push({...page,tasks:[],_direct:true});directResolved++;
+    } catch(error) {directUnresolved++;directFailures.push({id:target,status:error instanceof MetaProviderError?error.providerStatus:error instanceof HttpError?error.status:null,providerCode:error instanceof MetaProviderError?error.providerCode:null,reason:"direct_verification_failed"});}
+  }
   const candidates: Candidate[] = [];
-  for (const page of result.rows) {
+  for (const page of pages) {
     if (typeof page.id !== "string" || typeof page.access_token !== "string") continue;
-    const base = { parentId: page.id, token: page.access_token, tasks: Array.isArray(page.tasks) ? page.tasks as string[] : [] };
+    const base = { parentId: page.id, token: page.access_token, tasks: Array.isArray(page.tasks) ? page.tasks as string[] : [],discoverySource:page._direct?"granular_target" as const:"accounts" as const };
     candidates.push({ ...base, provider: "facebook", assetId: page.id, name: String(page.name || page.id) });
     const ig = page.instagram_business_account as { id?: string; username?: string } | undefined;
     if (ig?.id) candidates.push({ ...base, provider: "instagram", assetId: ig.id, name: ig.username || ig.id });
   }
-  return { ...details, candidates, userToken: token };
+  const findings:string[]=[];
+  const pagesWithoutCredentials=result.rows.filter(page=>typeof page.access_token!=="string").length;
+  if (!result.rows.length) findings.push("no_pages_returned_by_accounts");
+  if (!details.permissions.includes("business_management")) findings.push("business_management_not_granted_check_business_portfolio_requirements");
+  if (pagesWithoutCredentials) findings.push("some_pages_returned_without_connection_credentials");
+  if (!candidates.some(asset=>asset.provider==="instagram")) findings.push("no_linked_instagram_identity_returned");
+  if (pageTargets.some(id=>!result.rows.some(page=>page.id===id))) findings.push("some_granted_page_targets_not_returned_by_accounts");
+  if(directResolved)findings.push("verified_granular_targets_resolved_directly_page_tasks_not_returned");
+  if(directUnresolved)findings.push("some_granular_targets_could_not_be_verified_directly");
+  const diagnostics:DiscoveryDiagnostics={returnedPages:result.rows.length,eligibleAssets:candidates.length,pagesWithoutCredentials,grantedScopes:details.permissions,granularTargets:details.granularTargets,businessManagementGranted:details.permissions.includes("business_management"),directResolved,directUnresolved,directFailures,findings};
+  return { ...details, candidates, userToken: token, diagnostics };
 }
 export function capabilities(env: Env, account: SocialAccount) {
   const scopes = json<string[]>(account.permissions);
@@ -109,10 +145,10 @@ export async function validateConnection(env: Env, account: SocialAccount) {
   const userToken = await decrypt(account.user_token, env.TOKEN_ENCRYPTION_KEY);
   const granting = await inspectToken(env, userToken);
   if (granting.providerUserId !== account.provider_user_id) throw new HttpError(403, "The granting identity no longer matches this account.");
-  const pages = await graphPages(userToken, "me/accounts", {fields: "id,tasks,instagram_business_account{id}"});
-  const page = pages.rows.find(row => row.id === (account.parent_id || account.asset_id));
-  if (!pages.coverage.complete || !page || (account.provider === "instagram" && (page.instagram_business_account as {id?:string})?.id !== account.asset_id)) throw new HttpError(403, "This asset is no longer verified for the granting identity.");
-  const tasks = Array.isArray(page.tasks) ? page.tasks as string[] : [];
+  const current = await discover(env,userToken);
+  const selected = current.candidates.find(asset=>asset.provider===account.provider&&asset.assetId===account.asset_id&&asset.parentId===(account.parent_id||account.asset_id));
+  if (!selected) throw new HttpError(403, "This asset is no longer verified for the granting identity.");
+  const tasks = selected.tasks;
   const asset = await graph(token, account.asset_id, { fields: account.provider === "facebook" ? "id,name" : "id,username" });
   if (asset.id !== account.asset_id) throw new HttpError(403, "The selected business asset was not verified.");
   const reads: Record<string, boolean> = {}; const errors: string[] = [];

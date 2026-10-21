@@ -12,7 +12,7 @@ import { authenticatedUser, withAuthenticatedUserHeaders } from "./auth";
 import { isPlatformOperator } from "./social/setup";
 import { resolveMetaSecrets } from "./social/config";
 import { handleSocial } from "./social/api";
-import { maintenance } from "./social/webhooks";
+import { runHostedMaintenance } from "./social/webhooks";
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -106,7 +106,7 @@ const worker = {
     return rendered;
   },
   async scheduled(_event: unknown, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(resolveMetaSecrets(env).then(configured => maintenance(configured)));
+    ctx.waitUntil(resolveMetaSecrets(env).then(configured => runHostedMaintenance(configured,"native_cron")));
   },
 };
 

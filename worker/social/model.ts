@@ -70,8 +70,17 @@ export async function notice(env: Env, accountId: string, reason: string, finger
   await env.DB.prepare("INSERT OR IGNORE INTO social_notices (id, account_id, reason, fingerprint, created_at) VALUES (?, ?, ?, ?, ?)").bind(id(), accountId, reason, fingerprint, Date.now()).run();
 }
 export async function requireScheduler(env: Env) {
-  const heartbeat = await env.DB.prepare("SELECT value FROM social_runtime WHERE key='maintenance'").first<{value: number}>();
-  if (env.SOCIAL_SCHEDULER_ENABLED !== "true" || !heartbeat || Date.now() - heartbeat.value > 1200000) throw new HttpError(409, "Hosted maintenance must complete a recent authenticated run before social activation.");
+  const status = await maintenanceStatus(env);
+  if (!status.schedulerConfigured || !status.schedulerRecent) throw new HttpError(409, "Hosted maintenance is not recent. A platform operator must restore the hosted trigger or run server maintenance before social activation.");
+}
+export async function maintenanceStatus(env: Env) {
+  const heartbeat = await env.DB.prepare("SELECT value FROM social_runtime WHERE key='maintenance'").first<{value:number}>();
+  const scheduled = await env.DB.prepare("SELECT value FROM social_runtime WHERE key='maintenance_scheduled'").first<{value:number}>();
+  const checkedAt=Date.now(), ageMs=heartbeat ? checkedAt-heartbeat.value : null;
+  const schedulerConfigured=env.SOCIAL_SCHEDULER_ENABLED === "true";
+  const schedulerRecent=ageMs !== null && ageMs>=0 && ageMs<=1200000;
+  const scheduledRecent=!!scheduled && checkedAt-scheduled.value>=0 && checkedAt-scheduled.value<=1200000;
+  return {schedulerConfigured,schedulerRecent,lastMaintenanceAt:heartbeat?.value||null,checkedAt,ageMs,freshUntil:heartbeat?heartbeat.value+1200000:null,lastScheduledMaintenanceAt:scheduled?.value||null,backgroundScheduling:!scheduled?"unverified":scheduledRecent?"recent":"stale"};
 }
 export function safeAccount(account: SocialAccount) {
   const { token: _token, user_token: _userToken, provider_user_id: _user, ...safe } = account;

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.6 · 21 October 2026
+
+- Return expired, reused or mismatched OAuth attempts to a clean restart screen without exposing provider codes or weakening state validation.
+- Refresh connection readiness automatically, reject future heartbeat timestamps, and distinguish recent manual maintenance from actual recurring execution. Add CSRF-protected operator maintenance on the hosted server with a shared run lease.
+- Recover Page discovery only from Meta-verified granular Page targets, checking direct object identity and credential ownership. Preserve explicit asset selection and unknown-task restrictions.
+- Show empty asset results, granted scopes, granular target IDs and bounded discovery findings to the authorised customer. No broader permission is granted automatically.
+
 ## 0.4.5 · 21 October 2026
 
 - Run hosted social maintenance through a secret-authenticated GitHub Actions schedule, independent of a local computer; retain the recent-run activation gate.

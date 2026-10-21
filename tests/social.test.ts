@@ -5,9 +5,9 @@ import test, { type TestContext } from "node:test";
 import { socialAction, readThread } from "../worker/social/service";
 import { defaultProfile, assess, validateProfile } from "../worker/social/policy";
 import { accountFor, brandFor, notice, safeAccount, type SocialAccount, type Thread, type History } from "../worker/social/model";
-import { graphPages, readHistory, platformStatus, capabilities } from "../worker/social/meta";
+import { graphPages, readHistory, platformStatus, capabilities, discover, validateConnection } from "../worker/social/meta";
 import { startOAuth, oauthCallback, grantAssets, selectAsset } from "../worker/social/oauth";
-import { hmac, receiveMeta, processQueue, maintenance, verifySignedRequest, metaDeletion } from "../worker/social/webhooks";
+import { hmac, receiveMeta, processQueue, maintenance, runHostedMaintenance, verifySignedRequest, metaDeletion } from "../worker/social/webhooks";
 import { handleSocial } from "../worker/social/api";
 import { customerSetup, operatorSetup, checkOperatorApp } from "../worker/social/setup";
 import { encrypt, decrypt, sha256Base64Url } from "../worker/crypto";
@@ -49,7 +49,7 @@ function provider(t:TestContext, options:{at?:number;many?:boolean;changed?:()=>
     if(init?.method==="POST") {sends++;if(options.failSend)throw new Error("network lost with secret page-token");return Response.json({message_id:"sent-1"});}
     const path=url.pathname.replace("/v26.0/","");
     if(path==="debug_token")return Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes,expires_at:Math.floor(Date.now()/1000)+86400}});
-    if(path==="me/accounts")return Response.json({data:[{id:"page-a",tasks:["MANAGE","MESSAGING","MODERATE"],instagram_business_account:{id:"ig-a"}}]});
+    if(path==="me/accounts")return Response.json({data:[{id:"page-a",access_token:"page-token",tasks:["MANAGE","MESSAGING","MODERATE"],instagram_business_account:{id:"ig-a"}}]});
     if(path==="page-a/subscribed_apps")return Response.json({data:[{id:"platform",subscribed_fields:["messages","feed","comments"]}]});
     if(path==="page-a")return Response.json({id:"page-a",name:"Page A"});
     if(path==="page-a/conversations")return Response.json({data:[{id:"conversation-a"}]});
@@ -121,10 +121,10 @@ test("missing platform and hosted maintenance keep OAuth gated",async()=>{const 
 test("OAuth state is user-bound, one-use and preserves the fixed callback origin",async(t)=>{
   const f=await fixture();const start=await startOAuth(f.env,"alice",f.brandId);const auth=new URL(start.authorizationUrl);assert.equal(auth.searchParams.get("redirect_uri"),"https://senderdeck.test/oauth/social/meta/callback");
   const callback=(user:string)=>new Request(`https://evil-host.test/oauth/social/meta/callback?state=${auth.searchParams.get("state")}&code=code`,{headers:{"x-dev-user-email":user}});
-  await assert.rejects(oauthCallback(callback("bob"),f.env),/another session/);
+  assert.match((await oauthCallback(callback("bob"),f.env))!.headers.get("location")!,/connection=restart_required/);
   t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{const url=new URL(String(input));if(url.pathname.endsWith("oauth/access_token"))return Response.json({access_token:"user-token"});if(url.pathname.endsWith("debug_token"))return Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes}});return Response.json({data:[{id:"page-a",name:"A",access_token:"page-token",tasks:["MANAGE"]}]});});
   const response=await oauthCallback(callback("alice"),f.env);assert.equal(response?.status,303);assert.match(response!.headers.get("location")!,/^https:\/\/senderdeck.test\/connect\/meta/);
-  await assert.rejects(oauthCallback(callback("alice"),f.env),/already used/);
+  assert.match((await oauthCallback(callback("alice"),f.env))!.headers.get("location")!,/connection=restart_required/);
   const row=f.sql.prepare("SELECT id,encrypted FROM social_grants").get()!;assert.doesNotMatch(String(row.encrypted),/user-token|page-token/);
   const assets=JSON.stringify(await grantAssets(f.env,"alice",f.brandId,String(row.id)));assert.doesNotMatch(assets,/token|meta-user/);
   await assert.rejects(grantAssets(f.env,"bob",f.brandId,String(row.id)),/not found/);
@@ -345,4 +345,60 @@ test("webhook signature validation and app checks use the encrypted configuratio
   assert.equal(delivery!.status,200);
   t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>{if(String(input).includes("oauth/access_token")){assert.equal(new URLSearchParams(String(init?.body)).get("client_secret"),app);assert.ok(!String(input).includes(app));return Response.json({access_token:"verified-app-token"});}assert.equal(new Headers(init?.headers).get("authorization"),"Bearer verified-app-token");return Response.json({id:"platform",name:"Test app"});});
   assert.equal((await checkOperatorApp(f.env,"verified-operator")).appVerified,true);
+});
+
+test("expired OAuth redirects to a clean restart page without exchanging a code or creating a grant",async(t)=>{
+  const f=await fixture();const start=await startOAuth(f.env,"alice",f.brandId);
+  f.sql.prepare("UPDATE social_oauth SET expires_at=?").run(Date.now()-1);let calls=0;
+  t.mock.method(globalThis,"fetch",async()=>{calls++;throw new Error("must not exchange");});
+  const response=await oauthCallback(new Request(`https://senderdeck.test/oauth/social/meta/callback?state=${new URL(start.authorizationUrl).searchParams.get("state")}&code=private-provider-code`,{headers:{"x-dev-user-email":"alice"}}),f.env);
+  assert.equal(response!.status,303);assert.equal(response!.headers.get("location"),"https://senderdeck.test/connect/meta?connection=restart_required");assert.doesNotMatch(response!.headers.get("location")!,/private-provider-code|state=/);assert.equal(calls,0);assert.equal(f.sql.prepare("SELECT count(*) n FROM social_grants").get()!.n,0);
+});
+test("maintenance freshness rejects future timestamps and separates manual runs from recurring evidence",async()=>{
+  const f=await fixture();f.sql.prepare("UPDATE social_runtime SET value=? WHERE key='maintenance'").run(Date.now()+60000);
+  assert.equal((await customerSetup(f.env,"alice",f.brandId)).canConnect,false);await assert.rejects(startOAuth(f.env,"alice",f.brandId),/maintenance/);
+  await runHostedMaintenance(f.env,"github_dispatch");let status=await customerSetup(f.env,"alice",f.brandId);assert.equal(status.runtime.schedulerRecent,true);assert.equal(status.runtime.backgroundScheduling,"unverified");
+  await runHostedMaintenance(f.env,"github_schedule");status=await customerSetup(f.env,"alice",f.brandId);assert.equal(status.runtime.backgroundScheduling,"recent");
+  f.sql.prepare("UPDATE social_runtime SET value=? WHERE key IN ('maintenance','maintenance_scheduled')").run(Date.now()-1200001);
+  status=await customerSetup(f.env,"alice",f.brandId);assert.equal(status.canConnect,false);assert.equal(status.runtime.backgroundScheduling,"stale");
+});
+test("direct hosted maintenance requires a verified operator and purpose-bound session CSRF",async()=>{
+  const f=await operatorFixture();
+  const setup=await handleSocial(new Request("https://senderdeck.test/api/social/operator/setup",{headers:f.headers}),f.env,()=>{});
+  const csrf=(await setup!.json() as {maintenanceCsrfToken:string}).maintenanceCsrfToken;
+  const request=(changes:Record<string,string>={})=>new Request("https://senderdeck.test/api/social/operator/maintenance",{method:"POST",headers:{...f.headers,"x-senderdeck-csrf":csrf,...changes},body:"{}"});
+  assert.equal((await handleSocial(request({cookie:"","x-dev-user-email":"alice"}),f.env,()=>{}))!.status,403);
+  assert.equal((await handleSocial(request({origin:"https://foreign.test"}),f.env,()=>{}))!.status,403);
+  assert.equal((await handleSocial(request({"x-senderdeck-csrf":f.csrf}),f.env,()=>{}))!.status,403);
+  const completed=await handleSocial(request(),f.env,()=>{});assert.equal(completed!.status,200);assert.equal((await completed!.json() as {source:string}).source,"operator");
+  assert.equal((await operatorSetup(f.env,"verified-operator")).runtime.backgroundScheduling,"unverified");
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_platform_audit WHERE action='maintenance_run'").get()!.n,1);
+  f.sql.prepare("INSERT INTO social_runtime VALUES ('maintenance_lease',?)").run(Date.now()+60000);
+  assert.equal((await handleSocial(request(),f.env,()=>{}))!.status,409);
+});
+test("verified granular Page targets recover portfolio assets without fabricated tasks or extra scopes",async(t)=>{
+  const f=await fixture();const paths:string[]=[];
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{
+    const url=new URL(String(input)),path=url.pathname.replace("/v26.0/","");paths.push(path);
+    if(path==="debug_token")return Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes,granular_scopes:[{scope:"pages_show_list",target_ids:["101"]}]}});
+    if(path==="me/accounts")return Response.json({data:[{id:"909",name:"Unselected personal Page",access_token:"unselected-credential",tasks:["MANAGE"]}]});
+    if(path==="101")return Response.json({id:"101",name:"Selected business",access_token:"direct-page-credential",instagram_business_account:{id:"202",username:"selected-business"}});
+    if(path==="202")return Response.json({id:"202",username:"selected-business"});
+    return Response.json({data:[]});
+  });
+  const grant=await discover(f.env,"grant-credential");assert.deepEqual(grant.candidates.map(asset=>asset.assetId),["101","202"]);assert.ok(grant.candidates.every(asset=>asset.tasks.length===0&&asset.discoverySource==="granular_target"));assert.equal(grant.diagnostics!.directResolved,1);assert.equal(grant.diagnostics!.businessManagementGranted,false);
+  const account={...f.account,asset_id:"101",parent_id:"101",token:await encrypt("direct-page-credential",f.env.TOKEN_ENCRYPTION_KEY),user_token:await encrypt("grant-credential",f.env.TOKEN_ENCRYPTION_KEY)};
+  const live=await validateConnection(f.env,account);assert.deepEqual(live.validation.tasks,[]);
+  const caps=capabilities(f.env,{...account,status:live.status,validated_at:Date.now(),validation:JSON.stringify(live.validation)});assert.equal(caps.sendMessages,false);assert.equal(caps.messages,"unavailable");assert.equal(caps.replyComments,false);assert.equal(caps.comments,"available");
+  assert.ok(!paths.includes("909"));
+});
+test("direct discovery rejects mismatched asset IDs and credential ownership without reflecting credentials",async(t)=>{
+  const f=await fixture();let mismatch=true;
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{
+    const url=new URL(String(input)),path=url.pathname.replace("/v26.0/","");
+    if(path==="debug_token")return Response.json({data:{app_id:"platform",is_valid:true,user_id:url.searchParams.get("input_token")==="wrong-owner-credential"?"another-user":"meta-user",scopes,granular_scopes:[{scope:"pages_show_list",target_ids:["101"]}]}});
+    if(path==="me/accounts")return Response.json({data:[]});
+    return Response.json({id:mismatch?"999":"101",access_token:"wrong-owner-credential"});
+  });
+  for(const state of [true,false]){mismatch=state;const grant=await discover(f.env,"grant-credential");assert.equal(grant.candidates.length,0);assert.equal(grant.diagnostics!.directUnresolved,1);assert.doesNotMatch(JSON.stringify(grant.diagnostics),/wrong-owner-credential|grant-credential|another-user/);}
 });

@@ -140,6 +140,19 @@ export async function maintenance(env: Env) {
   await env.DB.prepare("INSERT INTO social_runtime (key,value) VALUES ('maintenance',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(Date.now()).run();
   return { processed: true, reconciled, at: new Date(at).toISOString() };
 }
+export async function runHostedMaintenance(env: Env, source: "operator"|"github_schedule"|"github_dispatch"|"native_cron"|"external") {
+  if (env.SOCIAL_SCHEDULER_ENABLED !== "true") throw new HttpError(409, "Hosted maintenance is not configured.");
+  const lease=Date.now()+300000;
+  const claim=await env.DB.prepare("INSERT INTO social_runtime (key,value) VALUES ('maintenance_lease',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE social_runtime.value<? RETURNING value").bind(lease,Date.now()).first();
+  if (!claim) throw new HttpError(409, "Hosted maintenance is already running. Refresh readiness shortly.");
+  try {
+    const result=await maintenance(env);
+    if (source === "github_schedule" || source === "native_cron") await env.DB.prepare("INSERT INTO social_runtime (key,value) VALUES ('maintenance_scheduled',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(Date.now()).run();
+    return {...result,source};
+  } finally {
+    await env.DB.prepare("DELETE FROM social_runtime WHERE key='maintenance_lease' AND value=?").bind(lease).run();
+  }
+}
 export async function metaDeletion(request: Request, env: Env) {
   if (!env.META_APP_SECRET) throw new HttpError(503, "Meta is not configured.");
   if (request.method !== "POST") throw new HttpError(405, "Method not allowed.");
