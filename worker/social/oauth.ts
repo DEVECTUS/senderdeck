@@ -1,7 +1,8 @@
 import { HttpError, requireUserId } from "../auth";
 import { encrypt, decrypt, randomBase64Url, sha256Base64Url } from "../crypto";
 import type { Env } from "../env";
-import { admins, brandFor, id, json, audit, requireScheduler, type SocialAccount } from "./model";
+import { admins, brandFor, id, json, audit, notice, type SocialAccount } from "./model";
+import { subscribePageAccount } from "./webhook-setup";
 import { discover, inspectToken, graph, GRAPH_VERSION, requireMeta, validateConnection, type MetaGrant } from "./meta";
 
 export function publicOrigin(env: Env) {
@@ -14,7 +15,8 @@ export function socialRedirect(env: Env, path: string) {
 }
 export async function startOAuth(env: Env, user: string, brandId: string) {
   await brandFor(env, user, brandId, admins); requireMeta(env);
-  await requireScheduler(env);
+  // Expiry is checked in the queries themselves. Cleanup cadence must not
+  // prevent a customer from authorising an account.
   const state = randomBase64Url(); const redirect = `${publicOrigin(env)}/oauth/social/meta/callback`;
   await env.DB.prepare("INSERT INTO social_oauth (hash, brand_id, user_id, redirect_uri, expires_at) VALUES (?, ?, ?, ?, ?)").bind(await sha256Base64Url(state), brandId, user, redirect, Date.now() + 600000).run();
   const url = new URL(`https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`);
@@ -52,7 +54,6 @@ export async function grantAssets(env: Env, user: string, brandId: string, grant
   return { assets: current.candidates.map(({ token: _token, ...asset }) => asset), permissions: current.permissions, diagnostics:current.diagnostics||null, expiresIn: "up to ten minutes" };
 }
 export async function selectAsset(env: Env, user: string, brandId: string, grantId: string, provider: string, assetId: string) {
-  await requireScheduler(env);
   const saved = await getGrant(env, user, brandId, grantId);
   // Re-discover the grant rather than trusting a caller-supplied Page, task or token.
   const grant = await discover(env, saved.userToken);
@@ -74,5 +75,20 @@ export async function selectAsset(env: Env, user: string, brandId: string, grant
   const persisted = await env.DB.prepare("SELECT id,brand_id FROM social_accounts WHERE provider=? AND asset_id=?").bind(provider, assetId).first<{id:string;brand_id:string}>();
   if (!persisted || persisted.brand_id !== brandId || persisted.id !== account.id) throw new HttpError(409, "The asset was assigned elsewhere during connection. Reload before continuing.");
   await audit(env, brandId, user, "account_connected", account.id);
-  return { accountId: account.id, status: account.status, validation: live.validation };
+  // Connecting a Page includes its event subscription. Infrastructure failures
+  // retain the valid connection and are surfaced to the operator for repair.
+  let eventSubscription: "verified" | "pending" | "operator_setup" = "operator_setup";
+  if (account.provider === "facebook") {
+    try {
+      await subscribePageAccount(env, account, user);
+      eventSubscription = "verified";
+      live.validation.webhook = true;
+      live.validation.errors = live.validation.errors.filter(reason => reason !== "webhook_subscription_unverified");
+      await env.DB.prepare("UPDATE social_accounts SET validation=? WHERE id=? AND brand_id=?").bind(JSON.stringify(live.validation), account.id, brandId).run();
+    } catch {
+      eventSubscription = "pending";
+      await notice(env, account.id, "page_subscription_setup_pending", `subscription:${account.id}`);
+    }
+  }
+  return { accountId: account.id, status: account.status, validation: live.validation, eventSubscription };
 }

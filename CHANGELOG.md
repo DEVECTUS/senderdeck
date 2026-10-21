@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.11 · 22 October 2026
+
+- Simplify Meta connection to brand selection, Meta sign-in and account selection, with compact headings and plain account access summaries.
+- Remove maintenance-heartbeat gates from OAuth and asset selection; keep user-bound, one-use state, grant expiry, role checks and live asset validation.
+- Install and verify the selected Facebook Page event subscription during connection. Preserve saved connections if subscription setup fails and record an operator notice.
+- Keep scheduler, subscription repair and detailed capability diagnostics in the protected operator area.
+- Refresh the hosted maintenance workflow registration and retain separate evidence for manual and scheduled runs.
+
+
 ## 0.4.10 · 21 October 2026
 
 - Group social accounts visibly beneath customer/organisation and brand, retaining empty and failed brand branches and search ancestors. Keep personal email accounts separate.

@@ -2,7 +2,7 @@ name: Hosted social maintenance
 
 on:
   schedule:
-    - cron: '3,13,23,33,43,53 * * * *'
+    - cron: '7-57/10 * * * *'
   workflow_dispatch:
 
 permissions:

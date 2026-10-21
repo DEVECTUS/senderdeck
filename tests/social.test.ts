@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import test, { type TestContext } from "node:test";
 import { socialAction, readThread } from "../worker/social/service";
 import { defaultProfile, assess, validateProfile } from "../worker/social/policy";
-import { accountFor, brandFor, notice, safeAccount, type SocialAccount, type Thread, type History } from "../worker/social/model";
+import { accountFor, brandFor, notice, safeAccount, maintenanceStatus, type SocialAccount, type Thread, type History } from "../worker/social/model";
 import { graphPages, readHistory, platformStatus, capabilities, discover, validateConnection, inbox } from "../worker/social/meta";
 import { startOAuth, oauthCallback, grantAssets, selectAsset } from "../worker/social/oauth";
 import { hmac, receiveMeta, processQueue, maintenance, runHostedMaintenance, verifySignedRequest, metaDeletion } from "../worker/social/webhooks";
@@ -119,7 +119,7 @@ test("CSRF and unauthenticated API writes are rejected",async()=>{
   const cross=await handleSocial(new Request("https://senderdeck.test/api/social",{method:"POST",headers:{origin:"https://evil.test","content-type":"application/json","x-dev-user-email":"alice"},body}),f.env,()=>{});assert.equal(cross?.status,403);
   const unauth=await handleSocial(new Request("https://senderdeck.test/api/social",{method:"POST",headers:{origin:"https://senderdeck.test","content-type":"application/json"},body}),f.env,()=>{});assert.equal(unauth?.status,401);
 });
-test("missing platform and hosted maintenance keep OAuth gated",async()=>{const f=await fixture();await assert.rejects(startOAuth({...f.env,META_APP_SECRET:undefined},"alice",f.brandId),/not configured/);f.sql.prepare("DELETE FROM social_runtime").run();await assert.rejects(startOAuth(f.env,"alice",f.brandId),/maintenance/);assert.equal(platformStatus({} as Env).sending,"disabled");assert.equal(platformStatus({} as Env).linkedin.pageMessaging,"unavailable");});
+test("Meta sign-in requires configured credentials and brand permission but no maintenance heartbeat",async()=>{const f=await fixture();await assert.rejects(startOAuth({...f.env,META_APP_SECRET:undefined},"alice",f.brandId),/not configured/);f.sql.prepare("DELETE FROM social_runtime").run();const env={...f.env,SOCIAL_SCHEDULER_ENABLED:"false"};assert.match((await startOAuth(env,"alice",f.brandId)).authorizationUrl,/facebook.com/);assert.equal((await customerSetup(env,"alice",f.brandId)).canConnect,true);await assert.rejects(startOAuth(env,"bob",f.brandId),/not found/);f.sql.prepare("UPDATE social_members SET role='viewer' WHERE user_id='alice'").run();await assert.rejects(startOAuth(env,"alice",f.brandId),/role/);assert.equal((await customerSetup(env,"alice",f.brandId)).canConnect,false);assert.equal(platformStatus({} as Env).sending,"disabled");});
 test("OAuth state is user-bound, one-use and preserves the fixed callback origin",async(t)=>{
   const f=await fixture();const start=await startOAuth(f.env,"alice",f.brandId);const auth=new URL(start.authorizationUrl);assert.equal(auth.searchParams.get("redirect_uri"),"https://senderdeck.test/oauth/social/meta/callback");
   const callback=(user:string)=>new Request(`https://evil-host.test/oauth/social/meta/callback?state=${auth.searchParams.get("state")}&code=code`,{headers:{"x-dev-user-email":user}});
@@ -246,10 +246,10 @@ test("disconnect removes confirmed identity links without touching another brand
   await socialAction("social_account_disconnect",{...f.scope,confirmed:true},f.env,"alice");assert.equal(f.sql.prepare("SELECT count(*) n FROM social_identity_links").get()!.n,0);
 });
 
-test("customer setup reports separate app and scheduler blockers without developer credentials",async()=>{
+test("customer setup keeps infrastructure diagnostics in the operator area",async()=>{
   const f=await fixture();
   const blocked=await customerSetup({...f.env,META_APP_SECRET:undefined,SOCIAL_SCHEDULER_ENABLED:"false"},"alice",f.brandId);
-  assert.equal(blocked.canConnect,false);assert.equal(blocked.appConfigured,false);assert.equal(blocked.needsCustomerDeveloperCredentials,false);assert.equal(blocked.blockers.length,2);assert.equal(blocked.monitoringActive,false);
+  assert.equal(blocked.canConnect,false);assert.equal(blocked.appConfigured,false);assert.equal(blocked.needsCustomerDeveloperCredentials,false);assert.equal(blocked.blockers.length,1);assert.equal(blocked.monitoringActive,false);assert.ok(!("runtime" in blocked));assert.doesNotMatch(JSON.stringify(blocked.blockers),/maintenance|scheduler|credentials/);
   const ready=await customerSetup(f.env,"alice",f.brandId);assert.equal(ready.canConnect,true);assert.equal(ready.businessVerification,"not_confirmed_by_senderdeck");
   await assert.rejects(customerSetup(f.env,"bob",f.brandId),/not found/);
   assert.doesNotMatch(JSON.stringify(ready),/app-secret|page-token|user-token/);
@@ -474,11 +474,11 @@ test("expired OAuth redirects to a clean restart page without exchanging a code 
 });
 test("maintenance freshness rejects future timestamps and separates manual runs from recurring evidence",async()=>{
   const f=await fixture();f.sql.prepare("UPDATE social_runtime SET value=? WHERE key='maintenance'").run(Date.now()+60000);
-  assert.equal((await customerSetup(f.env,"alice",f.brandId)).canConnect,false);await assert.rejects(startOAuth(f.env,"alice",f.brandId),/maintenance/);
-  await runHostedMaintenance(f.env,"github_dispatch");let status=await customerSetup(f.env,"alice",f.brandId);assert.equal(status.runtime.schedulerRecent,true);assert.equal(status.runtime.backgroundScheduling,"unverified");
-  await runHostedMaintenance(f.env,"github_schedule");status=await customerSetup(f.env,"alice",f.brandId);assert.equal(status.runtime.backgroundScheduling,"recent");
+  assert.equal((await maintenanceStatus(f.env)).schedulerRecent,false);assert.equal((await customerSetup(f.env,"alice",f.brandId)).canConnect,true);await startOAuth(f.env,"alice",f.brandId);
+  await runHostedMaintenance(f.env,"github_dispatch");let status=await maintenanceStatus(f.env);assert.equal(status.schedulerRecent,true);assert.equal(status.backgroundScheduling,"unverified");
+  await runHostedMaintenance(f.env,"github_schedule");status=await maintenanceStatus(f.env);assert.equal(status.backgroundScheduling,"recent");
   f.sql.prepare("UPDATE social_runtime SET value=? WHERE key IN ('maintenance','maintenance_scheduled')").run(Date.now()-1200001);
-  status=await customerSetup(f.env,"alice",f.brandId);assert.equal(status.canConnect,false);assert.equal(status.runtime.backgroundScheduling,"stale");
+  status=await maintenanceStatus(f.env);assert.equal(status.backgroundScheduling,"stale");assert.equal((await customerSetup(f.env,"alice",f.brandId)).canConnect,true);
 });
 test("direct hosted maintenance requires a verified operator and purpose-bound session CSRF",async()=>{
   const f=await operatorFixture();
@@ -569,6 +569,19 @@ test("updating a Meta asset preserves its account ID, conversations and monitori
   assert.equal(JSON.parse(String(saved.monitoring)).enabled, true); assert.equal(saved.last_reconciled_at, 123);
   assert.equal(f.sql.prepare("SELECT account_id FROM social_threads WHERE id=?").get(f.thread.id)!.account_id, f.account.id);
   assert.equal(f.sql.prepare("SELECT count(*) n FROM social_accounts").get()!.n, 1);
+  assert.equal(updated.eventSubscription,"pending");
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_notices WHERE reason='page_subscription_setup_pending'").get()!.n,1);
+});
+
+test("connecting a Page without maintenance installs only that Page's subscription and preserves existing fields",async t=>{
+  const f=await fixture();provider(t);const base=globalThis.fetch;const posts:string[]=[];
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>{const url=new URL(String(input));if(url.pathname.endsWith("page-a/subscribed_apps")){if(init?.method==="POST"){posts.push(url.pathname);const fields=new URLSearchParams(String(init.body)).get("subscribed_fields")!.split(",");assert.deepEqual(fields.sort(),["feed","messages","ratings"]);return Response.json({success:true});}return Response.json({data:[{id:"platform",subscribed_fields:["messages","feed","ratings"]}]});}return base(input,init);});
+  f.sql.prepare("DELETE FROM social_runtime").run();
+  const grant={userToken:"user-token",providerUserId:"meta-user",permissions:scopes,candidates:[],expiresAt:Date.now()+60000};
+  f.sql.prepare("INSERT INTO social_grants (id,user_id,brand_id,encrypted,expires_at) VALUES ('auto',?,?,?,?)").run("alice",f.brandId,await encrypt(JSON.stringify(grant),f.env.TOKEN_ENCRYPTION_KEY),Date.now()+60000);
+  const result=await selectAsset({...f.env,SOCIAL_SCHEDULER_ENABLED:"false"},"alice",f.brandId,"auto","facebook","page-a");
+  assert.equal(result.eventSubscription,"verified");assert.equal(posts.length,1);assert.equal((await maintenanceStatus(f.env)).backgroundScheduling,"unverified");
+  f.sql.prepare("UPDATE social_grants SET expires_at=0 WHERE id='auto'").run();const prior=posts.length;await assert.rejects(selectAsset(f.env,"alice",f.brandId,"auto","facebook","page-a"),/expired/);assert.equal(posts.length,prior);
 });
 
 test("empty message history cannot pass the full message-detail probe", async t => {

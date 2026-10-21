@@ -18,15 +18,14 @@ export async function setupRuntime(env: Env) {
 }
 export async function customerSetup(env: Env, user: string, brandId: string) {
   const brand = await brandFor(env, user, brandId);
-  const platform = platformStatus(env); const runtime = await setupRuntime(env);
+  const platform = platformStatus(env);
   const blockers: string[] = [];
-  if (!platform.meta.configured) blockers.push("SenderDeck's platform administrator must finish Meta app configuration.");
-  if (!runtime.schedulerConfigured || !runtime.schedulerRecent) blockers.push("Hosted maintenance must be configured and complete a recent run before authorisation can start.");
-  if (!admins.includes(brand.role!)) blockers.push("A customer owner or administrator must authorise this brand's accounts.");
+  if (!platform.meta.configured) blockers.push("Meta connection is temporarily unavailable. Please try again later.");
+  if (!admins.includes(brand.role!)) blockers.push("Ask a workspace owner or administrator to connect this brand's accounts.");
   return { brand: {id: brand.id, name: brand.name, customerId: brand.customer_id}, canConnect: blockers.length === 0, canManageConnections: admins.includes(brand.role!), blockers,
     appConfigured: platform.meta.configured, businessVerification: "not_confirmed_by_senderdeck", customerAccess: platform.meta.customerAccess,
     reviewNote: "A configured app does not establish business verification or approved customer access. Meta consent and live asset checks determine actual access.",
-    runtime, operatorMaintenanceAvailable:isPlatformOperator(env,user), sending: platform.sending, monitoringActive: false, needsCustomerDeveloperCredentials: false };
+    sending: platform.sending, monitoringActive: false, needsCustomerDeveloperCredentials: false };
 }
 export async function operatorSetup(env: Env, user: string) {
   requirePlatformOperator(env, user);

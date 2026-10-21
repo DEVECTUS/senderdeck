@@ -33,7 +33,7 @@ Email drafts remain with Google or Microsoft. Email search/read and attachment d
 1. Open the [hosted portal](https://senderdeck.devectus.com.au/) and sign in with Google or Microsoft. Review provider consent and connect the mailboxes you intend to use.
 2. Follow the [Codex and Claude installation guide](https://senderdeck.devectus.com.au/install). The repository includes both plugin formats and a shared remote MCP endpoint: `https://senderdeck.devectus.com.au/api/mcp`.
 3. List accounts and explicitly select a sender before creating a draft. Sending requires a separate confirmation after inspecting the exact message details.
-4. Open [Conversations](https://senderdeck.devectus.com.au/conversations) to create a customer and brand and configure rules, then use the [Meta connection wizard](https://senderdeck.devectus.com.au/connect/meta) to check readiness, authorise and select accounts.
+4. Open [Conversations](https://senderdeck.devectus.com.au/conversations) to create a customer and brand and configure rules, then use the [Meta connection wizard](https://senderdeck.devectus.com.au/connect/meta) to choose a brand, sign in to Meta and select accounts. Platform configuration and maintenance diagnostics are kept in the protected operator area.
 
 The Accounts page groups social connections under customer/organisation, then brand, then account. Email mailboxes remain owned by the signed-in identity. The header shows the release version and sign-in source. If an older OpenAI sign-in shows a different workspace from a SenderDeck provider sign-in, use **Switch sign-in** and choose the provider identity used for the brands; matching email text does not merge access.
 
@@ -43,7 +43,7 @@ Customers do not need to create developer apps or run local relays for the hoste
 
 Facebook and Instagram access requires a DEVECTUS-owned platform app, appropriate App Review/Advanced Access, customer consent, explicit asset verification, working subscriptions and a hosted maintenance/reconciliation trigger. Social sending is off by default and also requires brand enablement and exact draft approval. No unattended replies are sent.
 
-Live social access requires configured platform credentials, actual customer grants and a working hosted maintenance trigger. Existing browser monitoring should continue until actual API coverage is proved. Meta may expose only 20 recent message details; Instagram Requests and media have additional limits. Unsupported history and attachments require native review. LinkedIn has separate programme, messaging and data-use restrictions.
+Connecting Meta requires configured platform credentials and actual customer grants. Background monitoring and physical retention cleanup separately require a working hosted maintenance trigger; a stale heartbeat does not prevent sign-in or account selection. Existing browser monitoring should continue until actual API coverage is proved. Meta may expose only 20 recent message details; Instagram Requests and media have additional limits. Unsupported history and attachments require native review. LinkedIn has separate programme, messaging and data-use restrictions.
 
 See [activation and live acceptance requirements](docs/SOCIAL-ACTIVATION.md) or the [hosted provider guide](https://senderdeck.devectus.com.au/social-setup). Configuration switches are not a substitute for provider approval or successful live tests.
 

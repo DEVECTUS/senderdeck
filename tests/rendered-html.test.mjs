@@ -42,7 +42,7 @@ test("public social readiness contains no secrets and sending defaults off", asy
 
 test("customer Meta wizard is protected and contains no credential inputs", async()=>{
   const worker=await loadWorker();const response=await worker.fetch(new Request("http://localhost/connect/meta",{headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com"}}),baseEnv,context);
-  assert.equal(response.status,200);const html=await response.text();assert.match(html,/Choose brand/);assert.match(html,/Authorise Meta/);assert.match(html,/Select accounts/);assert.match(html,/Verify access/);assert.match(html,/developer credentials are never needed/);assert.doesNotMatch(html,/<input[^>]*type="password"/);
+  assert.equal(response.status,200);const html=await response.text();assert.match(html,/Choose brand/);assert.match(html,/Sign in to Meta/);assert.match(html,/Choose accounts/);assert.match(html,/Connect Facebook/);assert.doesNotMatch(html,/<input[^>]*type="password"|Hosted maintenance|Discovery evidence|Graph error|Install Page event subscription|Refresh readiness/);
 });
 test("operator pages require the hosting allowlist rather than workspace ownership",async()=>{
   const worker=await loadWorker();const request=new Request("http://localhost/operator/social",{headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com","x-senderdeck-platform-operator":"true"}});

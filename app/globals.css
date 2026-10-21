@@ -950,6 +950,16 @@ footer > div:last-child { text-align: right; }
 .product-page .open-source h2 { font-size: 32px; }
 .signin-copy h1, .install-hero h1, .setup-wizard h1 { font-size: clamp(28px, 3.8vw, 42px); line-height: 1.15; letter-spacing: -.04em; }
 .signin-shell { min-height: auto; padding-block: 48px; }
+.meta-connect { max-width: 720px; padding-top: 32px; }
+.meta-connect h1 { font-size: clamp(24px, 3vw, 30px); margin: 18px 0 10px; }
+.meta-connect > header > p { font-size: 14px; }
+.meta-connect .social-card { padding: 24px; margin-top: 20px; }
+.meta-connect .social-card h2 { font-size: 19px; margin-top: 0; }
+.meta-connect .connection-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 28px 0 20px; }
+.meta-back { font-size: 13px; }
+.meta-signin { margin-top: 20px; }
+.meta-signin button { min-height: 44px; }
+.meta-finish { display: flex; gap: 20px; flex-wrap: wrap; align-items: center; margin-top: 24px; }
 .install-hero { padding-block: 36px; }
 @media (max-width: 1100px) {
   .workspace-nav { gap: 16px; }

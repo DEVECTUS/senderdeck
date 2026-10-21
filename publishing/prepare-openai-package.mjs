@@ -29,7 +29,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.10 displays accounts beneath their customer and brand, explains sign-in-scoped empty states, provides a deliberate provider sign-in switch without merging access, and shows the packaged release version in the header." },
+  publication: { release_notes: "Version 0.4.11 simplifies Meta connection, removes the maintenance dependency from sign-in, installs selected Page subscriptions automatically and keeps infrastructure diagnostics in the protected operator area." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

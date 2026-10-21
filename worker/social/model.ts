@@ -69,10 +69,6 @@ export async function audit(env: Env, brandId: string, actor: string, action: st
 export async function notice(env: Env, accountId: string, reason: string, fingerprint: string) {
   await env.DB.prepare("INSERT OR IGNORE INTO social_notices (id, account_id, reason, fingerprint, created_at) VALUES (?, ?, ?, ?, ?)").bind(id(), accountId, reason, fingerprint, Date.now()).run();
 }
-export async function requireScheduler(env: Env) {
-  const status = await maintenanceStatus(env);
-  if (!status.schedulerConfigured || !status.schedulerRecent) throw new HttpError(409, "Hosted maintenance is not recent. A platform operator must restore the hosted trigger or run server maintenance before social activation.");
-}
 export async function maintenanceStatus(env: Env) {
   const heartbeat = await env.DB.prepare("SELECT value FROM social_runtime WHERE key='maintenance'").first<{value:number}>();
   const scheduled = await env.DB.prepare("SELECT value FROM social_runtime WHERE key='maintenance_scheduled'").first<{value:number}>();
