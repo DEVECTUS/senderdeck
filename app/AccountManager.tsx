@@ -49,6 +49,12 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
     return () => window.clearTimeout(timer);
   }, [loadAccounts]);
 
+  useEffect(() => {
+    if (loading || !accounts.length) return;
+    const selected = accounts.find(account => location.hash === `#account-${encodeURIComponent(account.id)}`);
+    if (selected) document.getElementById(`account-${selected.id}`)?.scrollIntoView({ block: "center" });
+  }, [loading, accounts]);
+
   async function saveLabel(event: FormEvent, accountId: string) {
     event.preventDefault();
     setBusyId(accountId);
@@ -107,12 +113,11 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
     <section className="connections" id="connections" aria-labelledby="connections-title">
       <div className="connections-heading">
         <div>
-          <p className="eyebrow">{"// Connection manager"}</p>
-          <h2 id="connections-title">Connected identities</h2>
+
+          <h2 id="connections-title">Connected email accounts</h2>
           <p className="connections-intro">
-            This workspace belongs to <strong>{userEmail}</strong>. Every card below is an
-            independent email account. Connect up to {limit}. Authorised Gmail aliases appear
-            beneath their owning account and share that connection.
+            Accounts owned by <strong>{userEmail}</strong>. Connect up to {limit} mailboxes.
+            Gmail aliases share their owning connection.
           </p>
         </div>
         <div className="connection-summary">
@@ -135,7 +140,7 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
       ) : accounts.length ? (
         <div className="account-list">
           {accounts.map((account) => (
-            <article className="account-card" key={account.id}>
+            <article className="account-card" id={`account-${account.id}`} key={account.id}>
               <div className={`provider-mark ${account.provider}`} aria-hidden="true">
                 {account.provider === "google" ? "G" : "M"}
               </div>

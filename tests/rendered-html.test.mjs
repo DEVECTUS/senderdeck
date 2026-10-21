@@ -24,7 +24,7 @@ test("renders the gated social workspace and links the existing email experience
   const response = await worker.fetch(new Request("http://localhost/conversations", {headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com"}}), baseEnv, context);
   assert.equal(response.status,200);
   const html = await response.text();
-  assert.match(html,/Every enquiry/); assert.match(html,/Social activation pending/); assert.match(html,/No social account is connected automatically/); assert.match(html,/href="\/settings"/);
+  assert.match(html,/<h1[^>]*>Conversations<\/h1>/); assert.match(html,/Social activation pending/); assert.match(html,/No social account is connected automatically/); assert.match(html,/href="\/settings"/);
   assert.match(html,/placeholder="Your brand name"/); assert.doesNotMatch(html,/name="preset"/);
 });
 test("social setup reports provider gates and never claims LinkedIn coverage", async () => {
@@ -91,6 +91,23 @@ test("renders the SenderDeck product page", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });
 
+test("signed-in home and Accounts lead with the account directory rather than marketing", async () => {
+  const worker = await loadWorker();
+  for (const path of ["/", "/accounts"]) {
+    const response = await worker.fetch(new Request(`http://localhost${path}`, { headers: { accept: "text/html", "oai-authenticated-user-email": "owner@example.com" } }), baseEnv, context);
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.match(html, /Connected accounts/);
+    assert.match(html, /Search connected accounts/);
+    assert.match(html, /aria-label="Main navigation"/);
+    assert.match(html, /href="\/accounts"/);
+    assert.doesNotMatch(html, /Every inbox|Your final say|Public code\. Human stakes/);
+  }
+  const anonymous = await worker.fetch(new Request("http://localhost/accounts", { headers: { accept: "text/html" } }), baseEnv, context);
+  assert.ok([302, 303, 307].includes(anonymous.status));
+  assert.match(anonymous.headers.get("location"), /signin\?return_to=%2Faccounts/);
+});
+
 test("offers one vendor-neutral sign-in for Codex and Claude", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(
@@ -143,12 +160,12 @@ test("renders the protected SenderDeck configuration screen", async () => {
 
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /Plugin &amp; account/);
-  assert.match(html, /Make SenderDeck available in Codex/);
+  assert.match(html, /Email accounts/);
   assert.match(html, /Open installation guide/);
   assert.match(html, /href="\/install"/);
   assert.doesNotMatch(html, /marketplacePath|codex:\/\/plugins/);
-  assert.match(html, /Connected identities/);
+  assert.match(html, /Connected email accounts/);
+  assert.ok(html.indexOf("Connected email accounts") < html.indexOf("AI client setup"));
   assert.match(html, /owner@example.com/);
 });
 

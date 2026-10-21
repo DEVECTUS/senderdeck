@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import AccountManager from "../AccountManager";
-import CodexSetup from "../CodexSetup";
-import { requireSenderDeckUser, senderDeckSignOutPath } from "../senderdeck-auth";
+import WorkspaceNav from "../WorkspaceNav";
+import { requireSenderDeckUser } from "../senderdeck-auth";
 
 export const metadata: Metadata = {
-  title: "Configuration | SenderDeck by DEVECTUS",
+  title: "Email settings | SenderDeck",
   description: "Connect email identities and configure SenderDeck for Codex or Claude.",
 };
 
@@ -16,51 +15,11 @@ export default async function SettingsPage() {
   const user = await requireSenderDeckUser("/settings");
 
   return (
-    <main className="settings-page">
-      <nav>
-        <Link className="brand-lockup" href="/" aria-label="SenderDeck home">
-          <Image
-            className="senderdeck-mark"
-            src="/senderdeck-mark.svg"
-            alt=""
-            width={1024}
-            height={1024}
-            priority
-          />
-          <span className="wordmark">SenderDeck</span>
-        </Link>
-        <div className="nav-user">
-          <span>{user.email}</span>
-          <Link className="quiet-link" href="/">Home</Link>
-          <Link className="quiet-link" href="/conversations">Conversations</Link>
-          <a className="quiet-link" href={senderDeckSignOutPath("/")}>Sign out</a>
-        </div>
-      </nav>
-
-      <section className="settings-hero">
-        <div>
-          <p className="eyebrow">{"// Configuration"}</p>
-          <h1>Plugin &amp; account<br /><span>configuration.</span></h1>
-          <p className="lede">
-            Connect the email identities SenderDeck may use, then make the plugin available to Codex
-            or Claude. Email access stays with the signed-in SenderDeck identity shown here.
-          </p>
-        </div>
-        <div className="configuration-status" aria-label="Configuration status">
-          <div>
-            <span className="status-dot active" aria-hidden="true" />
-            <p><strong>SenderDeck identity</strong><span>{user.email}</span></p>
-          </div>
-          <div>
-            <span className="status-dot neutral" aria-hidden="true" />
-            <p><strong>AI clients</strong><span>Connect Codex or Claude using the steps below</span></p>
-          </div>
-        </div>
-      </section>
-
-      <CodexSetup />
+    <main className="workspace-page settings-page">
+      <WorkspaceNav email={user.email} active="settings" />
+      <header className="workspace-heading"><div><p className="workspace-kicker">EMAIL SETTINGS</p><h1>Email accounts</h1><p>Connect mailboxes, manage labels and review sender aliases.</p></div><Link className="secondary dark" href="/accounts">View all accounts →</Link></header>
       <AccountManager userEmail={user.email} />
-      <section className="social-card" style={{marginTop: 32}}><h2>Brands and social conversations</h2><p>Configure brand rules, review provider readiness and prepare approved replies in the new conversation workspace. Social access remains gated until authorisation and validation are complete.</p><Link href="/conversations">Open Conversations →</Link></section>
+      <div className="settings-client-link"><div><h2>AI client setup</h2><p>Install SenderDeck in Codex or Claude using the setup guide.</p></div><Link href="/install">Open installation guide →</Link></div>
 
       <footer className="settings-footer">
         <p>SenderDeck keeps each connected mailbox as a separate sender identity.</p>

@@ -103,6 +103,11 @@ const worker = {
       headers.set("content-security-policy", "frame-ancestors 'none'");
       return new Response(rendered.body, {status:rendered.status, headers});
     }
+    if (["/", "/accounts", "/settings", "/conversations"].includes(url.pathname)) {
+      const headers = new Headers(rendered.headers);
+      headers.set("cache-control", "private, no-store");
+      return new Response(rendered.body, { status: rendered.status, headers });
+    }
     return rendered;
   },
   async scheduled(_event: unknown, env: Env, ctx: ExecutionContext): Promise<void> {

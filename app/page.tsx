@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import AccountOverview from "./AccountOverview";
+import WorkspaceNav from "./WorkspaceNav";
 import Link from "next/link";
-import { getSenderDeckUser, senderDeckSignInPath, senderDeckSignOutPath } from "./senderdeck-auth";
+import { getSenderDeckUser, senderDeckSignInPath } from "./senderdeck-auth";
 
 export const metadata: Metadata = {
   title: "SenderDeck by DEVECTUS",
@@ -13,8 +15,9 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const user = await getSenderDeckUser();
+  if (user) return <main className="workspace-page"><WorkspaceNav email={user.email} active="overview" /><header className="workspace-heading"><div><p className="workspace-kicker">YOUR WORKSPACE</p><h1>Overview</h1><p>See your connections and choose where to work.</p></div><Link className="secondary dark" href="/conversations">Open conversations →</Link></header><AccountOverview /></main>;
   return (
-    <main>
+    <main className="product-page">
       <nav>
         <Link className="brand-lockup" href="/" aria-label="SenderDeck home">
           <Image
@@ -27,48 +30,11 @@ export default async function Home() {
           />
           <span className="wordmark">SenderDeck</span>
         </Link>
-        {user ? (
-          <div className="nav-user">
-            <span>{user.email}</span>
-            <Link className="quiet-link" href="/settings">Configuration</Link>
-            <Link className="quiet-link" href="/conversations">Conversations</Link>
-            <a className="quiet-link" href={senderDeckSignOutPath("/")}>Sign out</a>
-          </div>
-        ) : (
-          <div className="nav-user"><a className="quiet-link" href="#capabilities">Capabilities</a><a className="quiet-link" href={senderDeckSignInPath("/")}>Sign in</a></div>
-        )}
+        <div className="nav-user"><a className="quiet-link" href="#capabilities">Capabilities</a><Link className="quiet-link" href="/install">Install</Link><a className="quiet-link" href={senderDeckSignInPath("/accounts")}>Sign in</a></div>
       </nav>
-
-      {user ? (
-        <>
-          <section className="workspace-hero">
-            <div>
-              <p className="eyebrow">{"// Your conversation workspace"}</p>
-              <h1>Your accounts.<br /><span>Your brands.</span></h1>
-            </div>
-            <p className="lede">
-              Manage your Google and Microsoft email identities, then organise customer
-              brands, reply policies and social enquiries. Choose the exact account for
-              each conversation and review every response before approving it.
-            </p>
-          </section>
-          <section className="configuration-callout" aria-labelledby="configuration-title">
-            <div>
-              <p className="eyebrow">{"// Configuration"}</p>
-              <h2 id="configuration-title">Connect accounts and organise your brands.</h2>
-              <p>
-                Configuration manages email identities and AI clients. Conversations holds
-                customer workspaces, brand rules, enquiries and social connection readiness.
-              </p>
-            </div>
-            <Link className="primary" href="/settings">Open configuration</Link>
-            <Link className="secondary dark" href="/conversations">Open Conversations</Link>
-          </section>
-        </>
-      ) : (
-        <section className="hero">
+      <section className="hero">
           <p className="eyebrow">{"// Open-source conversation tools by DEVECTUS"}</p>
-          <h1>Every inbox.<br /><span>Every brand.</span><br />Your final say.</h1>
+          <h1>Every inbox.<br /><span>One workspace.</span></h1>
           <p className="lede">
             An open-source workspace for email and brand conversations, connected to Codex
             or Claude. Use Gmail and Microsoft email today. Organise brands, enquiries and
@@ -82,7 +48,6 @@ export default async function Home() {
             <Link className="secondary dark" href="/install">Install for Codex or Claude</Link>
           </div>
         </section>
-      )}
 
       <section className="product-capabilities" id="capabilities" aria-labelledby="capabilities-title">
         <div className="product-section-heading"><div><p className="eyebrow">{"// What SenderDeck does"}</p><h2 id="capabilities-title">Email today.<br /><span>A foundation for every brand.</span></h2></div><p>One project, distinct provider capabilities. Each connection reports what it can actually read or send.</p></div>
