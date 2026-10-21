@@ -7,7 +7,7 @@ export const GRAPH_VERSION = "v26.0";
 const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}/`;
 type GraphObject = Record<string, unknown>;
 export class MetaProviderError extends HttpError {
-  constructor(status:number,message:string,public providerStatus:number,public providerCode:number|null){super(status,message);}
+  constructor(status:number,message:string,public providerStatus:number,public providerCode:number|null,public providerReason:string|null=null){super(status,message);}
 }
 export interface Candidate { provider: "facebook" | "instagram"; assetId: string; parentId: string; name: string; token: string; tasks: string[]; discoverySource?:"accounts"|"granular_target" }
 export interface DiscoveryDiagnostics { returnedPages:number; eligibleAssets:number; pagesWithoutCredentials:number; grantedScopes:string[]; granularTargets:Array<{scope:string;ids:string[]}>; businessManagementGranted:boolean; directResolved:number; directUnresolved:number; directFailures:Array<{id:string;status:number|null;providerCode:number|null;reason:string}>; findings:string[] }
@@ -44,9 +44,13 @@ export async function graph(token: string, path: string, params: Record<string, 
   if (response.status >= 300 && response.status < 400) throw new HttpError(502, "Meta returned an unexpected redirect. The request was not followed.");
   const data = await response.json().catch(() => ({})) as GraphObject;
   if (!response.ok || data.error) {
-    const error = data.error as { code?: number } | undefined;
+    const error = data.error as { code?: number;message?:unknown } | undefined;
     const status = error?.code === 190 ? 401 : response.status === 429 || [4, 17, 32, 613].includes(error?.code || 0) ? 429 : 502;
-    throw new MetaProviderError(status, status === 401 ? "Meta authorisation expired or was revoked. Reconnect the account." : status === 429 ? "Meta rate limit reached; coverage is incomplete." : "Meta denied the operation or returned an unavailable object. Check permissions and asset access.",response.status,typeof error?.code==="number"?error.code:null);
+    const missing=typeof error?.message==="string"?error.message.match(/nonexisting field \(([a-z_]{1,40})\)/i)?.[1]:undefined;
+    const field=missing&&params.fields?.split(/[^a-z_]+/).includes(missing)?missing:null;
+    const reason=field?`unsupported_field:${field}`:null;
+    const summary=status===401?"Meta authorisation expired or was revoked. Reconnect the account.":status===429?"Meta rate limit reached; coverage is incomplete.":field?`Meta rejected requested field ${field}.`:"Meta denied the operation or returned an unavailable object. Check permissions and asset access.";
+    throw new MetaProviderError(status,`${summary} HTTP ${response.status}; Graph error ${typeof error?.code==="number"?error.code:"not supplied"}.`,response.status,typeof error?.code==="number"?error.code:null,reason);
   }
   return data;
 }
@@ -122,8 +126,8 @@ export async function discover(env: Env, token: string): Promise<MetaGrant> {
 }
 export function capabilities(env: Env, account: SocialAccount) {
   const scopes = json<string[]>(account.permissions);
-  const v = json<{ reads?: Record<string, boolean>; tasks?: string[]; webhook?: boolean }>(account.validation);
-  const live = account.status === "connected" && !!account.validated_at && Date.now() - account.validated_at < 3600000 && (!account.expires_at || account.expires_at > Date.now());
+  const v = json<{ reads?: Record<string, boolean>; tasks?: string[]; webhook?: boolean;historyProbeVersion?:number }>(account.validation);
+  const live = v.historyProbeVersion===1 && account.status === "connected" && !!account.validated_at && Date.now() - account.validated_at < 3600000 && (!account.expires_at || account.expires_at > Date.now());
   const has = (...required: string[]) => required.every(s => scopes.includes(s));
   const fb = account.provider === "facebook";
   const meta = fb || account.provider === "instagram";
@@ -156,9 +160,31 @@ export async function validateConnection(env: Env, account: SocialAccount) {
     try {
       const path = kind === "messages" ? `${account.parent_id || account.asset_id}/conversations` : `${account.asset_id}/${account.provider === "facebook" ? "feed" : "media"}`;
       const readToken = kind === "comments" && account.provider === "instagram" && account.user_token ? await decrypt(account.user_token, env.TOKEN_ENCRYPTION_KEY) : token;
-      await graph(readToken, path, kind === "messages" ? { platform: account.provider === "facebook" ? "messenger" : "instagram", limit: "1" } : { limit: "1" });
+      const roots=await graph(readToken, path, kind === "messages" ? { platform: account.provider === "facebook" ? "messenger" : "instagram", limit: "1" } : { limit: "1",fields:"id" });
+      if(!Array.isArray(roots.data))throw new HttpError(502,"Provider returned an unexpected root collection.");
+      reads[kind==="messages"?"messageRoots":"commentRoots"]=true;
+      const first=roots.data.find((row:unknown)=>row&&typeof row==="object"&&typeof (row as GraphObject).id==="string") as GraphObject|undefined;
+      if(!first)throw new HttpError(409,"No sample root was returned to verify history access.");
+      if(kind==="messages"){
+        const context=await graph(token,String(first.id),{fields:"id,participants,is_owner"});
+        if(context.id!==first.id)throw new HttpError(403,"The message root identity was not verified.");
+        const messages=await graph(token,`${first.id}/messages`,{fields:"id",limit:"1"});
+        if(!Array.isArray(messages.data))throw new HttpError(502,"Provider returned an unexpected message collection.");
+        const message=messages.data[0] as GraphObject|undefined;
+        if(typeof message?.id==="string")await graph(token,message.id,{fields:"id,message,from,created_time,attachments"});
+      }else{
+        const context=await commentContext(readToken,String(first.id),account.provider);
+        if(!context.owned)errors.push("comment_write_authority_unverified");
+        const comments=await graph(token,`${first.id}/comments`,{fields:commentFields(account.provider),limit:"1"});
+        if(!Array.isArray(comments.data))throw new HttpError(502,"Provider returned an unexpected comment collection.");
+        const comment=comments.data[0] as GraphObject|undefined;
+        if(typeof comment?.id==="string"&&(account.provider==="instagram"||Number(comment.comment_count)>0)){
+          const replies=await graph(token,`${comment.id}/${account.provider==="facebook"?"comments":"replies"}`,{fields:commentFields(account.provider),limit:"1"});
+          if(!Array.isArray(replies.data))throw new HttpError(502,"Provider returned an unexpected reply collection.");
+        }
+      }
       reads[kind] = true;
-    } catch { reads[kind] = false; errors.push(`${kind}_read_not_verified`); }
+    } catch(error) { reads[kind] = false; errors.push(`${kind}_history_probe_failed${error instanceof MetaProviderError?`:http_${error.providerStatus}:graph_${error.providerCode??"unknown"}:${error.providerReason||"provider_denied"}`:""}`); }
   }
   const previous = json<{ tasks?: string[]; webhook?: boolean }>(account.validation);
   let webhook = false;
@@ -168,7 +194,7 @@ export async function validateConnection(env: Env, account: SocialAccount) {
     const fields = Array.isArray(app?.subscribed_fields) ? app.subscribed_fields as string[] : [];
     webhook = subscriptions.coverage.complete && fields.includes("messages") && fields.includes(account.provider === "facebook" ? "feed" : "comments");
   } catch { errors.push("webhook_subscription_unverified"); }
-  return { token, details: { ...details, permissions: details.permissions.filter(scope => granting.permissions.includes(scope)) }, validation: { ...previous, tasks, reads, errors, webhook }, status: Object.values(reads).some(Boolean) ? "connected" : "limited" };
+  return { token, details: { ...details, permissions: details.permissions.filter(scope => granting.permissions.includes(scope)) }, validation: { ...previous, historyProbeVersion:1, historyProbeScope:"one_returned_root_not_complete_native_history", tasks, reads, errors, webhook }, status: reads.messages||reads.comments ? "connected" : "limited" };
 }
 export async function inbox(env: Env, account: SocialAccount, kind: "message" | "comment") {
   const caps = capabilities(env, account);
@@ -176,6 +202,7 @@ export async function inbox(env: Env, account: SocialAccount, kind: "message" | 
   const token = await decrypt(kind === "comment" && account.provider === "instagram" ? account.user_token! : account.token!, env.TOKEN_ENCRYPTION_KEY);
   const path = kind === "message" ? `${account.parent_id || account.asset_id}/conversations` : `${account.asset_id}/${account.provider === "facebook" ? "feed" : "media"}`;
   const result = await graphPages(token, path, kind === "message" ? { platform: account.provider === "facebook" ? "messenger" : "instagram", fields: "id,updated_time" } : { fields: account.provider === "facebook" ? "id,permalink_url" : "id,permalink" });
+  if(kind==="comment"){result.coverage.gaps.push("root_list_only_comment_history_requires_separate_read");result.coverage.complete=false;}
   if (account.provider === "instagram" && kind === "message") { result.coverage.gaps.push("instagram_requests_inactive_over_30_days_are_not_returned"); result.coverage.complete = false; }
   if (account.provider === "instagram" && kind === "comment") { result.coverage.gaps.push("instagram_media_excludes_stories_and_is_limited_to_10000_recent_items"); result.coverage.complete = false; }
   return { threads: result.rows.map(r => ({ providerId: String(r.id), sourceUrl: typeof (r.permalink_url || r.permalink) === "string" ? String(r.permalink_url || r.permalink) : null })), coverage: result.coverage };
@@ -184,6 +211,17 @@ function item(row: GraphObject): HistoryItem {
   const from = row.from as { id?: string } | undefined;
   const at = typeof row.created_time === "string" || typeof row.timestamp === "string" ? Date.parse(String(row.created_time || row.timestamp)) : NaN;
   return { id: String(row.id), text: String(row.message || row.text || ""), from: String(from?.id || "unknown"), at: Number.isFinite(at) ? at : null, attachments: Boolean(row.attachments || row.attachment) };
+}
+function commentFields(provider:string){return provider==="facebook"?"id,message,from,created_time,attachment,comment_count":"id,text,from,timestamp";}
+async function commentContext(token:string,rootId:string,provider:string){
+  let root:GraphObject;
+  try{root=await graph(token,rootId,{fields:provider==="facebook"?"id,message,created_time,can_comment":"id,caption,timestamp"});}
+  catch(error){
+    if(provider!=="facebook"||!(error instanceof MetaProviderError)||error.providerReason!=="unsupported_field:can_comment")throw error;
+    root=await graph(token,rootId,{fields:"id,message,created_time"});
+  }
+  if(root.id!==rootId)throw new HttpError(403,"The comment root identity was not verified.");
+  return {root,owned:provider==="facebook"?root.can_comment===true:true};
 }
 export async function readHistory(env: Env, account: SocialAccount, thread: Thread): Promise<History> {
   const token = await decrypt(account.token!, env.TOKEN_ENCRYPTION_KEY);
@@ -205,15 +243,15 @@ export async function readHistory(env: Env, account: SocialAccount, thread: Thre
   } else {
     // Root context plus every available comment/reply page; never stop because a page is short.
     const rootToken = account.provider === "instagram" && account.user_token ? await decrypt(account.user_token, env.TOKEN_ENCRYPTION_KEY) : token;
-    const root = await graph(rootToken, thread.provider_id, { fields: account.provider === "facebook" ? "id,message,created_time,can_comment" : "id,caption,timestamp" });
-    if (account.provider === "facebook") owned = root.can_comment === true;
+    const context = await commentContext(rootToken,thread.provider_id,account.provider);
+    const root=context.root;owned=context.owned;
     items.push(item({ ...root, text: root.caption || root.message }));
     const work = [{ path: `${thread.provider_id}/comments`, depth: 0 }]; const seen = new Set<string>();
     while (work.length && pages < 100) {
       const current = work.shift()!;
       if (seen.has(current.path)) continue;
       seen.add(current.path);
-      const list = await graphPages(token, current.path, { fields: account.provider === "facebook" ? "id,message,from,created_time,attachment,comment_count" : "id,text,from,timestamp" }, Math.max(1, 100 - pages));
+      const list = await graphPages(token, current.path, { fields: commentFields(account.provider) }, Math.max(1, 100 - pages));
       pages += list.coverage.pages; gaps.push(...list.coverage.gaps);
       for (const row of list.rows) {
         items.push(item(row));
@@ -222,6 +260,7 @@ export async function readHistory(env: Env, account: SocialAccount, thread: Thre
       }
     }
     if (work.length) gaps.push("reply_tree_page_limit_reached");
+    if(account.provider==="instagram")gaps.push("instagram_native_suite_history_coverage_not_established");
   }
   items.sort((a, b) => (a.at || 0) - (b.at || 0) || a.id.localeCompare(b.id));
   const inbound = items.filter(i => (thread.kind === "message" ? i.from === target : i.from !== account.asset_id && i.from !== account.parent_id) && i.at).map(i => i.at!);

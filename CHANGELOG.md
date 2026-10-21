@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.7 · 21 October 2026
+
+- Verify a bounded sample of actual context, messages/comments and replies before advertising read capability; invalidate older root-only validation. Root listings explicitly do not establish history coverage.
+- Return sanitised HTTP status, numeric Graph errors and recognised unsupported requested fields, never raw provider error bodies or credentials.
+- Retry Facebook post context without can_comment only when Meta explicitly rejects that optional field. Keep write ownership unverified rather than inferring it from successful reads.
+- Preserve Instagram native-Suite history uncertainty in each comment-history result.
+
 ## 0.4.6 · 21 October 2026
 
 - Return expired, reused or mismatched OAuth attempts to a clean restart screen without exposing provider codes or weakening state validation.

@@ -5,7 +5,7 @@ import test, { type TestContext } from "node:test";
 import { socialAction, readThread } from "../worker/social/service";
 import { defaultProfile, assess, validateProfile } from "../worker/social/policy";
 import { accountFor, brandFor, notice, safeAccount, type SocialAccount, type Thread, type History } from "../worker/social/model";
-import { graphPages, readHistory, platformStatus, capabilities, discover, validateConnection } from "../worker/social/meta";
+import { graphPages, readHistory, platformStatus, capabilities, discover, validateConnection, inbox } from "../worker/social/meta";
 import { startOAuth, oauthCallback, grantAssets, selectAsset } from "../worker/social/oauth";
 import { hmac, receiveMeta, processQueue, maintenance, runHostedMaintenance, verifySignedRequest, metaDeletion } from "../worker/social/webhooks";
 import { handleSocial } from "../worker/social/api";
@@ -34,7 +34,7 @@ async function fixture() {
   const created=await socialAction("social_brand_create",{customerId:customer.customerId,name:"Brand A"},env,"alice") as {brandId:string};
   const profile=defaultProfile();profile.approvedReplies=["Hello there."];profile.sendEnabled=true;
   sql.prepare("UPDATE social_brands SET profile=? WHERE id=?").run(JSON.stringify(profile),created.brandId);
-  const account:SocialAccount={id:"account-a",brand_id:created.brandId,provider:"facebook",asset_id:"page-a",parent_id:"page-a",provider_user_id:"meta-user",name:"Page A",token:await encrypt("page-token",env.TOKEN_ENCRYPTION_KEY),user_token:await encrypt("user-token",env.TOKEN_ENCRYPTION_KEY),expires_at:Date.now()+86400000,permissions:JSON.stringify(scopes),status:"connected",validation:JSON.stringify({reads:{messages:true,comments:true},tasks:["MANAGE","MESSAGING","MODERATE"]}),validated_at:Date.now(),monitoring:'{"enabled":false,"intervalMinutes":10}',last_reconciled_at:null,created_at:Date.now()};
+  const account:SocialAccount={id:"account-a",brand_id:created.brandId,provider:"facebook",asset_id:"page-a",parent_id:"page-a",provider_user_id:"meta-user",name:"Page A",token:await encrypt("page-token",env.TOKEN_ENCRYPTION_KEY),user_token:await encrypt("user-token",env.TOKEN_ENCRYPTION_KEY),expires_at:Date.now()+86400000,permissions:JSON.stringify(scopes),status:"connected",validation:JSON.stringify({historyProbeVersion:1,reads:{messages:true,comments:true},tasks:["MANAGE","MESSAGING","MODERATE"]}),validated_at:Date.now(),monitoring:'{"enabled":false,"intervalMinutes":10}',last_reconciled_at:null,created_at:Date.now()};
   sql.prepare("INSERT INTO social_accounts (id,brand_id,provider,asset_id,parent_id,provider_user_id,name,token,user_token,expires_at,permissions,status,validation,validated_at,monitoring,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(account.id,account.brand_id,account.provider,account.asset_id,account.parent_id,account.provider_user_id,account.name,account.token,account.user_token,account.expires_at,account.permissions,account.status,account.validation,account.validated_at,account.monitoring,account.created_at);
   const thread:Thread={id:"thread-a",account_id:account.id,provider_id:"conversation-a",kind:"message",target:"person-a",source_url:null,status:"new",assigned_to:null,next_action:"Review",last_inbound_at:Date.now()-60000,updated_at:Date.now()};
   sql.prepare("INSERT INTO social_threads (id,account_id,provider_id,kind,target,status,next_action,last_inbound_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)").run(thread.id,account.id,thread.provider_id,thread.kind,thread.target,thread.status,thread.next_action,thread.last_inbound_at,thread.updated_at);
@@ -384,6 +384,8 @@ test("verified granular Page targets recover portfolio assets without fabricated
     if(path==="me/accounts")return Response.json({data:[{id:"909",name:"Unselected personal Page",access_token:"unselected-credential",tasks:["MANAGE"]}]});
     if(path==="101")return Response.json({id:"101",name:"Selected business",access_token:"direct-page-credential",instagram_business_account:{id:"202",username:"selected-business"}});
     if(path==="202")return Response.json({id:"202",username:"selected-business"});
+    if(path==="101/feed")return Response.json({data:[{id:"selected-post"}]});
+    if(path==="selected-post")return Response.json({id:"selected-post",message:"Root"});
     return Response.json({data:[]});
   });
   const grant=await discover(f.env,"grant-credential");assert.deepEqual(grant.candidates.map(asset=>asset.assetId),["101","202"]);assert.ok(grant.candidates.every(asset=>asset.tasks.length===0&&asset.discoverySource==="granular_target"));assert.equal(grant.diagnostics!.directResolved,1);assert.equal(grant.diagnostics!.businessManagementGranted,false);
@@ -401,4 +403,43 @@ test("direct discovery rejects mismatched asset IDs and credential ownership wit
     return Response.json({id:mismatch?"999":"101",access_token:"wrong-owner-credential"});
   });
   for(const state of [true,false]){mismatch=state;const grant=await discover(f.env,"grant-credential");assert.equal(grant.candidates.length,0);assert.equal(grant.diagnostics!.directUnresolved,1);assert.doesNotMatch(JSON.stringify(grant.diagnostics),/wrong-owner-credential|grant-credential|another-user/);}
+});
+
+test("unsupported optional post field retries minimal context without granting comment write ownership",async(t)=>{
+  const f=await fixture();const seen:string[]=[];
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{
+    const url=new URL(String(input));seen.push(url.searchParams.get("fields")||"");
+    if(url.pathname.endsWith("/post")&&url.searchParams.get("fields")?.includes("can_comment"))return Response.json({error:{code:100,message:"Tried accessing nonexisting field (can_comment) on node type (Post). private-page-token"}},{status:400});
+    if(url.pathname.endsWith("/post"))return Response.json({id:"post",message:"Post context"});
+    return Response.json({data:[{id:"comment",message:"Comment",from:{id:"person"},created_time:new Date().toISOString()}]});
+  });
+  const history=await readHistory(f.env,f.account,{...f.thread,kind:"comment",provider_id:"post",target:"post"});
+  assert.equal(history.items.length,2);assert.equal(history.owned,false);assert.ok(seen.includes("id,message,created_time"));assert.doesNotMatch(JSON.stringify(history),/private-page-token/);
+  assert.ok(assess(defaultProfile(),"Hello",history).blockers.includes("thread_owned_by_another_application_or_unknown"));
+});
+test("root-list success with denied comment edge does not advertise comment history access",async(t)=>{
+  const f=await fixture();provider(t);const base=globalThis.fetch;
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>{
+    const path=new URL(String(input)).pathname;
+    if(path.endsWith("page-a/feed"))return Response.json({data:[{id:"post"}]});
+    if(path.endsWith("/post"))return Response.json({id:"post",message:"Context",can_comment:true});
+    if(path.endsWith("post/comments"))return Response.json({error:{code:200,message:"private-user-token should never be reflected"}},{status:403});
+    return base(input,init);
+  });
+  const live=await validateConnection(f.env,f.account);
+  assert.equal(live.validation.reads.commentRoots,true);assert.equal(live.validation.reads.comments,false);assert.ok(live.validation.errors.some(error=>error.includes("http_403:graph_200")));assert.doesNotMatch(JSON.stringify(live.validation),/private-user-token/);
+  const caps=capabilities(f.env,{...f.account,status:live.status,validation:JSON.stringify(live.validation),validated_at:Date.now()});assert.equal(caps.comments,"unavailable");
+});
+test("older root-only validation cannot continue advertising history capabilities",async()=>{
+  const f=await fixture();const validation=JSON.parse(f.account.validation);delete validation.historyProbeVersion;
+  const caps=capabilities(f.env,{...f.account,validation:JSON.stringify(validation)});assert.equal(caps.comments,"unavailable");assert.equal(caps.messages,"unavailable");assert.equal(caps.needsValidation,true);
+});
+test("comment root listing is explicitly separate from reading comment history",async(t)=>{
+  const f=await fixture();t.mock.method(globalThis,"fetch",async()=>Response.json({data:[{id:"post"}]}));
+  const roots=await inbox(f.env,f.account,"comment");assert.equal(roots.threads.length,1);assert.equal(roots.coverage.complete,false);assert.ok(roots.coverage.gaps.includes("root_list_only_comment_history_requires_separate_read"));
+});
+test("Instagram per-thread reads preserve the native Suite coverage uncertainty",async(t)=>{
+  const f=await fixture();t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>new URL(String(input)).pathname.endsWith("/media-root")?Response.json({id:"media-root",caption:"Root",timestamp:new Date().toISOString()}):Response.json({data:[]}));
+  const history=await readHistory(f.env,{...f.account,provider:"instagram"},{...f.thread,kind:"comment",provider_id:"media-root",target:"media-root"});
+  assert.equal(history.coverage.complete,false);assert.ok(history.coverage.gaps.includes("instagram_native_suite_history_coverage_not_established"));
 });
