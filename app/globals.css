@@ -57,8 +57,6 @@ nav {
 .brand-lockup { display: inline-flex; align-items: center; gap: 0.8rem; }
 .brand-lockup img { display: block; height: auto; }
 .brand-lockup .senderdeck-mark { width: 34px; }
-.brand-lockup .devectus-wordmark { width: 118px; }
-.brand-divider { width: 1px; height: 28px; background: var(--line); }
 .wordmark { font-family: var(--font-display); font-weight: 650; letter-spacing: -0.035em; }
 .nav-user { display: flex; align-items: center; gap: 1rem; font-size: 0.8rem; color: var(--muted); }
 .quiet-link { font-size: 0.9rem; border-bottom: 1px solid currentColor; }
@@ -766,7 +764,6 @@ footer > div:last-child { text-align: right; }
   .lede { align-self: auto; }
   .nav-user span { display: none; }
   .brand-lockup .senderdeck-mark { width: 30px; }
-  .brand-lockup .devectus-wordmark { width: 96px; }
   .wordmark { font-size: 0.8rem; }
   .actions { flex-direction: column; }
   .connections-heading,
@@ -795,8 +792,6 @@ footer > div:last-child { text-align: right; }
 
 @media (max-width: 520px) {
   main { padding-inline: 1rem; }
-  .brand-divider,
-  .wordmark { display: none; }
   .connections { padding: 1rem; }
   .hero-actions { flex-direction: column; align-items: stretch; }
   .install-prerequisite,

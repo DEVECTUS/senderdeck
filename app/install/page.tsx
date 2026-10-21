@@ -18,8 +18,6 @@ export default function InstallPage() {
       <nav>
         <Link className="brand-lockup" href="/" aria-label="SenderDeck home">
           <Image className="senderdeck-mark" src="/senderdeck-mark.svg" alt="" width={1024} height={1024} priority />
-          <Image className="devectus-wordmark" src="/devectus-logo-black.png" alt="DEVECTUS" width={1776} height={354} priority />
-          <span className="brand-divider" aria-hidden="true" />
           <span className="wordmark">SenderDeck</span>
         </Link>
         <Link className="quiet-link" href="/">Back to SenderDeck</Link>

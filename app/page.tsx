@@ -25,15 +25,6 @@ export default async function Home() {
             height={1024}
             priority
           />
-          <Image
-            className="devectus-wordmark"
-            src="/devectus-logo-black.png"
-            alt="DEVECTUS"
-            width={1776}
-            height={354}
-            priority
-          />
-          <span className="brand-divider" aria-hidden="true" />
           <span className="wordmark">SenderDeck</span>
         </Link>
         {user ? (
