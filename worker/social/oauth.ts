@@ -35,7 +35,7 @@ export async function oauthCallback(request: Request, env: Env) {
   const grant = await discover(env, exchange.access_token);
   const grantId = id();
   await env.DB.prepare("INSERT INTO social_grants (id, brand_id, user_id, encrypted, expires_at) VALUES (?, ?, ?, ?, ?)").bind(grantId, row.brand_id, user, await encrypt(JSON.stringify(grant), env.TOKEN_ENCRYPTION_KEY), Date.now() + 600000).run();
-  return Response.redirect(`${publicOrigin(env)}/conversations?brand=${encodeURIComponent(row.brand_id)}&grant=${encodeURIComponent(grantId)}`, 303);
+  return Response.redirect(`${publicOrigin(env)}/connect/meta?brand=${encodeURIComponent(row.brand_id)}&grant=${encodeURIComponent(grantId)}`, 303);
 }
 async function getGrant(env: Env, user: string, brandId: string, grantId: string) {
   await brandFor(env, user, brandId, admins);

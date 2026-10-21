@@ -55,6 +55,7 @@ export interface Env {
   SOCIAL_SEND_ENABLED?: string;
   SOCIAL_SCHEDULER_ENABLED?: string;
   SOCIAL_MAINTENANCE_TOKEN?: string;
+  SOCIAL_OPERATOR_USER_IDS?: string;
   LINKEDIN_CLIENT_ID?: string;
   LINKEDIN_CLIENT_SECRET?: string;
 }

@@ -9,6 +9,7 @@ import { graphPages, readHistory, platformStatus, capabilities } from "../worker
 import { startOAuth, oauthCallback, grantAssets, selectAsset } from "../worker/social/oauth";
 import { hmac, receiveMeta, processQueue, maintenance, verifySignedRequest, metaDeletion } from "../worker/social/webhooks";
 import { handleSocial } from "../worker/social/api";
+import { customerSetup, operatorSetup, checkOperatorApp } from "../worker/social/setup";
 import { encrypt, decrypt } from "../worker/crypto";
 import type { D1PreparedStatement, WorkerD1Database, Env } from "../worker/env";
 
@@ -121,7 +122,7 @@ test("OAuth state is user-bound, one-use and preserves the fixed callback origin
   const callback=(user:string)=>new Request(`https://evil-host.test/oauth/social/meta/callback?state=${auth.searchParams.get("state")}&code=code`,{headers:{"x-dev-user-email":user}});
   await assert.rejects(oauthCallback(callback("bob"),f.env),/another session/);
   t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{const url=new URL(String(input));if(url.pathname.endsWith("oauth/access_token"))return Response.json({access_token:"user-token"});if(url.pathname.endsWith("debug_token"))return Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes}});return Response.json({data:[{id:"page-a",name:"A",access_token:"page-token",tasks:["MANAGE"]}]});});
-  const response=await oauthCallback(callback("alice"),f.env);assert.equal(response?.status,303);assert.match(response!.headers.get("location")!,/^https:\/\/senderdeck.test\/conversations/);
+  const response=await oauthCallback(callback("alice"),f.env);assert.equal(response?.status,303);assert.match(response!.headers.get("location")!,/^https:\/\/senderdeck.test\/connect\/meta/);
   await assert.rejects(oauthCallback(callback("alice"),f.env),/already used/);
   const row=f.sql.prepare("SELECT id,encrypted FROM social_grants").get()!;assert.doesNotMatch(String(row.encrypted),/user-token|page-token/);
   const assets=JSON.stringify(await grantAssets(f.env,"alice",f.brandId,String(row.id)));assert.doesNotMatch(assets,/token|meta-user/);
@@ -240,4 +241,36 @@ test("disconnect removes confirmed identity links without touching another brand
   const f=await fixture();await socialAction("social_identity_link",{brandId:f.brandId,identities:[{accountId:f.account.id,identity:"person"},{accountId:f.account.id,identity:"verified-email@example.test"}],confirmed:true},f.env,"alice");
   assert.equal(f.sql.prepare("SELECT count(*) n FROM social_identity_links").get()!.n,1);
   await socialAction("social_account_disconnect",{...f.scope,confirmed:true},f.env,"alice");assert.equal(f.sql.prepare("SELECT count(*) n FROM social_identity_links").get()!.n,0);
+});
+
+test("customer setup reports separate app and scheduler blockers without developer credentials",async()=>{
+  const f=await fixture();
+  const blocked=await customerSetup({...f.env,META_APP_SECRET:undefined,SOCIAL_SCHEDULER_ENABLED:"false"},"alice",f.brandId);
+  assert.equal(blocked.canConnect,false);assert.equal(blocked.appConfigured,false);assert.equal(blocked.needsCustomerDeveloperCredentials,false);assert.equal(blocked.blockers.length,2);assert.equal(blocked.monitoringActive,false);
+  const ready=await customerSetup(f.env,"alice",f.brandId);assert.equal(ready.canConnect,true);assert.equal(ready.businessVerification,"not_confirmed_by_senderdeck");
+  await assert.rejects(customerSetup(f.env,"bob",f.brandId),/not found/);
+  assert.doesNotMatch(JSON.stringify(ready),/app-secret|page-token|user-token/);
+});
+test("workspace owners and spoofed operator headers cannot administer the platform",async()=>{
+  const f=await fixture();await assert.rejects(operatorSetup(f.env,"alice"),/administrator access/);
+  const request=new Request("https://senderdeck.test/api/social/operator/setup",{headers:{"x-dev-user-email":"alice","x-senderdeck-platform-operator":"true"}});
+  assert.equal((await handleSocial(request,f.env,()=>{}))?.status,403);
+  const write=new Request("https://senderdeck.test/api/social/operator/setup",{method:"POST",headers:{origin:"https://senderdeck.test","content-type":"application/json","x-dev-user-email":"alice"},body:JSON.stringify({META_APP_SECRET:"injected"})});
+  assert.equal((await handleSocial(write,f.env,()=>{}))?.status,404);assert.equal(f.env.META_APP_SECRET,"app-secret");
+});
+test("operator readiness masks native secrets and does not infer review or event delivery",async()=>{
+  const f=await fixture();const env={...f.env,SOCIAL_OPERATOR_USER_IDS:"platform-operator",META_WEBHOOK_VERIFY_TOKEN:"hidden-verify",SOCIAL_MAINTENANCE_TOKEN:"hidden-maintenance"};
+  const state=await operatorSetup(env,"platform-operator");
+  assert.doesNotMatch(JSON.stringify(state),/app-secret|hidden-verify|hidden-maintenance/);
+  assert.equal(state.fields.find(f=>f.key==="META_APP_SECRET")?.configured,true);assert.equal(state.fields.find(f=>f.key==="META_APP_SECRET")?.secret,true);
+  assert.equal(state.businessVerification,"must_be_verified_in_meta");assert.equal(state.webhookLastObservedAt,null);
+  assert.equal(state.routes.callback,"https://senderdeck.test/oauth/social/meta/callback");
+  assert.equal(state.routes.webhook,"https://senderdeck.test/api/social/webhooks/meta");
+});
+test("app credential check is operator-only and does not certify business or customer access",async(t)=>{
+  const f=await fixture();const env={...f.env,SOCIAL_OPERATOR_USER_IDS:"platform-operator"};let calls=0;
+  t.mock.method(globalThis,"fetch",async()=>{calls++;return Response.json({id:"platform",name:"Test platform app"});});
+  await assert.rejects(checkOperatorApp(env,"alice"),/administrator/);assert.equal(calls,0);
+  const result=await checkOperatorApp(env,"platform-operator");assert.equal(result.appVerified,true);assert.equal(result.businessVerification,"not_checked");assert.equal(result.customerAccessApproval,"not_checked");
+  assert.doesNotMatch(JSON.stringify(result),/app-secret/);
 });

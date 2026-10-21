@@ -40,6 +40,16 @@ test("public social readiness contains no secrets and sending defaults off", asy
   const result=await response.json();assert.equal(result.sending,"disabled");assert.equal(result.meta.configured,false);assert.equal(result.linkedin.pageMessaging,"unavailable");assert.doesNotMatch(JSON.stringify(result),/test-secret/);
 });
 
+test("customer Meta wizard is protected and contains no credential inputs", async()=>{
+  const worker=await loadWorker();const response=await worker.fetch(new Request("http://localhost/connect/meta",{headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com"}}),baseEnv,context);
+  assert.equal(response.status,200);const html=await response.text();assert.match(html,/Choose brand/);assert.match(html,/Authorise Meta/);assert.match(html,/Select accounts/);assert.match(html,/Verify access/);assert.match(html,/developer credentials are never needed/);assert.doesNotMatch(html,/<input[^>]*type="password"/);
+});
+test("operator pages require the hosting allowlist rather than workspace ownership",async()=>{
+  const worker=await loadWorker();const request=new Request("http://localhost/operator/social",{headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com","x-senderdeck-platform-operator":"true"}});
+  assert.equal((await worker.fetch(request,baseEnv,context)).status,403);
+  const allowed=await worker.fetch(request,{...baseEnv,SOCIAL_OPERATOR_USER_IDS:"owner@example.com"},context);assert.equal(allowed.status,200);assert.match(await allowed.text(),/Platform administrators|PLATFORM ADMINISTRATORS/);
+});
+
 test("health and MCP initialization report the packaged release version", async () => {
   const { version } = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   const worker = await loadWorker();

@@ -8,7 +8,8 @@ import { handleMcp } from "./mcp";
 import { handleOAuthRoute } from "./oauth";
 import { handleMcpAuthentication } from "./mcp-auth";
 import { handleIdentityAuthRoute } from "./identity-auth";
-import { withAuthenticatedUserHeaders } from "./auth";
+import { authenticatedUser, withAuthenticatedUserHeaders } from "./auth";
+import { isPlatformOperator } from "./social/setup";
 import { handleSocial } from "./social/api";
 import { maintenance } from "./social/webhooks";
 
@@ -55,6 +56,12 @@ const worker = {
 
     const socialResponse = await handleSocial(request, env, promise => ctx.waitUntil(promise));
     if (socialResponse) return socialResponse;
+
+    if (url.pathname === "/operator/social" || url.pathname.startsWith("/operator/social/")) {
+      const user = await authenticatedUser(request, env);
+      if (!user) return Response.redirect(new URL("/signin?return_to=%2Foperator%2Fsocial", request.url).toString(), 303);
+      if (!isPlatformOperator(env, user.userId)) return new Response("Platform administrator access required. Workspace ownership does not grant platform access.", {status:403,headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store"}});
+    }
 
     const accountApiResponse = await handleAccountApi(request, env);
     if (accountApiResponse) return accountApiResponse;

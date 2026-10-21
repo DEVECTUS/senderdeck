@@ -4,12 +4,23 @@ import { platformStatus } from "./meta";
 import { oauthCallback } from "./oauth";
 import { socialAction } from "./service";
 import { equalSecret, limitedBody, maintenance, metaDeletion, receiveMeta } from "./webhooks";
+import { checkOperatorApp, customerSetup, operatorSetup } from "./setup";
 
 export async function handleSocial(request: Request, env: Env, defer: (p: Promise<unknown>) => void): Promise<Response | null> {
   const path = new URL(request.url).pathname;
   if (!path.startsWith("/api/social") && !path.startsWith("/oauth/social/")) return null;
   try {
     if (path === "/api/social/status" && request.method === "GET") return Response.json(platformStatus(env), {headers: {"cache-control": "no-store"}});
+    if (path === "/api/social/setup" && request.method === "GET") {
+      const user = await requireUserId(request, env);
+      const brandId = new URL(request.url).searchParams.get("brandId") || "";
+      return Response.json(await customerSetup(env, user, brandId), {headers:{"cache-control":"no-store"}});
+    }
+    if (path === "/api/social/operator/setup" && request.method === "GET") return Response.json(await operatorSetup(env, await requireUserId(request, env)), {headers:{"cache-control":"no-store"}});
+    if (path === "/api/social/operator/check" && request.method === "POST") {
+      if (request.headers.get("origin") !== new URL(request.url).origin) throw new HttpError(403, "Same-origin request required.");
+      return Response.json(await checkOperatorApp(env, await requireUserId(request, env)), {headers:{"cache-control":"no-store"}});
+    }
     if (path === "/api/social/webhooks/meta") return await receiveMeta(request, env, defer);
     if (["/api/social/meta/deauthorize", "/api/social/meta/delete"].includes(path)) return await metaDeletion(request, env);
     if (path === "/api/social/maintenance") {

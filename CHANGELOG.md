@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.3 · 21 October 2026
+
+- Add a customer Meta connection wizard for choosing a private brand, continuing to native consent, selecting each authorised asset and checking actual capabilities.
+- Return OAuth callbacks to the wizard without changing the registered callback route or its user/brand/state checks.
+- Add a separately protected platform setup view with redacted native-secret status, exact callback/webhook routes, app credential checks and distinct review, delivery and scheduler evidence.
+- Require a hosting-controlled operator allowlist; customer ownership cannot grant platform access. There is no tenant-facing global credential-write endpoint.
+
 ## 0.4.2 · 21 October 2026
 
 - Remove customer-specific presets, public account IDs and brand examples from shared onboarding, policy defaults, skills and provider documentation.

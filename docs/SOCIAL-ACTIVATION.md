@@ -15,6 +15,16 @@ Version 0.4.0 is a gated foundation. It is not evidence of a successful live soc
 
 ## Meta operator prerequisites
 
+### Setup views and authority
+
+Customers use `/connect/meta`: select a customer/brand, review readiness, continue to Meta, explicitly select each Page/Instagram identity and inspect verified capabilities. They never enter developer app credentials. OAuth returns to this wizard; its registered callback URL remains unchanged.
+
+Platform administrators use `/operator/social`. The hosting owner must set `SOCIAL_OPERATOR_USER_IDS` to the exact trusted SenderDeck user IDs authorised to operate the service. The user ID is visible in the signed-in Conversations workspace settings. An empty allowlist denies everyone, including customer owners/admins. No request body, workspace role or client-provided operator header can add an operator.
+
+Global credentials are entered only in the hosting project's native Environment/Secrets controls, with secret values marked secret. The operator page shows configured/missing states and redacted secret fields, and has no credential-write API. It can test the configured app identity, but that test does not certify business verification, App Review, login configuration or customer access. Never paste an app secret into chat, a support report or a public issue.
+
+The native settings required are `META_APP_ID`, `META_APP_SECRET`, `META_LOGIN_CONFIG_ID`, `META_WEBHOOK_VERIFY_TOKEN`, `SOCIAL_PUBLIC_ORIGIN`, and the protected maintenance trigger configuration. The service must be redeployed with the changed environment before readiness is assumed. Do not set the access tier to advanced or scheduling to enabled until the corresponding external approval/trigger actually exists.
+
 Use a DEVECTUS-owned platform app and a verified DEVECTUS business portfolio. Do not reuse a customer's advertising app automatically. For Business Integration System User configuration, the platform and customer portfolios must be distinct. The implementation currently discovers assets with `/me/accounts`; validate the chosen login/token configuration against this path before enabling customer onboarding. Unsupported token configurations remain blocked.
 
 Set hosting secrets `META_APP_ID`, `META_APP_SECRET`, `META_LOGIN_CONFIG_ID`, `META_WEBHOOK_VERIFY_TOKEN` and `SOCIAL_PUBLIC_ORIGIN=https://senderdeck.devectus.com.au`. `META_ACCESS_TIER=advanced` is an operator assertion after App Review, not a permission grant. Token introspection, granted scopes, selected assets, Page tasks and live reads are checked separately.

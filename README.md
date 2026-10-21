@@ -33,7 +33,7 @@ Email drafts remain with Google or Microsoft. Email search/read and attachment d
 1. Open the [hosted portal](https://senderdeck.devectus.com.au/) and sign in with Google or Microsoft. Review provider consent and connect the mailboxes you intend to use.
 2. Follow the [Codex and Claude installation guide](https://senderdeck.devectus.com.au/install). The repository includes both plugin formats and a shared remote MCP endpoint: `https://senderdeck.devectus.com.au/api/mcp`.
 3. List accounts and explicitly select a sender before creating a draft. Sending requires a separate confirmation after inspecting the exact message details.
-4. Open [Conversations](https://senderdeck.devectus.com.au/conversations) to create a customer and brand, configure rules and inspect social connection readiness.
+4. Open [Conversations](https://senderdeck.devectus.com.au/conversations) to create a customer and brand and configure rules, then use the [Meta connection wizard](https://senderdeck.devectus.com.au/connect/meta) to check readiness, authorise and select accounts.
 
 Customers do not need to create developer apps or run local relays for the hosted product. The service operator must complete the provider setup. Installing the plugin or saving a monitoring preference does not activate social access.
 
@@ -44,6 +44,8 @@ Facebook and Instagram access requires a DEVECTUS-owned platform app, appropriat
 The current deployment has no Meta/LinkedIn credentials or customer grants and no active social scheduler. Existing browser monitoring should continue until actual API coverage is proved. Meta may expose only 20 recent message details; Instagram Requests and media have additional limits. Unsupported history and attachments require native review. LinkedIn has separate programme, messaging and data-use restrictions.
 
 See [activation and live acceptance requirements](docs/SOCIAL-ACTIVATION.md) or the [hosted provider guide](https://senderdeck.devectus.com.au/social-setup). Configuration switches are not a substitute for provider approval or successful live tests.
+
+Platform operators have a separate `/operator/social` setup view protected by a hosting-controlled user-ID allowlist. It displays redacted configuration and observed readiness; developer secrets are entered only in the native hosting secret controls. Ordinary customer owners/admins cannot change global app settings. No operator is enabled automatically.
 
 ## Open-source development
 
