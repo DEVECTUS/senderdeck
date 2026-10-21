@@ -29,8 +29,8 @@ async function fixture() {
   const {sql,DB}=database();
   const env:Env={DB,TOKEN_ENCRYPTION_KEY:Buffer.alloc(32,9).toString("base64"),ALLOW_DEV_AUTH:"true",META_APP_ID:"platform",META_APP_SECRET:"app-secret",META_LOGIN_CONFIG_ID:"login-config",META_WEBHOOK_VERIFY_TOKEN:"verify-secret",META_ACCESS_TIER:"advanced",SOCIAL_PUBLIC_ORIGIN:"https://senderdeck.test",SOCIAL_SEND_ENABLED:"true",SOCIAL_SCHEDULER_ENABLED:"true"};
   const customer=await socialAction("social_customer_create",{name:"Customer A"},env,"alice") as {customerId:string};
-  const created=await socialAction("social_brand_create",{customerId:customer.customerId,name:"Brand A",preset:"car-turntable"},env,"alice") as {brandId:string};
-  const profile=defaultProfile(true);profile.approvedReplies=["Hello there."];profile.sendEnabled=true;
+  const created=await socialAction("social_brand_create",{customerId:customer.customerId,name:"Brand A"},env,"alice") as {brandId:string};
+  const profile=defaultProfile();profile.approvedReplies=["Hello there."];profile.sendEnabled=true;
   sql.prepare("UPDATE social_brands SET profile=? WHERE id=?").run(JSON.stringify(profile),created.brandId);
   const account:SocialAccount={id:"account-a",brand_id:created.brandId,provider:"facebook",asset_id:"page-a",parent_id:"page-a",provider_user_id:"meta-user",name:"Page A",token:await encrypt("page-token",env.TOKEN_ENCRYPTION_KEY),user_token:await encrypt("user-token",env.TOKEN_ENCRYPTION_KEY),expires_at:Date.now()+86400000,permissions:JSON.stringify(scopes),status:"connected",validation:JSON.stringify({reads:{messages:true,comments:true},tasks:["MANAGE","MESSAGING","MODERATE"]}),validated_at:Date.now(),monitoring:'{"enabled":false,"intervalMinutes":10}',last_reconciled_at:null,created_at:Date.now()};
   sql.prepare("INSERT INTO social_accounts (id,brand_id,provider,asset_id,parent_id,provider_user_id,name,token,user_token,expires_at,permissions,status,validation,validated_at,monitoring,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(account.id,account.brand_id,account.provider,account.asset_id,account.parent_id,account.provider_user_id,account.name,account.token,account.user_token,account.expires_at,account.permissions,account.status,account.validation,account.validated_at,account.monitoring,account.created_at);
@@ -66,6 +66,25 @@ async function prepared(f:Awaited<ReturnType<typeof fixture>>) {
   return {...f.scope,...draft,approvalToken:inspect.approvalToken,confirmed:true,confirmation:inspect.requiredConfirmation};
 }
 
+test("new brands start without business identity, verified URLs or inherited customer rules",async()=>{
+  const f=await fixture();
+  const created=await socialAction("social_brand_create",{customerId:f.customerId,name:"Brand B"},f.env,"alice") as {brandId:string;profile:ReturnType<typeof defaultProfile>};
+  assert.deepEqual(created.profile.verifiedUrls,[]);assert.deepEqual(created.profile.verifiedFacts,[]);assert.deepEqual(created.profile.approvedReplies,[]);
+  assert.equal(created.profile.identityResponse,"");assert.equal(created.profile.sendEnabled,false);assert.equal(created.profile.forbidDashes,false);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_accounts WHERE brand_id=?").get(created.brandId)!.n,0);
+  const profile=defaultProfile();profile.language="Australian English";profile.forbidDashes=true;profile.verifiedUrls=["https://brand-b.example.test/"];
+  await socialAction("social_brand_update",{brandId:created.brandId,name:"Brand B",revision:1,profile},f.env,"alice");
+  const saved=JSON.parse((await brandFor(f.env,"alice",created.brandId)).profile);
+  const other=JSON.parse((await brandFor(f.env,"alice",f.brandId)).profile);
+  assert.equal(saved.language,"Australian English");assert.equal(saved.forbidDashes,true);assert.deepEqual(saved.verifiedUrls,["https://brand-b.example.test/"]);
+  assert.deepEqual(other.verifiedUrls,[]);assert.equal(other.forbidDashes,false);
+  const fresh=defaultProfile();assert.deepEqual(fresh.verifiedUrls,[]);assert.equal(fresh.forbidDashes,false);
+});
+test("retired preset clients receive an explicit error without creating a weaker brand policy",async()=>{
+  const f=await fixture();
+  await assert.rejects(socialAction("social_brand_create",{customerId:f.customerId,name:"Legacy",preset:"retired-customer-preset"},f.env,"alice"),/presets are no longer supported/);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_brands WHERE customer_id=?").get(f.customerId)!.n,1);
+});
 test("tenant isolation applies to discovery, brand IDs, accounts, threads and role changes",async()=>{
   const f=await fixture();
   const b=await socialAction("social_customer_create",{name:"B"},f.env,"bob") as {customerId:string};
@@ -127,14 +146,14 @@ test("comment tree reads include nested replies and their paginated continuation
   const result=await readHistory(f.env,f.account,thread);assert.deepEqual(result.items.map(i=>i.id),["c1","post","r1","r2"]);assert.equal(result.coverage.complete,true);assert.equal(result.coverage.pages,3);
 });
 test("brand policy is configurable and blocks escalation, false identity and unapproved wording",()=>{
-  const profile=defaultProfile(true);const history:History={items:[{id:"m",text:"Hi",from:"p",at:Date.now(),attachments:false}],coverage:{complete:true,pages:1,gaps:[],sourceUrl:null},target:"p",lastInboundAt:Date.now(),owned:true};
-  profile.approvedReplies=["See https://car-turntable.com.au/", "We can help - welcome."];
-  assert.equal(assess(profile,"See https://car-turntable.com.au/",history).sendable,true);
+  const profile=defaultProfile();profile.forbidDashes=true;profile.avoidUnsolicitedAi=true;profile.verifiedUrls=["https://brand-a.example.test/product-info/"];const history:History={items:[{id:"m",text:"Hi",from:"p",at:Date.now(),attachments:false}],coverage:{complete:true,pages:1,gaps:[],sourceUrl:null},target:"p",lastInboundAt:Date.now(),owned:true};
+  profile.approvedReplies=["See https://brand-a.example.test/product-info/", "We can help - welcome."];
+  assert.equal(assess(profile,"See https://brand-a.example.test/product-info/",history).sendable,true);
   assert.ok(assess(profile,"We can help - welcome.",history).blockers.includes("brand_disallows_dashes"));
   assert.ok(assess(profile,"It costs $20 and is guaranteed.",history).blockers.includes("wording_requires_brand_admin_approval"));
-  history.items[0].text="I was injured and need a refund";assert.ok(assess(profile,"See https://car-turntable.com.au/",history).blockers.includes("escalation_requires_owner_handling"));
+  history.items[0].text="I was injured and need a refund";assert.ok(assess(profile,"See https://brand-a.example.test/product-info/",history).blockers.includes("escalation_requires_owner_handling"));
   history.items[0].text="Are you a bot?";assert.ok(assess(profile,"I am Chris.",history).blockers.includes("identity_question_requires_truthful_approved_response"));
-  assert.equal(defaultProfile(false).forbidDashes,false);assert.throws(()=>validateProfile({...profile,retentionDays:1000}),/retention/);
+  assert.equal(defaultProfile().forbidDashes,false);assert.throws(()=>validateProfile({...profile,retentionDays:1000}),/retention/);
 });
 test("draft creation requires a current reader-bound snapshot and rejects attachments or foreign targets",async(t)=>{
   const f=await fixture();provider(t);await assert.rejects(socialAction("social_draft_create",{...f.scope,snapshotId:"invented",text:"Hi"},f.env,"alice"),/Read this thread again/);

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2 · 21 October 2026
+
+- Remove customer-specific presets, public account IDs and brand examples from shared onboarding, policy defaults, skills and provider documentation.
+- New brands start without verified facts, URLs, approved replies, account associations or an assumed identity. Language, punctuation and other brand rules are configured explicitly in the owning workspace.
+- Reject retired preset requests with an explicit migration message rather than silently creating a brand without its former restrictions.
+- Preserve existing saved workspace policies; no database migration or provider permission change is required.
+
 ## 0.4.1 · 21 October 2026
 
 - Refresh the website, search/social metadata, plugin listings and repository overview for email and brand conversations.

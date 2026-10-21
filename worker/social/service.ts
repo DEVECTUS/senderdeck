@@ -131,7 +131,9 @@ export async function socialAction(name: string, a: Args, env: Env, user: string
   }
   if (name === "social_brand_create") {
     const customerId = arg(a, "customerId"); await member(env, user, customerId, admins);
-    const brandId = id(); const profile = defaultProfile(a.preset === "car-turntable");
+    // Reject retired client presets rather than silently dropping their policy restrictions.
+    if (a.preset !== undefined && a.preset !== "default") throw new HttpError(400, "Brand presets are no longer supported. Create a brand, then configure its rules explicitly with social_brand_update.");
+    const brandId = id(); const profile = defaultProfile();
     await env.DB.prepare("INSERT INTO social_brands (id,customer_id,name,profile,created_at) VALUES (?,?,?,?,?)").bind(brandId, customerId, arg(a, "name", 100), JSON.stringify(profile), now()).run();
     await audit(env, brandId, user, "brand_created", brandId);
     return { brandId, profile, revision: 1 };

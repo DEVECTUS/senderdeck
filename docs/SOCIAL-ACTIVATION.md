@@ -5,7 +5,7 @@ Version 0.4.0 is a gated foundation. It is not evidence of a successful live soc
 ## Shipped and testable without provider grants
 
 - Customer memberships (`owner`, `admin`, `editor`, `reviewer`, `viewer`), brands, optimistic policy revisions, per-request authorisation, deletion and minimal audit records.
-- Brand language/tone/punctuation, source-labelled verified facts, exact approved wording, identity answer and escalation terms. Car Turntable is a preset; no business claims or assumed personal identity are seeded.
+- Brand language/tone/punctuation, source-labelled verified facts, exact approved wording, identity answer and escalation terms. New brands have neutral defaults; verified facts, URLs, approved wording and identity are entered explicitly in the owning workspace.
 - Existing email-account association without sharing mailbox credentials. Confirmed cross-channel identity links never use names as proof; LinkedIn API identities are rejected.
 - Meta OAuth state bound to current user/brand, single use and ten-minute expiry. Encrypted temporary grants, explicit selection, rediscovery and live task/permission validation. Asset assignment is unique across brands/customers.
 - Paginated conversations and comment trees, bounded-work gaps, current recipient verification, source URLs where returned by provider, expiring encrypted snapshots and local immutable drafts.
@@ -15,7 +15,7 @@ Version 0.4.0 is a gated foundation. It is not evidence of a successful live soc
 
 ## Meta operator prerequisites
 
-Use a DEVECTUS-owned platform app and a verified DEVECTUS business portfolio. Do not reuse the customer's Car Turntable Ads API app automatically. For Business Integration System User configuration, the platform and customer portfolios must be distinct. The implementation currently discovers assets with `/me/accounts`; validate the chosen login/token configuration against this path before enabling customer onboarding. Unsupported token configurations remain blocked.
+Use a DEVECTUS-owned platform app and a verified DEVECTUS business portfolio. Do not reuse a customer's advertising app automatically. For Business Integration System User configuration, the platform and customer portfolios must be distinct. The implementation currently discovers assets with `/me/accounts`; validate the chosen login/token configuration against this path before enabling customer onboarding. Unsupported token configurations remain blocked.
 
 Set hosting secrets `META_APP_ID`, `META_APP_SECRET`, `META_LOGIN_CONFIG_ID`, `META_WEBHOOK_VERIFY_TOKEN` and `SOCIAL_PUBLIC_ORIGIN=https://senderdeck.devectus.com.au`. `META_ACCESS_TIER=advanced` is an operator assertion after App Review, not a permission grant. Token introspection, granted scopes, selected assets, Page tasks and live reads are checked separately.
 
@@ -29,7 +29,7 @@ Register these URLs:
 | Data deletion | `https://senderdeck.devectus.com.au/api/social/meta/delete` |
 | Privacy | `https://senderdeck.devectus.com.au/privacy` |
 
-Request the permissions for enabled features only: `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, `pages_manage_metadata`, `pages_messaging`, `pages_manage_engagement`, `instagram_basic`, `instagram_manage_messages`, `instagram_manage_comments`. The existing pilot's seven scopes omit `pages_manage_metadata` and `pages_manage_engagement`. External Facebook Login for Business also requires appropriate Advanced Access for `public_profile`. Business-manager-granted assets can have additional endpoint-specific requirements; do not request advertising permissions blindly.
+Request the permissions for enabled features only: `pages_show_list`, `pages_read_engagement`, `pages_read_user_content`, `pages_manage_metadata`, `pages_messaging`, `pages_manage_engagement`, `instagram_basic`, `instagram_manage_messages`, `instagram_manage_comments`. Webhook subscriptions and Page comment replies require their corresponding metadata and engagement permissions in addition to read scopes. External Facebook Login for Business also requires appropriate Advanced Access for `public_profile`. Business-manager-granted assets can have additional endpoint-specific requirements; do not request advertising permissions blindly.
 
 Use Graph v26.0. Page tokens serve Facebook and linked-Page Instagram messages/comments; the granting User token is retained separately encrypted for Instagram media discovery. Subscribe the selected Page (not the Instagram ID) to the appropriate app fields. `social_account_validate` reads the installed subscription. Subscription installation and provider permission changes are owner-controlled and are not performed by this release. Application-level business integration event shapes require live validation; deauthorisation callbacks and regular token/asset revalidation are implemented.
 

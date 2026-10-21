@@ -2,12 +2,12 @@ import { HttpError } from "../auth";
 import { json, str, type BrandProfile, type History } from "./model";
 
 const escalationTerms = ["injury", "injured", "unsafe", "accident", "safety", "lawyer", "legal", "privacy", "personal data", "chargeback", "payment dispute", "serious complaint", "refund", "warranty", "price", "pricing", "cost", "suitable", "suitability", "load capacity"];
-export function defaultProfile(pilot = false): BrandProfile {
+export function defaultProfile(): BrandProfile {
   return {
-    language: pilot ? "Australian English" : "English", tone: "Brief, warm and professional", maxReplyLength: 800,
-    forbidDashes: pilot, verifiedFacts: [], approvedReplies: [],
-    verifiedUrls: pilot ? ["https://car-turntable.com.au/"] : [], escalationTerms: [...escalationTerms],
-    identityResponse: "", avoidUnsolicitedAi: pilot, sendEnabled: false, retentionDays: 30,
+    language: "English", tone: "Brief, warm and professional", maxReplyLength: 800,
+    forbidDashes: false, verifiedFacts: [], approvedReplies: [],
+    verifiedUrls: [], escalationTerms: [...escalationTerms],
+    identityResponse: "", avoidUnsolicitedAi: false, sendEnabled: false, retentionDays: 30,
   };
 }
 export function validateProfile(input: unknown): BrandProfile {

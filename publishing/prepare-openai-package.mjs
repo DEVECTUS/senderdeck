@@ -29,7 +29,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.1 updates the website, plugin descriptions and open-source documentation for email and brand conversations. It clarifies provider activation limits and data retention, and adds contribution, architecture, security and release guidance. Social activation remains gated; mailbox permissions and send approval controls are unchanged." },
+  publication: { release_notes: "Version 0.4.2 removes customer-specific brand presets, public asset IDs and pilot copy from shared onboarding, defaults and documentation. Brand policies and verified information are configured explicitly in their owning workspace. Existing saved profiles are preserved, and retired preset requests fail explicitly rather than silently changing policy." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);
