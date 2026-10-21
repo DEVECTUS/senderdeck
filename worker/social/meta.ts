@@ -9,6 +9,10 @@ type GraphObject = Record<string, unknown>;
 export class MetaProviderError extends HttpError {
   constructor(status:number,message:string,public providerStatus:number,public providerCode:number|null,public providerReason:string|null=null){super(status,message);}
 }
+class HistoryProbeError extends HttpError {
+  constructor(public reason: string, public unverified = false) { super(unverified ? 409 : 502, "History access was not verified."); }
+}
+type HistoryProbe = { state: "verified" | "unverified" | "failed"; stage: string; reason: string; httpStatus?: number; providerCode?: number | null };
 export interface Candidate { provider: "facebook" | "instagram"; assetId: string; parentId: string; name: string; token: string; tasks: string[]; discoverySource?:"accounts"|"granular_target" }
 export interface DiscoveryDiagnostics { returnedPages:number; eligibleAssets:number; pagesWithoutCredentials:number; grantedScopes:string[]; granularTargets:Array<{scope:string;ids:string[]}>; businessManagementGranted:boolean; directResolved:number; directUnresolved:number; directFailures:Array<{id:string;status:number|null;providerCode:number|null;reason:string}>; findings:string[] }
 export interface MetaGrant { candidates: Candidate[]; permissions: string[]; providerUserId: string; expiresAt: number | null; userToken: string; diagnostics?:DiscoveryDiagnostics }
@@ -127,7 +131,7 @@ export async function discover(env: Env, token: string): Promise<MetaGrant> {
 export function capabilities(env: Env, account: SocialAccount) {
   const scopes = json<string[]>(account.permissions);
   const v = json<{ reads?: Record<string, boolean>; tasks?: string[]; webhook?: boolean;historyProbeVersion?:number }>(account.validation);
-  const live = v.historyProbeVersion===1 && account.status === "connected" && !!account.validated_at && Date.now() - account.validated_at < 3600000 && (!account.expires_at || account.expires_at > Date.now());
+  const live = v.historyProbeVersion===2 && account.status === "connected" && !!account.validated_at && Date.now() - account.validated_at < 3600000 && (!account.expires_at || account.expires_at > Date.now());
   const has = (...required: string[]) => required.every(s => scopes.includes(s));
   const fb = account.provider === "facebook";
   const meta = fb || account.provider === "instagram";
@@ -136,7 +140,10 @@ export function capabilities(env: Env, account: SocialAccount) {
   const messages = meta && live && !!v.reads?.messages && messagingTask && (fb ? has("pages_messaging", "pages_manage_metadata", "pages_read_engagement") : has("instagram_basic", "instagram_manage_messages", "pages_manage_metadata"));
   const comments = meta && live && !!v.reads?.comments && (fb ? has("pages_read_engagement", "pages_read_user_content", "pages_show_list") : has("instagram_basic", "instagram_manage_comments", "pages_read_engagement"));
   const sendGate = env.SOCIAL_SEND_ENABLED === "true" && env.META_ACCESS_TIER === "advanced";
+  const requiredMessageScopes = fb ? ["pages_messaging", "pages_manage_metadata", "pages_read_engagement"] : ["instagram_basic", "instagram_manage_messages", "pages_manage_metadata"];
+  const messageBlockers = [...(!meta ? ["provider_messaging_not_supported"] : []), ...(!live ? ["live_history_validation_required"] : []), ...(!v.reads?.messages ? ["message_history_unverified"] : []), ...(!messagingTask ? ["page_messaging_task_unverified"] : []), ...requiredMessageScopes.filter(scope => !has(scope)).map(scope => `missing_scope:${scope}`)];
   return { messages: messages ? "available" : "unavailable", comments: comments ? "available" : "unavailable",
+    messageBlockers,
     mentions: "pending_live_validation", sendMessages: sendGate && messages, replyComments: sendGate && comments && commentTask && (!fb || has("pages_manage_engagement")),
     webhook: !!v.webhook, generalCustomerAccess: env.META_ACCESS_TIER === "advanced", lastValidatedAt: account.validated_at,
     needsValidation: !live, pageMessaging: account.provider === "linkedin" ? "unavailable_requires_partner_access" : undefined };
@@ -156,35 +163,50 @@ export async function validateConnection(env: Env, account: SocialAccount) {
   const asset = await graph(token, account.asset_id, { fields: account.provider === "facebook" ? "id,name" : "id,username" });
   if (asset.id !== account.asset_id) throw new HttpError(403, "The selected business asset was not verified.");
   const reads: Record<string, boolean> = {}; const errors: string[] = [];
+  const probes: Record<string, HistoryProbe> = {};
   for (const kind of ["messages", "comments"]) {
+    let stage = "roots";
     try {
       const path = kind === "messages" ? `${account.parent_id || account.asset_id}/conversations` : `${account.asset_id}/${account.provider === "facebook" ? "feed" : "media"}`;
       const readToken = kind === "comments" && account.provider === "instagram" && account.user_token ? await decrypt(account.user_token, env.TOKEN_ENCRYPTION_KEY) : token;
       const roots=await graph(readToken, path, kind === "messages" ? { platform: account.provider === "facebook" ? "messenger" : "instagram", limit: "1" } : { limit: "1",fields:"id" });
-      if(!Array.isArray(roots.data))throw new HttpError(502,"Provider returned an unexpected root collection.");
+      if(!Array.isArray(roots.data))throw new HistoryProbeError("unexpected_root_collection");
       reads[kind==="messages"?"messageRoots":"commentRoots"]=true;
       const first=roots.data.find((row:unknown)=>row&&typeof row==="object"&&typeof (row as GraphObject).id==="string") as GraphObject|undefined;
-      if(!first)throw new HttpError(409,"No sample root was returned to verify history access.");
+      if(!first)throw new HistoryProbeError(roots.data.length ? "invalid_root_identity" : "no_sample_root", !roots.data.length);
+      stage = "context";
       if(kind==="messages"){
         const context=await graph(token,String(first.id),{fields:"id,participants,is_owner"});
-        if(context.id!==first.id)throw new HttpError(403,"The message root identity was not verified.");
+        if(context.id!==first.id)throw new HistoryProbeError("root_identity_mismatch");
+        stage = "history";
         const messages=await graph(token,`${first.id}/messages`,{fields:"id",limit:"1"});
-        if(!Array.isArray(messages.data))throw new HttpError(502,"Provider returned an unexpected message collection.");
+        if(!Array.isArray(messages.data))throw new HistoryProbeError("unexpected_message_collection");
         const message=messages.data[0] as GraphObject|undefined;
-        if(typeof message?.id==="string")await graph(token,message.id,{fields:"id,message,from,created_time,attachments"});
+        if(typeof message?.id!=="string")throw new HistoryProbeError(messages.data.length ? "invalid_message_identity" : "no_sample_message", !messages.data.length);
+        stage = "item";
+        const detail = await graph(token,message.id,{fields:"id,message,from,created_time,attachments"});
+        if(detail.id!==message.id)throw new HistoryProbeError("message_identity_mismatch");
       }else{
         const context=await commentContext(readToken,String(first.id),account.provider);
         if(!context.owned)errors.push("comment_write_authority_unverified");
+        stage = "history";
         const comments=await graph(token,`${first.id}/comments`,{fields:commentFields(account.provider),limit:"1"});
         if(!Array.isArray(comments.data))throw new HttpError(502,"Provider returned an unexpected comment collection.");
         const comment=comments.data[0] as GraphObject|undefined;
         if(typeof comment?.id==="string"&&(account.provider==="instagram"||Number(comment.comment_count)>0)){
+          stage = "replies";
           const replies=await graph(token,`${comment.id}/${account.provider==="facebook"?"comments":"replies"}`,{fields:commentFields(account.provider),limit:"1"});
           if(!Array.isArray(replies.data))throw new HttpError(502,"Provider returned an unexpected reply collection.");
         }
       }
       reads[kind] = true;
-    } catch(error) { reads[kind] = false; errors.push(`${kind}_history_probe_failed${error instanceof MetaProviderError?`:http_${error.providerStatus}:graph_${error.providerCode??"unknown"}:${error.providerReason||"provider_denied"}`:""}`); }
+      probes[kind] = { state: "verified", stage, reason: "sample_history_verified" };
+    } catch(error) {
+      reads[kind] = false;
+      const reason = error instanceof HistoryProbeError ? error.reason : error instanceof MetaProviderError ? error.providerReason || "provider_error" : error instanceof HttpError ? "transport_or_response_failure" : "unexpected_probe_failure";
+      probes[kind] = { state: error instanceof HistoryProbeError && error.unverified ? "unverified" : "failed", stage, reason, ...(error instanceof MetaProviderError ? { httpStatus: error.providerStatus, providerCode: error.providerCode } : {}) };
+      errors.push(`${kind}_history_probe_failed${error instanceof MetaProviderError?`:http_${error.providerStatus}:graph_${error.providerCode??"unknown"}:${error.providerReason||"provider_denied"}`:`:${reason}`}`);
+    }
   }
   const previous = json<{ tasks?: string[]; webhook?: boolean }>(account.validation);
   let webhook = false;
@@ -194,7 +216,7 @@ export async function validateConnection(env: Env, account: SocialAccount) {
     const fields = Array.isArray(app?.subscribed_fields) ? app.subscribed_fields as string[] : [];
     webhook = subscriptions.coverage.complete && fields.includes("messages") && fields.includes(account.provider === "facebook" ? "feed" : "comments");
   } catch { errors.push("webhook_subscription_unverified"); }
-  return { token, details: { ...details, permissions: details.permissions.filter(scope => granting.permissions.includes(scope)) }, validation: { ...previous, historyProbeVersion:1, historyProbeScope:"one_returned_root_not_complete_native_history", tasks, reads, errors, webhook }, status: reads.messages||reads.comments ? "connected" : "limited" };
+  return { token, details: { ...details, permissions: details.permissions.filter(scope => granting.permissions.includes(scope)) }, validation: { ...previous, historyProbeVersion:2, historyProbeScope:"one_returned_root_not_complete_native_history", taskDiscovery: { source: selected.discoverySource || "accounts", state: tasks.length ? "returned" : "unverified", reason: tasks.length ? "provider_returned_page_tasks" : "provider_did_not_return_page_tasks" }, tasks, reads, probes, errors, webhook }, status: reads.messages||reads.comments ? "connected" : "limited" };
 }
 export async function inbox(env: Env, account: SocialAccount, kind: "message" | "comment") {
   const caps = capabilities(env, account);

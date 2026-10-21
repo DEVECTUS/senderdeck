@@ -31,7 +31,7 @@ export async function refreshAccount(env: Env, account: SocialAccount) {
 async function usable(env: Env, account: SocialAccount, kind: string) {
   if (account.provider === "email") throw new HttpError(409, "Use the existing email tools with the linked mailbox ID and its owner. Social grants never delegate mailbox access.");
   if (account.provider === "linkedin") throw new HttpError(409, "LinkedIn is pending programme and data-use authorisation. No inbox was checked.");
-  if (!account.validated_at || now() - account.validated_at > 3600000 || json<{historyProbeVersion?:number}>(account.validation).historyProbeVersion!==1) await refreshAccount(env, account);
+  if (!account.validated_at || now() - account.validated_at > 3600000 || json<{historyProbeVersion?:number}>(account.validation).historyProbeVersion!==2) await refreshAccount(env, account);
   const caps = capabilities(env, account);
   if ((kind === "message" ? caps.messages : kind === "comment" ? caps.comments : caps.mentions) !== "available") throw new HttpError(409, "The requested capability is unavailable on this account.");
 }

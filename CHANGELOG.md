@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.8 · 21 October 2026
+
+- Lead the signed-in workspace with a searchable email and social account overview, compact headings and shared navigation.
+- Offer an explicit Update connection action for existing Meta assets after fresh consent, retaining account IDs, conversations and monitoring preferences.
+- Report probe stage and safe reason codes for absent roots, missing message samples, invalid identities and provider failures. Empty message history does not prove message-detail access.
+- Expose missing Page-task evidence separately from successful history reads. Preserve ownership checks, scope checks and all sending gates.
+
 ## 0.4.7 · 21 October 2026
 
 - Verify a bounded sample of actual context, messages/comments and replies before advertising read capability; invalidate older root-only validation. Root listings explicitly do not establish history coverage.

@@ -34,7 +34,7 @@ async function fixture() {
   const created=await socialAction("social_brand_create",{customerId:customer.customerId,name:"Brand A"},env,"alice") as {brandId:string};
   const profile=defaultProfile();profile.approvedReplies=["Hello there."];profile.sendEnabled=true;
   sql.prepare("UPDATE social_brands SET profile=? WHERE id=?").run(JSON.stringify(profile),created.brandId);
-  const account:SocialAccount={id:"account-a",brand_id:created.brandId,provider:"facebook",asset_id:"page-a",parent_id:"page-a",provider_user_id:"meta-user",name:"Page A",token:await encrypt("page-token",env.TOKEN_ENCRYPTION_KEY),user_token:await encrypt("user-token",env.TOKEN_ENCRYPTION_KEY),expires_at:Date.now()+86400000,permissions:JSON.stringify(scopes),status:"connected",validation:JSON.stringify({historyProbeVersion:1,reads:{messages:true,comments:true},tasks:["MANAGE","MESSAGING","MODERATE"]}),validated_at:Date.now(),monitoring:'{"enabled":false,"intervalMinutes":10}',last_reconciled_at:null,created_at:Date.now()};
+  const account:SocialAccount={id:"account-a",brand_id:created.brandId,provider:"facebook",asset_id:"page-a",parent_id:"page-a",provider_user_id:"meta-user",name:"Page A",token:await encrypt("page-token",env.TOKEN_ENCRYPTION_KEY),user_token:await encrypt("user-token",env.TOKEN_ENCRYPTION_KEY),expires_at:Date.now()+86400000,permissions:JSON.stringify(scopes),status:"connected",validation:JSON.stringify({historyProbeVersion:2,reads:{messages:true,comments:true},tasks:["MANAGE","MESSAGING","MODERATE"]}),validated_at:Date.now(),monitoring:'{"enabled":false,"intervalMinutes":10}',last_reconciled_at:null,created_at:Date.now()};
   sql.prepare("INSERT INTO social_accounts (id,brand_id,provider,asset_id,parent_id,provider_user_id,name,token,user_token,expires_at,permissions,status,validation,validated_at,monitoring,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run(account.id,account.brand_id,account.provider,account.asset_id,account.parent_id,account.provider_user_id,account.name,account.token,account.user_token,account.expires_at,account.permissions,account.status,account.validation,account.validated_at,account.monitoring,account.created_at);
   const thread:Thread={id:"thread-a",account_id:account.id,provider_id:"conversation-a",kind:"message",target:"person-a",source_url:null,status:"new",assigned_to:null,next_action:"Review",last_inbound_at:Date.now()-60000,updated_at:Date.now()};
   sql.prepare("INSERT INTO social_threads (id,account_id,provider_id,kind,target,status,next_action,last_inbound_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)").run(thread.id,account.id,thread.provider_id,thread.kind,thread.target,thread.status,thread.next_action,thread.last_inbound_at,thread.updated_at);
@@ -429,6 +429,55 @@ test("root-list success with denied comment edge does not advertise comment hist
   const live=await validateConnection(f.env,f.account);
   assert.equal(live.validation.reads.commentRoots,true);assert.equal(live.validation.reads.comments,false);assert.ok(live.validation.errors.some(error=>error.includes("http_403:graph_200")));assert.doesNotMatch(JSON.stringify(live.validation),/private-user-token/);
   const caps=capabilities(f.env,{...f.account,status:live.status,validation:JSON.stringify(live.validation),validated_at:Date.now()});assert.equal(caps.comments,"unavailable");
+});
+
+test("empty message roots are unverified sample absence, not a provider denial", async t => {
+  const f = await fixture(); provider(t); const original = globalThis.fetch;
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => new URL(String(input)).pathname.endsWith("page-a/conversations") ? Response.json({ data: [] }) : original(input, init));
+  const live = await validateConnection(f.env, f.account);
+  assert.equal(live.validation.reads.messageRoots, true); assert.equal(live.validation.reads.messages, false);
+  assert.deepEqual(live.validation.probes.messages, { state: "unverified", stage: "roots", reason: "no_sample_root" });
+  assert.ok(live.validation.errors.includes("messages_history_probe_failed:no_sample_root"));
+});
+
+test("updating a Meta asset preserves its account ID, conversations and monitoring preferences", async t => {
+  const f = await fixture(); provider(t);
+  f.sql.prepare("UPDATE social_accounts SET monitoring=?,last_reconciled_at=123 WHERE id=?").run('{"enabled":true,"intervalMinutes":30}', f.account.id);
+  const grant = { userToken: "user-token", providerUserId: "meta-user", permissions: scopes, candidates: [], expiresAt: Date.now() + 60000 };
+  f.sql.prepare("INSERT INTO social_grants (id,user_id,brand_id,encrypted,expires_at) VALUES ('refresh',?,?,?,?)").run("alice", f.brandId, await encrypt(JSON.stringify(grant), f.env.TOKEN_ENCRYPTION_KEY), Date.now() + 60000);
+  const updated = await selectAsset(f.env, "alice", f.brandId, "refresh", "facebook", "page-a");
+  assert.equal(updated.accountId, f.account.id);
+  const saved = f.sql.prepare("SELECT monitoring,last_reconciled_at FROM social_accounts WHERE id=?").get(f.account.id)!;
+  assert.equal(JSON.parse(String(saved.monitoring)).enabled, true); assert.equal(saved.last_reconciled_at, 123);
+  assert.equal(f.sql.prepare("SELECT account_id FROM social_threads WHERE id=?").get(f.thread.id)!.account_id, f.account.id);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_accounts").get()!.n, 1);
+});
+
+test("empty message history cannot pass the full message-detail probe", async t => {
+  const f = await fixture(); provider(t); const original = globalThis.fetch;
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => new URL(String(input)).pathname.endsWith("conversation-a/messages") ? Response.json({ data: [] }) : original(input, init));
+  const live = await validateConnection(f.env, f.account);
+  assert.equal(live.validation.reads.messages, false);
+  assert.deepEqual(live.validation.probes.messages, { state: "unverified", stage: "history", reason: "no_sample_message" });
+});
+
+test("a denied message detail reports its stage and safe provider codes without raw content", async t => {
+  const f = await fixture(); provider(t); const original = globalThis.fetch;
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => new URL(String(input)).pathname.endsWith("message-0") ? Response.json({ error: { code: 200, message: "private-token confidential provider text" } }, { status: 403 }) : original(input, init));
+  const live = await validateConnection(f.env, f.account);
+  assert.deepEqual(live.validation.probes.messages, { state: "failed", stage: "item", reason: "provider_error", httpStatus: 403, providerCode: 200 });
+  assert.doesNotMatch(JSON.stringify(live.validation), /private-token|confidential provider text/);
+});
+
+test("successful history with absent Page tasks remains blocked with an explicit reason", async t => {
+  const f = await fixture(); provider(t); const original = globalThis.fetch;
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => new URL(String(input)).pathname.endsWith("me/accounts") ? Response.json({ data: [{ id: "page-a", access_token: "page-token", tasks: [] }] }) : original(input, init));
+  const live = await validateConnection(f.env, f.account);
+  assert.equal(live.validation.reads.messages, true);
+  assert.equal(live.validation.taskDiscovery.state, "unverified");
+  const caps = capabilities(f.env, { ...f.account, status: live.status, validation: JSON.stringify(live.validation) });
+  assert.equal(caps.messages, "unavailable"); assert.equal(caps.sendMessages, false);
+  assert.deepEqual(caps.messageBlockers, ["page_messaging_task_unverified"]);
 });
 test("older root-only validation cannot continue advertising history capabilities",async()=>{
   const f=await fixture();const validation=JSON.parse(f.account.validation);delete validation.historyProbeVersion;
