@@ -14,7 +14,17 @@ A production-candidate Streamable HTTP MCP server for Codex and Claude that work
 - Dual Codex and Claude plugin manifests plus a shared sender-routing skill in `plugins/senderdeck/`.
 - Repository marketplaces for Codex in `.agents/plugins/marketplace.json` and Claude in `.claude-plugin/marketplace.json`.
 
-The service does not synchronize or index mailboxes, retain message bodies, run background jobs, send automatically, perform bulk email, or expose calendar/shared-mailbox functions.
+The email service does not synchronize or index mailboxes, retain email message bodies, send automatically, perform bulk email, or expose calendar/shared-mailbox functions. Optional social storage and monitoring are described below.
+
+## Social workspace (0.4.0)
+
+`/conversations` adds customers, role-based memberships, brands, configurable policies, explicit account routing, enquiry review and an activity feed. Email tools and their contracts are preserved; linking an email account to a brand does not delegate its owner's mailbox access.
+
+The optional Meta module implements hosted OAuth, verified asset selection, encrypted tokens, current permission/task checks, paginated message and comment reads, expiring encrypted drafts, exact revision approval, 24-hour private reply windows and atomic send claims. Signed webhooks enter a durable deduplicated queue. A scheduled handler and authenticated maintenance endpoint support reconciliation and cleanup. Notifications are local workspace/MCP records, not external messages.
+
+**Activation is gated.** No provider credentials, customer grants or live social coverage are included in the release. Meta external-customer access requires a DEVECTUS platform app and Advanced Access. Social sending defaults off. A real hosted maintenance run is required before OAuth activation. LinkedIn community APIs, Page messaging, Instagram mentions and social attachment sends remain explicitly unavailable pending approval/validation. Existing browser monitoring must continue until actual API coverage is established.
+
+The plugin adds 24 `social_*` tools and the `social-conversations` skill alongside the existing 14 email tools. See [activation and verification requirements](docs/SOCIAL-ACTIVATION.md) and the [hosted setup guide](https://senderdeck.devectus.com.au/social-setup).
 
 ## Runtime configuration
 

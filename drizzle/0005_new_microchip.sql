@@ -1,0 +1,1 @@
+ALTER TABLE `social_threads` ADD `last_digest` text;

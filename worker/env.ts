@@ -46,6 +46,17 @@ export interface Env {
   REVIEW_ACCESS_PASSWORD_HASH?: string;
   REVIEW_ACCESS_USER_ID?: string;
   REVIEW_ACCESS_EMAIL?: string;
+  META_APP_ID?: string;
+  META_APP_SECRET?: string;
+  META_LOGIN_CONFIG_ID?: string;
+  META_WEBHOOK_VERIFY_TOKEN?: string;
+  META_ACCESS_TIER?: string;
+  SOCIAL_PUBLIC_ORIGIN?: string;
+  SOCIAL_SEND_ENABLED?: string;
+  SOCIAL_SCHEDULER_ENABLED?: string;
+  SOCIAL_MAINTENANCE_TOKEN?: string;
+  LINKEDIN_CLIENT_ID?: string;
+  LINKEDIN_CLIENT_SECRET?: string;
 }
 
 export type Provider = "google" | "microsoft";

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Social Conversations"
+  short_description: "Review brand conversations and approve exact replies"
+  default_prompt: "Use $social-conversations to check the selected brand and prepare replies for my approval."

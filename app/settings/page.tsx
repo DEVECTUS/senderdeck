@@ -41,6 +41,7 @@ export default async function SettingsPage() {
         <div className="nav-user">
           <span>{user.email}</span>
           <Link className="quiet-link" href="/">Home</Link>
+          <Link className="quiet-link" href="/conversations">Conversations</Link>
           <a className="quiet-link" href={senderDeckSignOutPath("/")}>Sign out</a>
         </div>
       </nav>
@@ -68,6 +69,7 @@ export default async function SettingsPage() {
 
       <CodexSetup />
       <AccountManager userEmail={user.email} />
+      <section className="social-card" style={{marginTop: 32}}><h2>Brands and social conversations</h2><p>Configure brand rules, review provider readiness and prepare approved replies in the new conversation workspace. Social access remains gated until authorisation and validation are complete.</p><Link href="/conversations">Open Conversations →</Link></section>
 
       <footer className="settings-footer">
         <p>SenderDeck keeps each connected mailbox as a separate sender identity.</p>

@@ -11,8 +11,8 @@ export default function TermsPage() {
     <LegalPage
       eyebrow="// Terms of service"
       title="Clear rules for deliberate email."
-      summary="These terms govern your access to and use of SenderDeck, including its Google and Microsoft email integrations."
-      updated="27 August 2026"
+      summary="These terms govern SenderDeck, including its email integrations and optional social conversation workspace."
+      updated="21 October 2026"
     >
       <section>
         <h2>1. Agreement and operator</h2>
@@ -38,6 +38,7 @@ export default function TermsPage() {
           marketing email, automatic sending, calendar functions or support for
           shared or delegated mailboxes unless we expressly add those features.
         </p>
+        <p>The optional social workspace supports customer and brand rules, authorised business assets, enquiry review and local social drafts. Provider access and hosted monitoring depend on approved capabilities and successful validation. Coverage gaps must be reviewed; an unavailable integration does not establish that an inbox is empty. Social replies require explicit approval of the exact account, target, text and revision. Unattended sending is disabled.</p>
       </section>
 
       <section>

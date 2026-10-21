@@ -1,7 +1,7 @@
 {
   "name": "senderdeck",
-  "version": "0.3.7",
-  "description": "Safely search, read, draft, and send across multiple Google and Microsoft email accounts.",
+  "version": "0.4.0",
+  "description": "Email account routing and a gated social conversation workspace with brand rules and exact reply approvals.",
   "author": {
     "name": "DEVECTUS",
     "url": "https://devectus.com.au/"

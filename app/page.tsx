@@ -40,6 +40,7 @@ export default async function Home() {
           <div className="nav-user">
             <span>{user.email}</span>
             <Link className="quiet-link" href="/settings">Configuration</Link>
+            <Link className="quiet-link" href="/conversations">Conversations</Link>
             <a className="quiet-link" href={senderDeckSignOutPath("/")}>Sign out</a>
           </div>
         ) : (

@@ -19,6 +19,24 @@ const context = {
   passThroughOnException() {},
 };
 
+test("renders the gated social workspace and links the existing email experience", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(new Request("http://localhost/conversations", {headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com"}}), baseEnv, context);
+  assert.equal(response.status,200);
+  const html = await response.text();
+  assert.match(html,/Every enquiry/); assert.match(html,/Social activation pending/); assert.match(html,/No social account is connected automatically/); assert.match(html,/href="\/settings"/);
+});
+test("social setup reports provider gates and never claims LinkedIn coverage", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(new Request("http://localhost/social-setup",{headers:{accept:"text/html"}}),baseEnv,context);
+  assert.equal(response.status,200); const html=await response.text();
+  assert.match(html,/pages_manage_metadata/); assert.match(html,/pages_manage_engagement/); assert.match(html,/messaging separately restricted/); assert.match(html,/twenty|20 message details/);
+});
+test("public social readiness contains no secrets and sending defaults off", async () => {
+  const worker=await loadWorker();const response=await worker.fetch(new Request("http://localhost/api/social/status"),{...baseEnv,META_APP_SECRET:"test-secret"},context);
+  const result=await response.json();assert.equal(result.sending,"disabled");assert.equal(result.meta.configured,false);assert.equal(result.linkedin.pageMessaging,"unavailable");assert.doesNotMatch(JSON.stringify(result),/test-secret/);
+});
+
 test("health and MCP initialization report the packaged release version", async () => {
   const { version } = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   const worker = await loadWorker();
@@ -181,7 +199,9 @@ test("exposes a healthy stateless MCP contract", async () => {
   );
   const listed = await list.json();
   const names = listed.result.tools.map((tool) => tool.name);
-  assert.equal(names.length, 14);
+  assert.equal(names.length, 38);
+  assert.equal(names.filter(name => name.startsWith("social_")).length, 24);
+  assert.ok(names.includes("social_reply_send"));
   assert.ok(names.includes("draft_update"));
   assert.ok(names.includes("email_send"));
   assert.ok(names.includes("attachment_download"));

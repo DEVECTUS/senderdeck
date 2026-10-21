@@ -11,9 +11,10 @@ export default function PrivacyPage() {
     <LegalPage
       eyebrow="// Privacy statement"
       title="Privacy by design, not by promise."
-      summary="This statement explains how SenderDeck accesses and handles information when you connect Google or Microsoft email accounts."
-      updated="27 August 2026"
+      summary="This statement explains how SenderDeck handles connected email accounts and the optional customer and social conversation workspace."
+      updated="21 October 2026"
     >
+      <section id="social-data-deletion"><h2>Optional social workspace</h2><p>Customer memberships, brand rules, verified business facts, account capabilities and minimal enquiry and activity records are stored in SenderDeck. Social OAuth tokens, temporary grants, history snapshots, drafts, incoming webhook payloads and customer-confirmed identity links are encrypted before storage. Content returned to an assistant is subject to that assistant service&apos;s policies.</p><p>History snapshots expire after 15 minutes, local drafts after 24 hours and unprocessed webhook content after 24 hours. Processed webhook bodies are removed. Brand enquiry metadata has configurable retention from 1 to 90 days. Hosted maintenance must be configured before social activation to enforce expiry cleanup and reconciliation. Disconnecting a social account removes its local conversation records and tokens. Customer owners can delete their whole workspace.</p><p>Meta deauthorisation and signed deletion requests remove affected local accounts and their content; a successful deletion callback returns a confirmation code. Provider-hosted conversations are not deleted. Contact links require customer confirmation and are never inferred from names. LinkedIn member data is not ingested while programme and data-use approval are pending. Social monitoring is optional and requires verified provider access and hosting configuration.</p></section>
       <section>
         <h2>1. Who operates SenderDeck</h2>
         <p>
@@ -62,7 +63,7 @@ export default function PrivacyPage() {
           SenderDeck does not synchronise or index entire mailboxes and does not
           intentionally retain message bodies or attachment contents. Messages
           and attachments are retrieved only for the requested operation.
-          Drafts remain with Google or Microsoft.
+          Email drafts remain with Google or Microsoft. The optional social workspace has separate storage controls described above.
         </p>
         <p>
           Encrypted OAuth tokens, provider identity links and account preferences remain until you

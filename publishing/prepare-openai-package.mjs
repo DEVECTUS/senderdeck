@@ -26,7 +26,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.3.7 fixes Gmail attachment downloads when provider attachment tokens change between reads, using account/message-scoped MIME part references. Gmail search now reports attachment presence from full MIME structure, including inline files. Download size/type checks and OAuth permissions remain enforced; drafts require separate exact send confirmation." },
+  publication: { release_notes: "Version 0.4.0 adds customer and brand workspaces, gated Meta OAuth and conversation adapters, encrypted local drafts, exact revision approval, signed webhook processing and explicit monitoring coverage. LinkedIn and unvalidated provider capabilities remain pending. Existing email contracts and the 0.3.7 attachment fixes are preserved." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

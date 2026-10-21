@@ -9,6 +9,8 @@ import { handleOAuthRoute } from "./oauth";
 import { handleMcpAuthentication } from "./mcp-auth";
 import { handleIdentityAuthRoute } from "./identity-auth";
 import { withAuthenticatedUserHeaders } from "./auth";
+import { handleSocial } from "./social/api";
+import { maintenance } from "./social/webhooks";
 
 interface ExecutionContext {
   waitUntil(promise: Promise<unknown>): void;
@@ -31,7 +33,7 @@ const worker = {
         service: "senderdeck",
         version,
         storage: "d1",
-        retention: "provider-on-demand",
+        retention: "email-provider-on-demand; optional-social-expiring-encrypted-content",
       });
     }
 
@@ -50,6 +52,9 @@ const worker = {
 
     const mcpResponse = await handleMcp(request, env);
     if (mcpResponse) return mcpResponse;
+
+    const socialResponse = await handleSocial(request, env, promise => ctx.waitUntil(promise));
+    if (socialResponse) return socialResponse;
 
     const accountApiResponse = await handleAccountApi(request, env);
     if (accountApiResponse) return accountApiResponse;
@@ -83,6 +88,9 @@ const worker = {
     }
 
     return handler.fetch(await withAuthenticatedUserHeaders(request, env), env, ctx);
+  },
+  async scheduled(_event: unknown, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(maintenance(env));
   },
 };
 

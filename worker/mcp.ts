@@ -1,5 +1,7 @@
 import { HttpError } from "./auth";
 import { version } from "../package.json";
+import { socialTools } from "./social/tools";
+import { socialAction } from "./social/service";
 import { senderAddress } from "./sender-address";
 import { McpAuthenticationError, requireMcpUserId } from "./mcp-auth";
 import {
@@ -54,6 +56,7 @@ interface SearchResult {
 }
 
 const tools = [
+  ...socialTools,
   {
     name: "account_connect",
     description:
@@ -357,6 +360,7 @@ async function callTool(
   env: Env,
   userId: string,
 ): Promise<unknown> {
+  if (socialTools.some(tool => tool.name === name)) return socialAction(name, args, env, userId);
   if (name === "account_connect") {
     const provider = providerValue(args.provider);
     const label = stringValue(args.label, "label");

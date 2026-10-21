@@ -1,7 +1,7 @@
 {
   "name": "senderdeck",
-  "version": "0.3.7",
-  "description": "Safely search, read, draft, and send across multiple Google and Microsoft email accounts.",
+  "version": "0.4.0",
+  "description": "Email account routing and a gated social conversation workspace with brand rules and exact reply approvals.",
   "author": {
     "name": "DEVECTUS"
   },
@@ -18,8 +18,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "SenderDeck by DEVECTUS",
-    "shortDescription": "Use up to 10 Google and Microsoft inboxes safely.",
-    "longDescription": "Connect and label multiple Gmail, Google Workspace, Outlook.com, and Microsoft 365 accounts. Search and read on demand, create drafts, handle attachments within configured limits, and send only after an exact confirmation.",
+    "shortDescription": "Manage email and review brand conversations safely.",
+    "longDescription": "Connect Google and Microsoft mailboxes with exact sender and draft confirmation. Configure customer workspaces, brand policies and social enquiries. Meta access requires platform approval and live asset validation; LinkedIn and unvalidated capabilities remain pending. Social replies require exact revision approval.",
     "developerName": "DEVECTUS",
     "category": "Productivity",
     "websiteURL": "https://senderdeck.devectus.com.au/",
@@ -33,7 +33,8 @@
     "defaultPrompt": [
       "Search my connected inboxes for recent action items.",
       "Draft a reply from the right account.",
-      "Show me the exact details before sending."
+      "Show me the exact details before sending.",
+      "Show the selected brand and its available social capabilities."
     ],
     "brandColor": "#255EDB",
     "composerIcon": "./assets/composer-icon.png",
