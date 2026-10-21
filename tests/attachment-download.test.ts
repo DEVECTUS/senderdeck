@@ -227,3 +227,18 @@ test("Gmail download reports missing, invalid and failed provider responses", as
   h.state.invalidData = false; h.state.missingData = true;
   assert.match((await h.rpc("attachment_download", args)).content[0].text, /did not return attachment data/);
 });
+
+test("large downloads include complete base64 once without doubling MCP response size", async t => {
+  const h = await harness(t);
+  h.state.bytes = Buffer.alloc(3_837_858, 37);
+  h.state.payload.parts![1].body!.size = h.state.bytes.length;
+  const read = await h.ok("email_read") as MessageDetail;
+  const result = await h.rpc("attachment_download", { attachmentId: read.attachments[1].id });
+  assert.notEqual(result.isError, true);
+  const data = JSON.parse(result.content[0].text);
+  assert.deepEqual(Buffer.from(data.contentBase64, "base64"), h.state.bytes);
+  assert.equal(data.size, h.state.bytes.length);
+  assert.ok(JSON.stringify(result).length < data.contentBase64.length + 2048);
+  assert.equal(result.structuredContent, undefined);
+  assert.ok((await h.rpc("email_read")).structuredContent, "non-download structured results are retained");
+});

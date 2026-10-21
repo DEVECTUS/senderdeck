@@ -56,6 +56,10 @@ the same path. IDs from older versions may require another read/list if Gmail
 has rotated the underlying token. Editing a Gmail draft replaces its message,
 so use the IDs from the new inspection after an edit.
 
+Download results return complete JSON, including `contentBase64`, in MCP text
+content. They omit the duplicate `structuredContent` payload to avoid doubling
+large binary responses. Other tools continue returning both representations.
+
 Gmail search now reads the full MIME structure transiently to determine
 `hasAttachments`, including inline files, and returns only summary fields. It
 does not fetch external attachment bytes during search. This corrects the
