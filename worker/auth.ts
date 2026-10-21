@@ -82,7 +82,7 @@ export function platformUserId(request: Request): string | null {
     || null;
 }
 
-function cookieValue(header: string | null, name: string): string | null {
+export function cookieValue(header: string | null, name: string): string | null {
   if (!header) return null;
   for (const part of header.split(";")) {
     const separator = part.indexOf("=");

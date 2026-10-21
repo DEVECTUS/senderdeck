@@ -10,6 +10,7 @@ import { handleMcpAuthentication } from "./mcp-auth";
 import { handleIdentityAuthRoute } from "./identity-auth";
 import { authenticatedUser, withAuthenticatedUserHeaders } from "./auth";
 import { isPlatformOperator } from "./social/setup";
+import { resolveMetaSecrets } from "./social/config";
 import { handleSocial } from "./social/api";
 import { maintenance } from "./social/webhooks";
 
@@ -94,10 +95,18 @@ const worker = {
       }, allowedWidths);
     }
 
-    return handler.fetch(await withAuthenticatedUserHeaders(request, env), env, ctx);
+    const rendered = await handler.fetch(await withAuthenticatedUserHeaders(request, env), env, ctx);
+    if (url.pathname === "/operator/social" || url.pathname.startsWith("/operator/social/")) {
+      const headers = new Headers(rendered.headers);
+      headers.set("cache-control", "no-store");
+      headers.set("referrer-policy", "no-referrer");
+      headers.set("content-security-policy", "frame-ancestors 'none'");
+      return new Response(rendered.body, {status:rendered.status, headers});
+    }
+    return rendered;
   },
   async scheduled(_event: unknown, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(maintenance(env));
+    ctx.waitUntil(resolveMetaSecrets(env).then(configured => maintenance(configured)));
   },
 };
 

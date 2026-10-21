@@ -6,6 +6,13 @@ export const socialCustomers = sqliteTable("social_customers", {
   id: text("id").primaryKey(), name: text("name").notNull(), createdAt: integer("created_at").notNull(),
 });
 export const socialRuntime = sqliteTable("social_runtime", { key: text("key").primaryKey(), value: integer("value").notNull() });
+// Global operator configuration is never owned by a customer or exposed by workspace tools.
+export const socialPlatformSecrets = sqliteTable("social_platform_secrets", {
+  key: text("key").primaryKey(), encrypted: text("encrypted").notNull(), updatedAt: integer("updated_at").notNull(),
+});
+export const socialPlatformAudit = sqliteTable("social_platform_audit", {
+  id: text("id").primaryKey(), userId: text("user_id").notNull(), action: text("action").notNull(), keys: text("keys").notNull(), createdAt: integer("created_at").notNull(),
+});
 export const socialMembers = sqliteTable("social_members", {
   id: text("id").primaryKey(), customerId: text("customer_id").notNull().references(() => socialCustomers.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull(), role: text("role").notNull(),

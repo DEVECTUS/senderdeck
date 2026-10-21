@@ -43,6 +43,13 @@
       "when": 1792564984523,
       "tag": "0005_new_microchip",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1792573123529,
+      "tag": "0006_slim_sue_storm",
+      "breakpoints": true
     }
   ]
 }

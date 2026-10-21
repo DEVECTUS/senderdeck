@@ -19,6 +19,7 @@ export default function SecurityPage() {
         <ul>
           <li><strong>Least privilege:</strong> delegated OAuth permissions are limited to enabled email or social functions.</li>
           <li><strong>On-demand access:</strong> mailboxes are not synchronised or indexed into a separate message database.</li>
+          <li><strong>Platform secret setup:</strong> a verified operator allowlist, same-origin HTTPS requests and session-bound CSRF protect the write-only Meta form. Values are encrypted; customer roles never grant platform access.</li>
           <li><strong>Encrypted credentials:</strong> OAuth tokens are encrypted before storage and are separated by authenticated user.</li>
           <li><strong>Vendor-neutral identity:</strong> Google or Microsoft establishes the SenderDeck user for both Codex and Claude; opaque browser sessions are stored server-side and expire after 30 days.</li>
           <li><strong>Per-user MCP authorization:</strong> Codex and Claude connections use OAuth 2.1 authorization code flow with PKCE, short-lived access tokens and rotating refresh tokens.</li>

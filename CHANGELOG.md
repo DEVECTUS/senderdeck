@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.4 · 21 October 2026
+
+- Add masked write-only Meta secret entry for verified, hosting-allowlisted platform operators with session-bound CSRF, same-origin HTTPS JSON and bounded key/value validation.
+- Encrypt the two supported secrets server-side, record metadata-only audit events, and apply the same configuration to social OAuth, MCP, webhooks and maintenance. Native hosting secrets take precedence; customer roles cannot alter platform credentials.
+- Preserve email credentials, mailbox data and all sending gates.
+
 ## 0.4.3 · 21 October 2026
 
 - Add a customer Meta connection wizard for choosing a private brand, continuing to native consent, selecting each authorised asset and checking actual capabilities.

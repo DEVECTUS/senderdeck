@@ -41,11 +41,11 @@ Customers do not need to create developer apps or run local relays for the hoste
 
 Facebook and Instagram access requires a DEVECTUS-owned platform app, appropriate App Review/Advanced Access, customer consent, explicit asset verification, working subscriptions and a hosted maintenance/reconciliation trigger. Social sending is off by default and also requires brand enablement and exact draft approval. No unattended replies are sent.
 
-The current deployment has no Meta/LinkedIn credentials or customer grants and no active social scheduler. Existing browser monitoring should continue until actual API coverage is proved. Meta may expose only 20 recent message details; Instagram Requests and media have additional limits. Unsupported history and attachments require native review. LinkedIn has separate programme, messaging and data-use restrictions.
+Live social access requires configured platform credentials, actual customer grants and a working hosted maintenance trigger. Existing browser monitoring should continue until actual API coverage is proved. Meta may expose only 20 recent message details; Instagram Requests and media have additional limits. Unsupported history and attachments require native review. LinkedIn has separate programme, messaging and data-use restrictions.
 
 See [activation and live acceptance requirements](docs/SOCIAL-ACTIVATION.md) or the [hosted provider guide](https://senderdeck.devectus.com.au/social-setup). Configuration switches are not a substitute for provider approval or successful live tests.
 
-Platform operators have a separate `/operator/social` setup view protected by a hosting-controlled user-ID allowlist. It displays redacted configuration and observed readiness; developer secrets are entered only in the native hosting secret controls. Ordinary customer owners/admins cannot change global app settings. No operator is enabled automatically.
+Platform operators have a separate `/operator/social` setup view protected by a hosting-controlled user-ID allowlist. It displays redacted configuration and observed readiness; verified operators can enter the two supported Meta secrets in a masked write-only form. Stored values are encrypted; native hosting secrets take precedence. Ordinary customer owners/admins cannot change global app settings. No operator is enabled automatically.
 
 ## Open-source development
 

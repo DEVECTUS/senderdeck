@@ -10,7 +10,8 @@ import { startOAuth, oauthCallback, grantAssets, selectAsset } from "../worker/s
 import { hmac, receiveMeta, processQueue, maintenance, verifySignedRequest, metaDeletion } from "../worker/social/webhooks";
 import { handleSocial } from "../worker/social/api";
 import { customerSetup, operatorSetup, checkOperatorApp } from "../worker/social/setup";
-import { encrypt, decrypt } from "../worker/crypto";
+import { encrypt, decrypt, sha256Base64Url } from "../worker/crypto";
+import { resolveMetaSecrets } from "../worker/social/config";
 import type { D1PreparedStatement, WorkerD1Database, Env } from "../worker/env";
 
 function database() {
@@ -273,4 +274,75 @@ test("app credential check is operator-only and does not certify business or cus
   await assert.rejects(checkOperatorApp(env,"alice"),/administrator/);assert.equal(calls,0);
   const result=await checkOperatorApp(env,"platform-operator");assert.equal(result.appVerified,true);assert.equal(result.businessVerification,"not_checked");assert.equal(result.customerAccessApproval,"not_checked");
   assert.doesNotMatch(JSON.stringify(result),/app-secret/);
+});
+
+async function operatorFixture() {
+  const f=await fixture(); const operator="verified-operator", session="operator-session";
+  f.sql.prepare("INSERT INTO senderdeck_identities VALUES ('google','verified-id',?,'operator@example.test',?,?)").run(operator,Date.now(),Date.now());
+  f.sql.prepare("INSERT INTO senderdeck_sessions VALUES (?,?, 'operator@example.test',?,?)").run(await sha256Base64Url(session),operator,Date.now(),Date.now()+3600000);
+  const env:Env={...f.env,SOCIAL_OPERATOR_USER_IDS:operator,META_APP_SECRET:undefined,META_WEBHOOK_VERIFY_TOKEN:undefined};
+  const headers={cookie:`senderdeck_session=${session}`,origin:"https://senderdeck.test","content-type":"application/json"};
+  const setup=await handleSocial(new Request("https://senderdeck.test/api/social/operator/setup",{headers}),env,()=>{});
+  const csrf=(await setup!.json() as {csrfToken:string}).csrfToken;
+  const write=(body:unknown,changes:Record<string,string>={},otherEnv=env)=>handleSocial(new Request("https://senderdeck.test/api/social/operator/secrets",{method:"POST",headers:{...headers,"x-senderdeck-csrf":csrf,...changes},body:JSON.stringify(body)}),otherEnv,()=>{});
+  return {...f,env,headers,csrf,write};
+}
+test("verified operator saves only encrypted Meta secrets with metadata-only audit and redacted reads",async()=>{
+  const f=await operatorFixture(); const app="0123456789abcdef0123456789abcdef", verify="a-separate-random-verification-token";
+  const response=await f.write({META_APP_SECRET:app,META_WEBHOOK_VERIFY_TOKEN:verify});
+  assert.equal(response!.status,200);assert.equal(response!.headers.get("cache-control"),"no-store");
+  assert.doesNotMatch(await response!.text(),new RegExp(`${app}|${verify}`));
+  const rows=f.sql.prepare("SELECT * FROM social_platform_secrets").all();assert.equal(rows.length,2);
+  for(const row of rows){assert.match(String(row.encrypted),/^v1\./);assert.doesNotMatch(JSON.stringify(row),new RegExp(`${app}|${verify}`));}
+  const resolved=await resolveMetaSecrets(f.env);assert.equal(resolved.META_APP_SECRET,app);assert.equal(resolved.META_WEBHOOK_VERIFY_TOKEN,verify);assert.equal(f.env.META_APP_SECRET,undefined);
+  const audit=f.sql.prepare("SELECT * FROM social_platform_audit").all();assert.equal(audit.length,1);assert.doesNotMatch(JSON.stringify(audit),new RegExp(`${app}|${verify}`));
+  const status=await operatorSetup(f.env,"verified-operator");assert.equal(status.platform.meta.configured,true);assert.doesNotMatch(JSON.stringify(status),new RegExp(`${app}|${verify}|v1\\.`));
+  assert.equal(status.fields.find(x=>x.key==="META_APP_SECRET")?.source,"encrypted_store");
+  const customer=await socialAction("social_workspace_list",{},f.env,"alice");assert.doesNotMatch(JSON.stringify(customer),new RegExp(`${app}|${verify}|v1\\.`));
+});
+test("secret writes reject tenant owners, viewers, unverified allowlisted identities and dev auth",async()=>{
+  const f=await operatorFixture();const payload={META_APP_SECRET:"0123456789abcdef0123456789abcdef"};
+  for(const user of ["alice","bob","carol"]){const response=await f.write(payload,{cookie:"","x-dev-user-email":user,"x-senderdeck-platform-operator":"true"});assert.equal(response!.status,403);}
+  const unverified=await f.write(payload,{cookie:"","oai-authenticated-user-id":"verified-operator"},{...f.env,SOCIAL_OPERATOR_USER_IDS:"verified-operator"});
+  // A trusted platform identity must also exist in the verified sign-in identity table.
+  assert.equal(unverified!.status,403); // session-bound CSRF cannot be borrowed into platform auth
+  f.sql.prepare("DELETE FROM senderdeck_identities").run();
+  assert.equal((await f.write(payload))!.status,403);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_platform_secrets").get()!.n,0);
+});
+test("secret writes require same-origin JSON and fresh CSRF bound to user and session",async()=>{
+  const f=await operatorFixture();const payload={META_APP_SECRET:"0123456789abcdef0123456789abcdef"};
+  for(const changes of ([{origin:"https://attacker.test"},{"content-type":"text/plain"},{"x-senderdeck-csrf":""},{"sec-fetch-site":"cross-site"}] as Record<string,string>[]))assert.equal((await f.write(payload,changes))!.status,403);
+  const expired=await encrypt(JSON.stringify({purpose:"meta-secret-write",user:"verified-operator",session:await sha256Base64Url("operator-session"),expires:Date.now()-1}),f.env.TOKEN_ENCRYPTION_KEY);
+  assert.equal((await f.write(payload,{"x-senderdeck-csrf":expired}))!.status,403);
+  f.sql.prepare("INSERT INTO senderdeck_sessions VALUES (?,?, 'operator@example.test',?,?)").run(await sha256Base64Url("another-session"),"verified-operator",Date.now(),Date.now()+3600000);
+  assert.equal((await f.write(payload,{cookie:"senderdeck_session=another-session"}))!.status,403);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_platform_audit").get()!.n,0);
+});
+test("secret writer rejects arbitrary keys, oversized and invalid values without partial writes",async()=>{
+  const f=await operatorFixture();
+  for(const body of [{SOCIAL_OPERATOR_USER_IDS:"alice"},{GOOGLE_CLIENT_SECRET:"anything"},{META_APP_SECRET:"short"},{META_APP_SECRET:"0123456789abcdef",META_WEBHOOK_VERIFY_TOKEN:"bad token"},{}])assert.equal((await f.write(body))!.status,400);
+  assert.equal((await f.write({META_APP_SECRET:"a".repeat(5000)}))!.status,413);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_platform_secrets").get()!.n,0);
+});
+test("native secrets override stored entries, cannot be overwritten in the form, and corruption fails closed",async()=>{
+  const f=await operatorFixture();const saved="0123456789abcdef0123456789abcdef";
+  assert.equal((await f.write({META_APP_SECRET:saved}))!.status,200);
+  const native={...f.env,META_APP_SECRET:"native-hosting-secret"};assert.equal((await resolveMetaSecrets(native)).META_APP_SECRET,"native-hosting-secret");
+  assert.equal((await f.write({META_APP_SECRET:"replacement-secret-value"},{},native))!.status,409);
+  f.sql.prepare("UPDATE social_platform_secrets SET encrypted='corrupt'").run();
+  await assert.rejects(resolveMetaSecrets(f.env),/could not be loaded/);
+  assert.equal((await resolveMetaSecrets(native)).META_APP_SECRET,"native-hosting-secret");
+  assert.equal((await f.write({META_APP_SECRET:saved}))!.status,200);assert.equal((await resolveMetaSecrets(f.env)).META_APP_SECRET,saved);
+});
+test("webhook signature validation and app checks use the encrypted configuration",async(t)=>{
+  const f=await operatorFixture(), app="0123456789abcdef0123456789abcdef", verify="separate-verification-token-value";
+  await f.write({META_APP_SECRET:app,META_WEBHOOK_VERIFY_TOKEN:verify});
+  const handshake=await handleSocial(new Request(`https://senderdeck.test/api/social/webhooks/meta?hub.mode=subscribe&hub.verify_token=${verify}&hub.challenge=challenge-ok`),f.env,()=>{});
+  assert.equal(handshake!.status,200);assert.equal(await handshake!.text(),"challenge-ok");
+  const body=JSON.stringify({object:"page",entry:[]});
+  const delivery=await handleSocial(new Request("https://senderdeck.test/api/social/webhooks/meta",{method:"POST",headers:{"x-hub-signature-256":`sha256=${await hmac(app,body)}`},body}),f.env,()=>{});
+  assert.equal(delivery!.status,200);
+  t.mock.method(globalThis,"fetch",async(_input:RequestInfo|URL,init?:RequestInit)=>{assert.equal(new Headers(init?.headers).get("authorization"),`Bearer platform|${app}`);return Response.json({id:"platform",name:"Test app"});});
+  assert.equal((await checkOperatorApp(f.env,"verified-operator")).appVerified,true);
 });
