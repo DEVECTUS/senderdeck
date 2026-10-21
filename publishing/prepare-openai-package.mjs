@@ -29,7 +29,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.8 makes account connections visible in one workspace, supports updating existing Meta connections without deleting data, and distinguishes unverified history samples from provider errors and missing Page tasks. Provider approval and sending gates remain unchanged." },
+  publication: { release_notes: "Version 0.4.9 adds protected Page webhook registration, an operator-only verification-token clipboard handoff for Instagram dashboard setup, per-account signed-delivery and polling evidence, and due-aware scoped monitoring checks. Actual cloud-task authentication, scheduled execution, signed delivery and provider approval remain acceptance requirements. Sending stays separately gated." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

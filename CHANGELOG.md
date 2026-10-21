@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.9 · 21 October 2026
+
+- Add CSRF-protected operator Page callback registration with server-side credentials and encrypted verification-token generation that preserves existing values. Read subscriptions back and preserve unrelated fields/callbacks.
+- Support owner clipboard handoff for Instagram dashboard verification; Meta explicitly excludes Instagram subscription configuration through Page/app subscription APIs. App and account access tokens are never copied.
+- Install Page subscriptions for an explicitly selected, live-verified account with current ownership/tasks, without changing OAuth scopes or sending messages.
+- Record signed message/comment delivery and completed polling separately for each account. Report coverage gaps independently of execution readiness.
+- Allow scheduled user-authenticated reconciliation to skip disabled or not-yet-due accounts and prevent duplicate per-account work with a lease. Document the cloud writer authentication and live acceptance requirements.
+
 ## 0.4.8 · 21 October 2026
 
 - Lead the signed-in workspace with a searchable email and social account overview, compact headings and shared navigation.

@@ -23,7 +23,7 @@ export async function customerSetup(env: Env, user: string, brandId: string) {
   if (!platform.meta.configured) blockers.push("SenderDeck's platform administrator must finish Meta app configuration.");
   if (!runtime.schedulerConfigured || !runtime.schedulerRecent) blockers.push("Hosted maintenance must be configured and complete a recent run before authorisation can start.");
   if (!admins.includes(brand.role!)) blockers.push("A customer owner or administrator must authorise this brand's accounts.");
-  return { brand: {id: brand.id, name: brand.name, customerId: brand.customer_id}, canConnect: blockers.length === 0, blockers,
+  return { brand: {id: brand.id, name: brand.name, customerId: brand.customer_id}, canConnect: blockers.length === 0, canManageConnections: admins.includes(brand.role!), blockers,
     appConfigured: platform.meta.configured, businessVerification: "not_confirmed_by_senderdeck", customerAccess: platform.meta.customerAccess,
     reviewNote: "A configured app does not establish business verification or approved customer access. Meta consent and live asset checks determine actual access.",
     runtime, operatorMaintenanceAvailable:isPlatformOperator(env,user), sending: platform.sending, monitoringActive: false, needsCustomerDeveloperCredentials: false };
@@ -45,7 +45,7 @@ export async function operatorSetup(env: Env, user: string) {
   const observed = await env.DB.prepare("SELECT MAX(created_at) AS last_event FROM social_queue").first<{last_event:number|null}>();
   return { fields, routes: { callback:`${origin}/oauth/social/meta/callback`, webhook:`${origin}/api/social/webhooks/meta`, deauthorisation:`${origin}/api/social/meta/deauthorize`, deletion:`${origin}/api/social/meta/delete`, maintenance:`${origin}/api/social/maintenance`, privacy:`${origin}/privacy` },
     platform, runtime, webhookLastObservedAt:observed?.last_event || null, businessVerification:"must_be_verified_in_meta", appReview:"must_be_verified_in_meta",
-    credentialEntry:"Only a verified, hosting-allowlisted platform operator may enter the two Meta secrets below. Values are encrypted with the hosting encryption key and are never returned. Native hosting secrets take precedence and cannot be replaced here.",
+    credentialEntry:"Only a verified, hosting-allowlisted platform operator may enter the two Meta secrets below. Values are encrypted with the hosting encryption key. The app secret is never returned. Only the explicit, protected operator clipboard action can return the webhook verification token. Native hosting secrets take precedence and cannot be replaced here.",
     activationNote:"Settings and mock tests do not prove provider approval, webhook delivery, a running scheduler or complete conversation history." };
 }
 export async function checkOperatorApp(env: Env, user: string) {

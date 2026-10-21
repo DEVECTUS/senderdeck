@@ -6,6 +6,7 @@ import { socialAction } from "./service";
 import { equalSecret, limitedBody, runHostedMaintenance, metaDeletion, receiveMeta } from "./webhooks";
 import { checkOperatorApp, customerSetup, operatorSetup } from "./setup";
 import { operatorCsrf, resolveMetaSecrets, saveMetaSecrets, verifyOperatorWrite } from "./config";
+import { configurePageWebhook, copyWebhookToken } from "./webhook-setup";
 
 export async function handleSocial(request: Request, env: Env, defer: (p: Promise<unknown>) => void): Promise<Response | null> {
   const path = new URL(request.url).pathname;
@@ -14,7 +15,11 @@ export async function handleSocial(request: Request, env: Env, defer: (p: Promis
     if (path === "/api/social/operator/secrets" && request.method === "POST") return Response.json(await saveMetaSecrets(request, env), {headers:{"cache-control":"no-store"}});
     if (path === "/api/social/operator/setup" && request.method === "GET") {
       const csrfToken = await operatorCsrf(request, env);
-      return Response.json({...await operatorSetup(env, await requireUserId(request, env)), csrfToken, maintenanceCsrfToken:await operatorCsrf(request,env,"maintenance-run")}, {headers:{"cache-control":"no-store"}});
+      return Response.json({...await operatorSetup(env, await requireUserId(request, env)), csrfToken, maintenanceCsrfToken:await operatorCsrf(request,env,"maintenance-run"), webhookCsrfToken:await operatorCsrf(request,env,"webhook-setup")}, {headers:{"cache-control":"no-store"}});
+    }
+    if (["/api/social/operator/webhook", "/api/social/operator/webhook-copy"].includes(path) && request.method === "POST") {
+      if ((await limitedBody(request,64)).trim() !== "{}") throw new HttpError(400,"This operation accepts no custom URLs, fields or credentials.");
+      return Response.json(await (path.endsWith("-copy") ? copyWebhookToken(request,env) : configurePageWebhook(request,env)), {headers:{"cache-control":"private, no-store","pragma":"no-cache"}});
     }
     if (path === "/api/social/operator/maintenance" && request.method === "POST") {
       const user=await verifyOperatorWrite(request,env,"maintenance-run");

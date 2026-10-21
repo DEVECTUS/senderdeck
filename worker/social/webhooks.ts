@@ -3,6 +3,7 @@ import { decrypt, encrypt, sha256Base64Url } from "../crypto";
 import type { Env } from "../env";
 import { deleteLocalAccount, id, json, notice, type SocialAccount } from "./model";
 import { reconcileAccount } from "./service";
+import { recordDelivery } from "./monitoring";
 
 const encoder = new TextEncoder();
 export async function hmac(secret: string, value: string): Promise<string> {
@@ -66,6 +67,7 @@ export async function receiveMeta(request: Request, env: Env, defer: (p: Promise
       if (event.message?.is_echo || event.sender?.id === account.asset_id) continue;
       if (!event.message && !["feed", "comments", "mentions"].includes(event.field || "")) continue;
       if (event.field === "feed" && event.value?.item !== "comment") continue;
+      if (event.message || event.field === "comments" || event.field === "feed") await recordDelivery(env, account.id, event.message ? "messages" : "comments");
       const serialised = JSON.stringify(event);
       const eventId = await sha256Base64Url(`${account.id}:${serialised}`);
       await env.DB.prepare("INSERT OR IGNORE INTO social_queue (id,account_id,encrypted,state,created_at,expires_at) VALUES (?,?,?,'pending',?,?)").bind(eventId, account.id, await encrypt(serialised, env.TOKEN_ENCRYPTION_KEY), Date.now(), Date.now() + 86400000).run();

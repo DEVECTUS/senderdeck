@@ -31,6 +31,11 @@ export const socialAccounts = sqliteTable("social_accounts", {
   monitoring: text("monitoring").notNull(), lastReconciledAt: integer("last_reconciled_at"),
   createdAt: integer("created_at").notNull(),
 }, t => [uniqueIndex("social_asset_unique").on(t.provider, t.assetId), index("social_account_brand").on(t.brandId)]);
+export const socialMonitorEvidence = sqliteTable("social_monitor_evidence", {
+  accountId: text("account_id").primaryKey().references(() => socialAccounts.id, { onDelete: "cascade" }),
+  messagesAt: integer("messages_at"), commentsAt: integer("comments_at"), pollAt: integer("poll_at"),
+  pollErrors: text("poll_errors").notNull().default("[]"),
+});
 export const socialOauth = sqliteTable("social_oauth", {
   hash: text("hash").primaryKey(), brandId: text("brand_id").notNull().references(() => socialBrands.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull(), redirectUri: text("redirect_uri").notNull(), expiresAt: integer("expires_at").notNull(),

@@ -6,6 +6,8 @@ import { assess, defaultProfile, profileOf, validateProfile } from "./policy";
 import { capabilities, inbox, platformStatus, readHistory, sendReply, validateConnection } from "./meta";
 import { grantAssets, selectAsset, startOAuth } from "./oauth";
 import { resolveMetaSecrets } from "./config";
+import { accountMonitoring, recordPoll } from "./monitoring";
+import { subscribePageAccount } from "./webhook-setup";
 
 type Args = Record<string, unknown>;
 interface Snapshot { id: string; thread_id: string; user_id: string; digest: string; encrypted: string; complete: number; expires_at: number }
@@ -40,6 +42,13 @@ async function saveThread(env: Env, account: SocialAccount, providerId: string, 
   return (await env.DB.prepare("SELECT * FROM social_threads WHERE account_id=? AND provider_id=? AND kind=?").bind(account.id, providerId, kind).first<Thread>())!;
 }
 export async function reconcileAccount(env: Env, account: SocialAccount) {
+  const lease = Date.now() + 300000, key = `reconcile:${account.id}`;
+  const claimed = await env.DB.prepare("INSERT INTO social_runtime (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE social_runtime.value<? RETURNING value").bind(key, lease, Date.now()).first();
+  if (!claimed) throw new HttpError(409, "This account already has a reconciliation in progress.");
+  try { return await reconcileAccountWork(env, account); }
+  finally { await env.DB.prepare("DELETE FROM social_runtime WHERE key=? AND value=?").bind(key, lease).run(); }
+}
+async function reconcileAccountWork(env: Env, account: SocialAccount) {
   await refreshAccount(env, account);
   const result: Array<{kind: string; threads: Thread[]; coverage: unknown}> = [];
   const errors: string[] = [];
@@ -73,7 +82,8 @@ export async function reconcileAccount(env: Env, account: SocialAccount) {
   await env.DB.prepare("UPDATE social_accounts SET last_reconciled_at=? WHERE id=?").bind(now(), account.id).run();
   if (errors.length) await notice(env, account.id, "coverage_incomplete", `coverage:${errors.sort().join(",")}`);
   else await env.DB.prepare("DELETE FROM social_notices WHERE account_id=? AND (fingerprint LIKE 'coverage:%' OR fingerprint='schedule:failed')").bind(account.id).run();
-  return { result, errors, checkedAt: new Date().toISOString(), coverageComplete: errors.length === 0, contentIsUntrusted: true };
+  await recordPoll(env, account.id, errors);
+  return { result, errors, checkedAt: new Date().toISOString(), coverageComplete: errors.length === 0, monitoring: await accountMonitoring(env, account, capabilities(env, account)), contentIsUntrusted: true };
 }
 async function getSnapshot(env: Env, user: string, thread: Thread, snapshotId: string) {
   const snapshot = await env.DB.prepare("SELECT * FROM social_snapshots WHERE id=? AND thread_id=? AND user_id=? AND expires_at>?").bind(snapshotId, thread.id, user, now()).first<Snapshot>();
@@ -155,7 +165,7 @@ export async function socialAction(name: string, a: Args, env: Env, user: string
   if (name === "social_account_list") {
     await brandFor(env, user, brandId);
     const accounts = (await env.DB.prepare("SELECT * FROM social_accounts WHERE brand_id=? ORDER BY name").bind(brandId).all<SocialAccount>()).results;
-    return { accounts: accounts.map(account => ({ ...safeAccount(account), capabilities: capabilities(env, account) })), platform: platformStatus(env) };
+    return { accounts: await Promise.all(accounts.map(async account => ({ ...safeAccount(account), capabilities: capabilities(env, account), monitoringReadiness: await accountMonitoring(env, account, capabilities(env, account)) }))), platform: platformStatus(env) };
   }
   if (name === "social_email_link") {
     await brandFor(env, user, brandId, admins);
@@ -193,6 +203,10 @@ export async function socialAction(name: string, a: Args, env: Env, user: string
   const readActions = ["social_inbox", "social_thread_read", "social_enquiry_list"];
   const role = readActions.includes(name) ? undefined : name === "social_draft_inspect" || name === "social_reply_send" ? reviewers : ["social_draft_create", "social_enquiry_update"].includes(name) ? editors : admins;
   const { brand, account } = await accountFor(env, user, brandId, accountId, role);
+  if (name === "social_webhook_subscribe") {
+    if (a.confirmed !== true) throw new HttpError(400, "Confirm installing the read-event subscription for this exact Page.");
+    return subscribePageAccount(env, account, user);
+  }
   if (name === "social_account_validate") return { ...safeAccount(await refreshAccount(env, account)), capabilities: capabilities(env, account) };
   if (name === "social_account_disconnect") {
     if (a.confirmed !== true) throw new HttpError(400, "Confirm disconnecting this selected account and deleting its social content.");
@@ -206,9 +220,17 @@ export async function socialAction(name: string, a: Args, env: Env, user: string
     const monitoring = { enabled: a.enabled, intervalMinutes: interval, notifications: "meaningful_changes_only", unattendedSending: false };
     await env.DB.prepare("UPDATE social_accounts SET monitoring=? WHERE id=?").bind(JSON.stringify(monitoring), accountId).run();
     await audit(env, brandId, user, "monitoring_configured", accountId);
-    return { monitoring, active: false, readiness: "Requires verified webhook subscriptions, a hosted scheduler and a successful recent reconciliation.", scheduler: platformStatus(env).scheduling };
+    const readiness = await accountMonitoring(env, { ...account, monitoring: JSON.stringify(monitoring) }, capabilities(env, account));
+    return { monitoring, active: readiness.active, readiness, scheduler: platformStatus(env).scheduling };
   }
-  if (name === "social_reconcile") return reconcileAccount(env, account);
+  if (name === "social_reconcile") {
+    if (a.monitoringOnly === true) {
+      const settings = json<{enabled?:boolean;intervalMinutes?:number}>(account.monitoring);
+      const nextDueAt = (account.last_reconciled_at || 0) + Math.max(10, settings.intervalMinutes || 10) * 60000;
+      if (!settings.enabled || nextDueAt > Date.now()) return { skipped: true, reason: !settings.enabled ? "monitoring_disabled" : "not_due", accountId, nextDueAt: settings.enabled ? nextDueAt : null };
+    }
+    return reconcileAccount(env, account);
+  }
   if (name === "social_inbox") {
     const kind = arg(a, "kind"); if (!["message", "comment"].includes(kind)) throw new HttpError(400, "Choose message or comment. Mentions remain pending validation.");
     await usable(env, account, kind);

@@ -12,6 +12,8 @@ import { handleSocial } from "../worker/social/api";
 import { customerSetup, operatorSetup, checkOperatorApp } from "../worker/social/setup";
 import { encrypt, decrypt, sha256Base64Url } from "../worker/crypto";
 import { resolveMetaSecrets } from "../worker/social/config";
+import { ensureWebhookToken } from "../worker/social/webhook-setup";
+import { accountMonitoring, monitoringEvidence, recordDelivery, recordPoll } from "../worker/social/monitoring";
 import type { D1PreparedStatement, WorkerD1Database, Env } from "../worker/env";
 
 function database() {
@@ -299,6 +301,122 @@ test("verified operator saves only encrypted Meta secrets with metadata-only aud
   const status=await operatorSetup(f.env,"verified-operator");assert.equal(status.platform.meta.configured,true);assert.doesNotMatch(JSON.stringify(status),new RegExp(`${app}|${verify}|v1\\.`));
   assert.equal(status.fields.find(x=>x.key==="META_APP_SECRET")?.source,"encrypted_store");
   const customer=await socialAction("social_workspace_list",{},f.env,"alice");assert.doesNotMatch(JSON.stringify(customer),new RegExp(`${app}|${verify}|v1\\.`));
+});
+
+test("webhook verification token is generated encrypted once and never rotates existing configuration", async () => {
+  const f = await fixture(); const env = { ...f.env, META_WEBHOOK_VERIFY_TOKEN: undefined };
+  const first = await ensureWebhookToken(env), second = await ensureWebhookToken(env);
+  assert.match(first.META_WEBHOOK_VERIFY_TOKEN!, /^[A-Za-z0-9_-]{43}$/);
+  assert.equal(first.META_WEBHOOK_VERIFY_TOKEN, second.META_WEBHOOK_VERIFY_TOKEN);
+  assert.doesNotMatch(String(f.sql.prepare("SELECT encrypted FROM social_platform_secrets").get()!.encrypted), new RegExp(first.META_WEBHOOK_VERIFY_TOKEN!));
+  assert.equal((await ensureWebhookToken(f.env)).META_WEBHOOK_VERIFY_TOKEN, "verify-secret");
+});
+
+test("operator Page registration verifies the real challenge and preserves fields without leaking tokens", async t => {
+  const f = await operatorFixture(), env = { ...f.env, META_APP_SECRET: "app-secret" };
+  const setup = await handleSocial(new Request("https://senderdeck.test/api/social/operator/setup", { headers: f.headers }), env, () => {});
+  const csrf = (await setup!.json()).webhookCsrfToken; let registered = false;
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input)); assert.doesNotMatch(url.href, /app-secret|verify-secret/);
+    if (url.pathname.endsWith("oauth/access_token")) return Response.json({ access_token: "app-credential" });
+    if (init?.method === "POST") {
+      const body = new URLSearchParams(String(init.body));
+      assert.equal(body.get("object"), "page"); assert.ok(body.get("fields")!.includes("leadgen"));
+      const verification = new URL(body.get("callback_url")!); verification.search = new URLSearchParams({ "hub.mode": "subscribe", "hub.verify_token": body.get("verify_token")!, "hub.challenge": "challenge" }).toString();
+      const proof = await handleSocial(new Request(verification), env, () => {});
+      assert.equal(await proof!.text(), "challenge"); registered = true;
+      return Response.json({ success: true });
+    }
+    return Response.json({ data: [{ object: "page", callback_url: "https://senderdeck.test/api/social/webhooks/meta", active: registered, fields: [{ name: "leadgen" }, { name: "messages" }, { name: "feed" }] }] });
+  });
+  const response = await handleSocial(new Request("https://senderdeck.test/api/social/operator/webhook", { method: "POST", headers: { ...f.headers, "x-senderdeck-csrf": csrf }, body: "{}" }), env, () => {});
+  assert.equal(response!.status, 200); const result = await response!.text();
+  assert.match(result, /owner_must_configure_in_meta_dashboard/); assert.doesNotMatch(result, /app-credential|app-secret|verificationToken/);
+});
+
+test("webhook token copying requires explicit operator session and purpose-bound CSRF", async () => {
+  const f = await operatorFixture(), env = { ...f.env, META_APP_SECRET: "app-secret", META_WEBHOOK_VERIFY_TOKEN: "saved-verification-token" };
+  const setup = await handleSocial(new Request("https://senderdeck.test/api/social/operator/setup", { headers: f.headers }), env, () => {});
+  const csrf = (await setup!.json()).webhookCsrfToken;
+  const request = (token: string, origin = "https://senderdeck.test") => new Request("https://senderdeck.test/api/social/operator/webhook-copy", { method: "POST", headers: { ...f.headers, origin, "x-senderdeck-csrf": token }, body: "{}" });
+  assert.equal((await handleSocial(request(f.csrf), env, () => {}))!.status, 403);
+  assert.equal((await handleSocial(request(csrf, "https://attacker.test"), env, () => {}))!.status, 403);
+  const response = await handleSocial(request(csrf), env, () => {});
+  assert.equal(response!.headers.get("cache-control"), "private, no-store");
+  assert.deepEqual(await response!.json(), { verificationToken: "saved-verification-token" });
+});
+
+test("Page registration refuses to overwrite another integration callback", async t => {
+  const f = await operatorFixture(), env = { ...f.env, META_APP_SECRET: "app-secret" };
+  const setup = await handleSocial(new Request("https://senderdeck.test/api/social/operator/setup", { headers: f.headers }), env, () => {});
+  const csrf = (await setup!.json()).webhookCsrfToken; let subscriptionWrites = 0;
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).includes("oauth/access_token")) return Response.json({ access_token: "app-token" });
+    if (init?.method === "POST") subscriptionWrites++;
+    return Response.json({ data: [{ object: "page", callback_url: "https://other.example.test/webhook", fields: ["messages"] }] });
+  });
+  const response = await handleSocial(new Request("https://senderdeck.test/api/social/operator/webhook", { method: "POST", headers: { ...f.headers, "x-senderdeck-csrf": csrf }, body: "{}" }), env, () => {});
+  assert.equal(response!.status, 409); assert.equal(subscriptionWrites, 0);
+});
+
+test("Page event installation is scoped, preserves fields, and refuses Instagram misuse", async t => {
+  const f = await fixture(); const mock = provider(t), original = globalThis.fetch; let writes = 0;
+  t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (new URL(String(input)).pathname.endsWith("page-a/subscribed_apps")) {
+      if (init?.method === "POST") { writes++; assert.equal(new URLSearchParams(String(init.body)).get("subscribed_fields"), "messages,feed,leadgen"); return Response.json({ success: true }); }
+      return Response.json({ data: [{ id: "platform", subscribed_fields: ["messages", "feed", "leadgen"] }] });
+    }
+    return original(input, init);
+  });
+  await assert.rejects(socialAction("social_webhook_subscribe", { ...f.scope, confirmed: true }, f.env, "bob"));
+  await assert.rejects(socialAction("social_webhook_subscribe", f.scope, f.env, "alice"), /Confirm/);
+  const result = await socialAction("social_webhook_subscribe", { ...f.scope, confirmed: true }, f.env, "alice") as { subscriptionVerified: boolean };
+  assert.equal(result.subscriptionVerified, true); assert.equal(writes, 1); assert.equal(mock.sends(), 0);
+  f.sql.prepare("UPDATE social_accounts SET provider='instagram' WHERE id=?").run(f.account.id);
+  await assert.rejects(socialAction("social_webhook_subscribe", { ...f.scope, confirmed: true }, f.env, "alice"), /Instagram subscriptions must be configured/);
+  assert.equal(writes, 1);
+});
+
+test("signed delivery evidence is account-specific and never created by an invalid signature", async () => {
+  const f = await fixture(); const deferred: Promise<unknown>[] = [];
+  const payload = JSON.stringify({ object: "page", entry: [{ id: "page-a", messaging: [{ sender: { id: "person-a" }, message: { mid: "incoming", text: "Untrusted test data" } }], changes: [{ field: "feed", value: { item: "comment", comment_id: "comment-1" } }] }] });
+  const request = (signature: string) => new Request("https://senderdeck.test/api/social/webhooks/meta", { method: "POST", headers: { "x-hub-signature-256": signature }, body: payload });
+  assert.equal((await handleSocial(request("sha256=invalid"), f.env, () => {}))!.status, 403);
+  assert.equal(await monitoringEvidence(f.env, f.account.id), null);
+  const accepted = await handleSocial(request(`sha256=${await hmac("app-secret", payload)}`), f.env, p => deferred.push(p));
+  assert.equal(accepted!.status, 200); await Promise.all(deferred);
+  const evidence = await monitoringEvidence(f.env, f.account.id); assert.ok(evidence?.messages_at); assert.ok(evidence?.comments_at);
+  assert.equal(await monitoringEvidence(f.env, "other-account"), null);
+});
+
+test("monitoring distinguishes manual checks, partial coverage and real scheduled execution", async () => {
+  const f = await fixture(); const account = { ...f.account, monitoring: '{"enabled":true,"intervalMinutes":10}' };
+  await recordDelivery(f.env, account.id, "messages"); await recordDelivery(f.env, account.id, "comments");
+  await recordPoll(f.env, account.id, ["provider_history_limit"]);
+  const caps = { webhook: true, messages: "available", comments: "available" };
+  const manual = await accountMonitoring(f.env, account, caps);
+  assert.equal(manual.polling, "recent_completed_check"); assert.equal(manual.active, false); assert.equal(manual.coverage, "partial_or_unverified");
+  f.sql.prepare("INSERT INTO social_runtime (key,value) VALUES ('maintenance_scheduled',?)").run(Date.now());
+  assert.equal((await accountMonitoring(f.env, account, caps)).active, true);
+  assert.equal((await accountMonitoring(f.env, account, { ...caps, messages: "unavailable" })).active, false);
+});
+
+test("scheduled scoped checks skip disabled and not-yet-due accounts without any provider call", async t => {
+  const f = await fixture(); let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => { calls++; throw new Error("Should not call provider"); });
+  const run = () => socialAction("social_reconcile", { ...f.scope, monitoringOnly: true }, f.env, "alice") as Promise<{skipped:boolean;reason:string}>;
+  assert.equal((await run()).reason, "monitoring_disabled");
+  f.sql.prepare("UPDATE social_accounts SET monitoring=?,last_reconciled_at=? WHERE id=?").run('{"enabled":true,"intervalMinutes":10}', Date.now(), f.account.id);
+  assert.equal((await run()).reason, "not_due"); assert.equal(calls, 0);
+  await assert.rejects(socialAction("social_reconcile", { ...f.scope, monitoringOnly: true }, f.env, "bob"));
+});
+
+test("a current per-account reconciliation lease prevents duplicate provider work", async t => {
+  const f = await fixture(); let calls = 0;
+  t.mock.method(globalThis, "fetch", async () => { calls++; throw new Error("Should not call provider"); });
+  f.sql.prepare("INSERT INTO social_runtime (key,value) VALUES (?,?)").run(`reconcile:${f.account.id}`, Date.now() + 60000);
+  await assert.rejects(socialAction("social_reconcile", f.scope, f.env, "alice"), /already has a reconciliation/);
+  assert.equal(calls, 0);
 });
 test("secret writes reject tenant owners, viewers, unverified allowlisted identities and dev auth",async()=>{
   const f=await operatorFixture();const payload={META_APP_SECRET:"0123456789abcdef0123456789abcdef"};

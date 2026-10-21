@@ -2,6 +2,7 @@ import { HttpError } from "../auth";
 import { decrypt } from "../crypto";
 import type { Env } from "../env";
 import { json, type SocialAccount, type History, type HistoryItem, type Coverage, type Thread } from "./model";
+import { monitoringEvidence } from "./monitoring";
 
 export const GRAPH_VERSION = "v26.0";
 const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}/`;
@@ -211,10 +212,19 @@ export async function validateConnection(env: Env, account: SocialAccount) {
   const previous = json<{ tasks?: string[]; webhook?: boolean }>(account.validation);
   let webhook = false;
   try {
-    const subscriptions = await graphPages(token, `${account.parent_id || account.asset_id}/subscribed_apps`, {fields: "id,subscribed_fields"});
-    const app = subscriptions.rows.find(row => row.id === env.META_APP_ID);
-    const fields = Array.isArray(app?.subscribed_fields) ? app.subscribed_fields as string[] : [];
-    webhook = subscriptions.coverage.complete && fields.includes("messages") && fields.includes(account.provider === "facebook" ? "feed" : "comments");
+    if (account.provider === "facebook") {
+      const subscriptions = await graphPages(token, `${account.asset_id}/subscribed_apps`, {fields: "id,subscribed_fields"});
+      const app = subscriptions.rows.find(row => row.id === env.META_APP_ID);
+      const fields = Array.isArray(app?.subscribed_fields) ? app.subscribed_fields as string[] : [];
+      webhook = subscriptions.coverage.complete && fields.includes("messages") && fields.includes("feed");
+    } else {
+      // Meta explicitly excludes Instagram fields from the Page subscription API.
+      // Dashboard settings alone are not readable proof; require actual signed
+      // delivery of both supported Instagram event types for this exact asset.
+      const evidence = await monitoringEvidence(env, account.id);
+      webhook = !!evidence?.messages_at && !!evidence?.comments_at;
+      if (!webhook) errors.push("instagram_dashboard_setup_and_signed_delivery_required");
+    }
   } catch { errors.push("webhook_subscription_unverified"); }
   return { token, details: { ...details, permissions: details.permissions.filter(scope => granting.permissions.includes(scope)) }, validation: { ...previous, historyProbeVersion:2, historyProbeScope:"one_returned_root_not_complete_native_history", taskDiscovery: { source: selected.discoverySource || "accounts", state: tasks.length ? "returned" : "unverified", reason: tasks.length ? "provider_returned_page_tasks" : "provider_did_not_return_page_tasks" }, tasks, reads, probes, errors, webhook }, status: reads.messages||reads.comments ? "connected" : "limited" };
 }
