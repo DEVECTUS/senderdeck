@@ -2,7 +2,7 @@
   "$schema": "https://developers.openai.com/plugins/schemas/chatgpt-app-submission.v1.json",
   "schema_version": 1,
   "app_info": {
-    "display_name": "SenderDeck by DEVECTUS",
+    "display_name": "SenderDeck",
     "subtitle": "Email & brand conversations",
     "description": "SenderDeck is an MIT-licensed, open-source workspace for email and brand conversations through Codex or Claude. Connect up to 10 Gmail, Google Workspace, Outlook.com and Microsoft 365 accounts per user. Search and read on demand, download attachments, select authorised Gmail aliases and create, update and inspect provider-hosted drafts. Email sending requires a separate confirmation of the exact sender, recipients, subject, attachments and current revision.\n\nCustomer and brand workspaces add role controls, language and tone settings, source-labelled verified facts, escalation rules, enquiry ownership and an activity feed. Social history snapshots and immutable local drafts are encrypted and expire. Replies require approval of the exact brand, account, target, text and revision.\n\nFacebook and Instagram adapters are implemented, but live access requires platform approval, owner consent, verified assets and subscriptions, and a working hosted scheduler. Social sending and hosted monitoring are not active in the current deployment. LinkedIn community access and Page messaging, Instagram mentions and social attachment sending remain unavailable pending approval or validation. Coverage gaps are reported explicitly.",
     "category": "PRODUCTIVITY"

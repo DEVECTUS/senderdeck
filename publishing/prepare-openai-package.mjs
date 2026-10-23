@@ -29,7 +29,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.12 identifies existing Meta account assignments before offering Connect, shows an accessible existing workspace or sign-in guidance, and preserves connections across separate identities without disclosing private workspace details." },
+  publication: { release_notes: "Version 0.4.13 shortens the public display name to SenderDeck while retaining DEVECTUS Pty Ltd as the verified publisher. It also adds durable account-retirement safeguards and preserves the existing email and brand-conversation review controls." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

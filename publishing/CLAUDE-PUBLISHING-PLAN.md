@@ -15,7 +15,7 @@ Current listing copy updated 21 October 2026 for 0.4.1. Historical review notes 
 
 ## Listing
 
-- **Name:** SenderDeck by DEVECTUS
+- **Name:** SenderDeck
 - **Developer:** DEVECTUS Pty Ltd
 - **Category:** Productivity
 - **Short description:** Email & brand conversations

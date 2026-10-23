@@ -6,7 +6,7 @@ Current listing copy updated 21 October 2026 for 0.4.1. Historical review notes 
 
 ## Listing
 
-- **Plugin name:** SenderDeck by DEVECTUS
+- **Plugin name:** SenderDeck
 - **Developer:** DEVECTUS Pty Ltd
 - **Category:** Productivity
 - **Short description:** Email & brand conversations
@@ -115,7 +115,7 @@ The current portal did not expose reviewer credentials, starter prompts, country
 
 ## Initial release notes
 
-Initial public submission of SenderDeck by DEVECTUS. The plugin provides per-user OAuth access to on-demand Google and Microsoft email workflows, supports up to ten labelled accounts, keeps drafts with the email provider, and requires exact confirmation before sending. Mailbox content is not indexed or retained. Reviewer fixtures should use disposable accounts and self-addressed send tests.
+Initial public submission of SenderDeck. DEVECTUS Pty Ltd is the verified publisher. The plugin provides per-user OAuth access to on-demand Google and Microsoft email workflows, supports up to ten labelled accounts, keeps drafts with the email provider, and requires exact confirmation before sending. Mailbox content is not indexed or retained. Reviewer fixtures should use disposable accounts and self-addressed send tests.
 
 ## Custom-domain update notes
 
