@@ -24,11 +24,11 @@ async function resume(env: Env, account: SocialAccount, scope: string, cursor?: 
     return value.paths;
   } catch { throw new HttpError(400, "Invalid, expired or differently scoped social cursor. Restart this read."); }
 }
-async function continuation(env: Env, account: SocialAccount, scope: string, paths: Continuation["paths"]) {
+async function continuation(env: Env, account: SocialAccount, scope: string, paths: Continuation["paths"], lifetimeMs = 900000) {
   if (!paths.length) return null;
   // Provider tokens must never leave the server, including inside an encrypted cursor.
   const clean = paths.map(entry => { const url = new URL(entry.path, GRAPH); url.searchParams.delete("access_token"); return { ...entry, path: url.href }; });
-  return encrypt(JSON.stringify({ account: account.id, scope, expires: Date.now() + 900000, paths: clean }), env.TOKEN_ENCRYPTION_KEY);
+  return encrypt(JSON.stringify({ account: account.id, scope, expires: Date.now() + lifetimeMs, paths: clean }), env.TOKEN_ENCRYPTION_KEY);
 }
 export class MetaProviderError extends HttpError {
   constructor(status:number,message:string,public providerStatus:number,public providerCode:number|null,public providerReason:string|null=null){super(status,message);}
@@ -74,7 +74,7 @@ export async function graph(token: string, path: string, params: Record<string, 
   const data = await response.json().catch(() => ({})) as GraphObject;
   if (!response.ok || data.error) {
     const error = data.error as { code?: number;message?:unknown } | undefined;
-    const status = error?.code === 190 ? 401 : response.status === 429 || [4, 17, 32, 613].includes(error?.code || 0) ? 429 : 502;
+    const status = error?.code === 190 ? 401 : response.status === 429 || [4, 17, 32, 613, 80000, 80003, 80004, 80014].includes(error?.code || 0) ? 429 : 502;
     const missing=typeof error?.message==="string"?error.message.match(/nonexisting field \(([a-z_]{1,40})\)/i)?.[1]:undefined;
     const field=missing&&params.fields?.split(/[^a-z_]+/).includes(missing)?missing:null;
     const reason=field?`unsupported_field:${field}`:null;
@@ -273,6 +273,10 @@ export async function inbox(env: Env, account: SocialAccount, kind: "message" | 
     } else page = await graph(token, resumed?.[0]?.path || path, resumed ? options.limit === undefined ? {} : { limit: String(limit) } : kind === "message" ? { platform: account.provider === "facebook" ? "messenger" : "instagram", fields: "id,updated_time", limit: String(limit) } : { fields: account.provider === "facebook" ? "id,message,created_time,permalink_url" : "id,caption,timestamp,permalink", limit: String(limit) }, "GET", budget);
   }
   catch (error) {
+    if (source === "ad_creatives" && selected && error instanceof MetaProviderError && error.status === 429) {
+      const paths = resumed || [{path:`/${GRAPH_VERSION}/${selected.id}/adcreatives`,depth:0}];
+      return {threads:[],coverage:{complete:false,pages:0,gaps:["provider_ad_account_rate_limit_retry_saved_cursor_after_cooldown"],sourceUrl:null},nextCursor:await continuation(env,account,scope,paths,86400000),source:"selected_ad_account_creatives",ordering:"Discovery is paused by the provider rate limit; no empty-inbox verdict was obtained.",coverageDiagnostics:commentCoverageDiagnostics(account,source)};
+    }
     if (source !== "ads" || !(error instanceof MetaProviderError)) throw error;
     throw new HttpError(error.status, `The selected Page's ads_posts read failed: HTTP ${error.providerStatus}, Graph ${error.providerCode ?? "unknown"}. No ad coverage was obtained. Check this granting person's Page advertising tasks and app access to ads_posts in Meta's Graph API Explorer. A feed result does not substitute for an ad-post result. ${error.status === 401 ? "Reconnect the expired Meta grant." : "Keep native Business Suite review until access is verified."}`);
   }
@@ -280,7 +284,7 @@ export async function inbox(env: Env, account: SocialAccount, kind: "message" | 
   const result = { rows: page.data as GraphObject[], coverage: { complete: true, pages: 1, gaps: [] as string[], sourceUrl: null } as Coverage };
   if (result.rows.length > 20) throw new HttpError(502, "Meta exceeded the requested root page size. Coverage is incomplete.");
   const next = (page.paging as {next?:string})?.next;
-  const nextCursor = await continuation(env, account, scope, creativeNext ? [creativeNext] : next ? [{ path: next, depth: 0 }] : []);
+  const nextCursor = await continuation(env, account, scope, creativeNext ? [creativeNext] : next ? [{ path: next, depth: 0 }] : [], source === "ad_creatives" ? 86400000 : 900000);
   result.coverage.gaps.push(...creativeGaps);
   if (nextCursor) { result.coverage.gaps.push("more_root_pages_available_use_nextCursor"); result.coverage.complete = false; }
   if(kind==="comment"){result.coverage.gaps.push("root_list_only_comment_history_requires_separate_read");result.coverage.complete=false;}

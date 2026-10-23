@@ -1,7 +1,7 @@
 const string = { type: "string" };
 const boolean = { type: "boolean" };
 const scope = { brandId: { ...string, description: "Brand ID returned by social_workspace_list." }, accountId: { ...string, description: "Account ID returned by social_account_list for that brand." } };
-const cursor = { ...string, description: "Opaque nextCursor from the same account and operation; expires after fifteen minutes. Omit for the first page." };
+const cursor = { ...string, description: "Opaque nextCursor from the same account and operation. Ad-creative discovery positions expire after twenty-four hours; other discovery and history cursors after fifteen minutes. Omit for the first page." };
 const thread = { ...scope, threadId: string };
 const draft = { ...thread, draftId: string };
 function tool(name: string, description: string, properties: Record<string, unknown>, required: string[], readOnly = true, destructive = false) {

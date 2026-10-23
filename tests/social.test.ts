@@ -819,6 +819,30 @@ test("creative mapping verifies Instagram root owners, deduplicates and scopes r
   const second=await inbox(f.env,account,"comment",{source:"ad_creatives",cursor:first.nextCursor!});assert.deepEqual(second.threads.map(t=>t.providerId),["103"]);assert.equal(second.nextCursor,null);
   await assert.rejects(inbox(f.env,{...account,validation:validation.replace('"selectedAt":123','"selectedAt":124')},"comment",{source:"ad_creatives",cursor:first.nextCursor!}),/differently scoped/);
 });
+test("ad-account throttling preserves the exact discovery position through cooldown and rechecks live access",async(t)=>{
+  const f=await fixture();const account={...f.account,provider:"instagram" as const,asset_id:"ig-a",validation:JSON.stringify({...JSON.parse(f.account.validation),advertisingAccount:{id:"act_123",selectedAt:123}}),permissions:JSON.stringify([...scopes,"ads_read"])};
+  let limited=false;let grants=0;const positions:string[]=[];
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{
+    const u=new URL(String(input));
+    if(u.pathname.endsWith("debug_token")){grants++;return Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes:[...scopes,"ads_read"]}});}
+    if(u.pathname.endsWith("/act_123"))return Response.json({id:"act_123"});
+    if(u.pathname.endsWith("/adcreatives")){
+      positions.push(u.searchParams.get("after")||"first");
+      if(limited)return Response.json({error:{code:80004,message:"private provider text"}},{status:400});
+      return Response.json({data:[],...(!u.searchParams.has("after")?{paging:{next:"https://graph.facebook.com/v26.0/act_123/adcreatives?after=saved-position&access_token=secret"}}:{})});
+    }
+    throw Error("Unexpected request");
+  });
+  const first=await inbox(f.env,account,"comment",{source:"ad_creatives"});limited=true;
+  const paused=await inbox(f.env,account,"comment",{source:"ad_creatives",cursor:first.nextCursor!});
+  assert.equal(paused.coverage.complete,false);assert.equal(paused.coverage.pages,0);assert.ok(paused.coverage.gaps.includes("provider_ad_account_rate_limit_retry_saved_cursor_after_cooldown"));assert.ok(paused.nextCursor);
+  assert.doesNotMatch(await decrypt(paused.nextCursor!,f.env.TOKEN_ENCRYPTION_KEY),/secret|access_token/);
+  const later=Date.now()+30*60000;t.mock.method(Date,"now",()=>later);limited=false;
+  const resumed=await inbox(f.env,account,"comment",{source:"ad_creatives",cursor:paused.nextCursor!});
+  assert.equal(resumed.nextCursor,null);assert.deepEqual(positions,["first","saved-position","saved-position"]);assert.equal(grants,3);
+  await assert.rejects(inbox(f.env,{...account,id:"another-account"},"comment",{source:"ad_creatives",cursor:paused.nextCursor!}),/differently scoped/);
+});
+
 test("creative Facebook story mapping uses Page credentials and actual post authorship",async(t)=>{
   const f=await fixture();const account={...f.account,asset_id:"100",parent_id:"100",validation:JSON.stringify({...JSON.parse(f.account.validation),advertisingAccount:{id:"act_123",selectedAt:1}})};
   t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>{const u=new URL(String(input));
