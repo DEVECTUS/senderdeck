@@ -641,4 +641,50 @@ test("Instagram per-thread reads preserve the native Suite coverage uncertainty"
   const f=await fixture();t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>new URL(String(input)).pathname.endsWith("/media-root")?Response.json({id:"media-root",caption:"Root",timestamp:new Date().toISOString()}):Response.json({data:[]}));
   const history=await readHistory(f.env,{...f.account,provider:"instagram"},{...f.thread,kind:"comment",provider_id:"media-root",target:"media-root"});
   assert.equal(history.coverage.complete,false);assert.ok(history.coverage.gaps.includes("instagram_native_suite_history_coverage_not_established"));
+  assert.equal(history.lastInboundAt,null);assert.equal(history.items[0].role,"post_context");assert.equal(history.items[0].from,f.account.asset_id);
+});
+
+test("comment discovery returns bounded previews, incoming activity and account-bound token-free cursors",async(t)=>{
+  const f=await fixture();const at="2026-10-23T12:00:00Z";let roots=0;
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{
+    const u=new URL(String(input));
+    assert.equal(u.searchParams.has("access_token"),false);
+    if(u.pathname.endsWith("/feed")) { roots++;assert.equal(u.searchParams.get("limit"),"2");return Response.json({data:[{id:roots===1?"post":"older",message:"Our caption"}],...(roots===1?{paging:{next:"https://graph.facebook.com/v26.0/page-a/feed?after=next&limit=2&access_token=provider-secret"}}:{})}); }
+    return Response.json({data:[{id:"incoming",message:"Customer question",from:{id:"person",name:"Customer"},created_time:at},{id:"own",message:"Our reply",from:{id:"page-a"},created_time:"2026-10-24T12:00:00Z"}]});
+  });
+  const first=await inbox(f.env,f.account,"comment",{limit:2});
+  assert.equal(roots,1);assert.equal(first.threads[0].lastInboundAt,Date.parse(at));assert.equal(first.threads[0].preview[0].senderName,"Customer");
+  assert.equal(first.threads[0].context.text,"Our caption");assert.ok(first.nextCursor);
+  const payload=await decrypt(first.nextCursor!,f.env.TOKEN_ENCRYPTION_KEY);assert.doesNotMatch(payload,/provider-secret|access_token/);
+  await assert.rejects(inbox(f.env,{...f.account,id:"another-account"},"comment",{cursor:first.nextCursor!}),/differently scoped/);
+  await assert.rejects(inbox(f.env,f.account,"message",{cursor:first.nextCursor!}),/differently scoped/);
+  const second=await inbox(f.env,f.account,"comment",{cursor:first.nextCursor!});assert.equal(second.nextCursor,null);assert.equal(roots,2);
+  assert.ok(first.coverage.gaps.includes("promoted_and_unpublished_ad_comments_not_verified_use_meta_business_suite"));
+});
+
+test("comment reads ignore unknown ownership for activity and preserve explicit parent context",async(t)=>{
+  const f=await fixture();const at="2026-10-23T12:00:00Z";
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>new URL(String(input)).pathname.endsWith("/post")?Response.json({id:"post",message:"Own recent caption",created_time:"2026-10-24T12:00:00Z",can_comment:true}):Response.json({data:[{id:"unknown",message:"No author supplied",created_time:"2026-10-24T13:00:00Z"},{id:"known",message:"Question",from:{id:"customer"},created_time:at}]}));
+  const history=await readHistory(f.env,f.account,{...f.thread,kind:"comment",provider_id:"post",target:"post"});
+  assert.equal(history.lastInboundAt,Date.parse(at));assert.equal(history.items.find(i=>i.id==="known")!.parentId,"post");
+});
+
+test("large comment trees stop at twelve pages and resume without making partial snapshots sendable",async(t)=>{
+  const f=await fixture();const thread={...f.thread,kind:"comment" as const,provider_id:"post",target:"post"};let calls=0;
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{
+    calls++;const u=new URL(String(input));if(u.pathname.endsWith("/post"))return Response.json({id:"post",message:"Root",can_comment:true});
+    const page=Number(u.searchParams.get("after")||0);
+    return Response.json({data:[{id:`c${page}`,message:`Comment ${page}`,from:{id:"customer"}}],...(page<15?{paging:{next:`https://graph.facebook.com/v26.0/post/comments?after=${page+1}`}}:{})});
+  });
+  const first=await readHistory(f.env,f.account,thread);assert.equal(first.coverage.pages,12);assert.equal(calls,13);assert.ok(first.nextCursor);assert.equal(first.coverage.complete,false);
+  const second=await readHistory(f.env,f.account,thread,{cursor:first.nextCursor!});assert.equal(second.nextCursor,null);assert.equal(second.coverage.pages,4);assert.equal(second.coverage.complete,false);assert.ok(second.items.some(i=>i.id==="c15"));
+  assert.ok(assess(defaultProfile(),"Hello",second).blockers.includes("incomplete_history"));
+  await assert.rejects(readHistory(f.env,f.account,{...thread,id:"wrong-thread"},{cursor:first.nextCursor!}),/differently scoped/);
+});
+
+test("comment discovery stops provider preview work when the shared time budget is exhausted",async(t)=>{
+  const f=await fixture();const real=Date.now();let elapsed=0;let calls=0;
+  t.mock.method(Date,"now",()=>real+elapsed);
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{calls++;const u=new URL(String(input));if(u.pathname.endsWith("/feed"))return Response.json({data:[{id:"a"},{id:"b"},{id:"c"}]});elapsed+=21000;return Response.json({data:[]});});
+  const result=await inbox(f.env,f.account,"comment");assert.equal(calls,2);assert.equal(result.threads[1].previewError,"read_budget_reached");assert.equal(result.coverage.complete,false);
 });

@@ -311,7 +311,7 @@ export async function handleMcp(request: Request, env: Env): Promise<Response | 
       const data = await callTool(name, args, request, env, userId);
       const search = name === "email_search" ? data as SearchResult : null;
       const allSearchesFailed = Boolean(search && search.errors.length > 0 && search.successfulAccountIds.length === 0);
-      return rpcResult(rpc.id, { ...toolResult(data, name === "attachment_download"), ...(allSearchesFailed ? { isError: true } : {}) });
+      return rpcResult(rpc.id, { ...toolResult(data, name === "attachment_download" || name === "social_inbox" || name === "social_thread_read"), ...(allSearchesFailed ? { isError: true } : {}) });
     }
     return rpcError(rpc.id, -32601, "Method not found");
   } catch (error) {
@@ -642,7 +642,7 @@ function mcpHeaders(): HeadersInit {
 function toolResult(data: unknown, download = false): Record<string, unknown> {
   return {
     content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-    // Binary downloads already contain the complete JSON/base64 in text, which
+    // Downloads and paginated social reads contain the complete JSON in text, which
     // works with older MCP clients. Duplicating it in structuredContent doubles
     // the response and can exceed connector transport limits for valid files.
     ...(download ? {} : { structuredContent: { result: data } }),

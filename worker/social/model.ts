@@ -26,9 +26,9 @@ export interface Thread {
   target: string; source_url: string | null; status: string; assigned_to: string | null;
   next_action: string; last_inbound_at: number | null; last_digest?: string | null; updated_at: number;
 }
-export interface HistoryItem { id: string; text: string; from: string; at: number | null; attachments: boolean }
+export interface HistoryItem { id: string; text: string; from: string; at: number | null; attachments: boolean; senderName?: string; role?: "post_context"; parentId?: string }
 export interface Coverage { complete: boolean; pages: number; gaps: string[]; sourceUrl: string | null }
-export interface History { items: HistoryItem[]; coverage: Coverage; target: string; lastInboundAt: number | null; owned: boolean }
+export interface History { items: HistoryItem[]; coverage: Coverage; target: string; lastInboundAt: number | null; owned: boolean; nextCursor?: string | null }
 export const id = () => crypto.randomUUID();
 export function str(value: unknown, field: string, max = 500): string {
   if (typeof value !== "string" || !value.trim() || value.length > max) throw new HttpError(400, `Invalid ${field}.`);

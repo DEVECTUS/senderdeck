@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.20 · 24 October 2026
+
+- Bound social inbox discovery to one root page with comment previews, scoped expiring pagination and observed incoming timestamps. Report incomplete recent-comment and promoted/ad coverage explicitly.
+- Separate post captions from incoming activity, retain sender names when provided and associate comments/replies with their parent. Bound comment history reads with resumable segments; partial snapshots cannot authorise sending.
+- Avoid duplicating social inbox and thread payloads in MCP text and structured output. Preserve all sending and brand approval controls.
+
 ## 0.4.19 · 23 October 2026
 
 - Describe MCP operations and enforced limits factually in tool metadata, keeping model workflow guidance in the bundled skills for Claude directory compatibility. Schemas and server-side approval checks are unchanged.
