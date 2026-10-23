@@ -6,6 +6,17 @@ import { oauthBrowserCookie, oauthBrowserRedirect, requireOAuthBrowser } from ".
 
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
+type OAuthPurpose = "mailbox" | "signin";
+
+function scopesFor(provider: Provider, purpose: OAuthPurpose): string[] {
+  if (purpose === "signin") {
+    return provider === "google"
+      ? ["openid", "email"]
+      : ["openid", "profile", "email", "User.Read"];
+  }
+  return provider === "google" ? googleScopes() : microsoftScopes();
+}
+
 export async function handleOAuthRoute(request: Request, env: Env): Promise<Response | null> {
   const url = new URL(request.url);
   const match = url.pathname.match(/^\/oauth\/(google|microsoft)\/(start|callback)$/);
@@ -136,16 +147,18 @@ export function googleAuthorizeUrl(
   redirectUri: string,
   state: string,
   codeChallenge: string,
+  purpose: OAuthPurpose = "mailbox",
 ): string {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.search = new URLSearchParams({
     client_id: env.GOOGLE_CLIENT_ID!,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: googleScopes().join(" "),
-    access_type: "offline",
-    include_granted_scopes: "true",
-    prompt: "consent select_account",
+    scope: scopesFor("google", purpose).join(" "),
+    access_type: purpose === "mailbox" ? "offline" : "online",
+    // Do not combine a basic sign-in with a previously granted Gmail scope.
+    include_granted_scopes: purpose === "mailbox" ? "true" : "false",
+    prompt: purpose === "mailbox" ? "consent select_account" : "select_account",
     state,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
@@ -158,6 +171,7 @@ export function microsoftAuthorizeUrl(
   redirectUri: string,
   state: string,
   codeChallenge: string,
+  purpose: OAuthPurpose = "mailbox",
 ): string {
   const tenant = env.MICROSOFT_TENANT || "common";
   const url = new URL(
@@ -168,7 +182,7 @@ export function microsoftAuthorizeUrl(
     redirect_uri: redirectUri,
     response_type: "code",
     response_mode: "query",
-    scope: microsoftScopes().join(" "),
+    scope: scopesFor("microsoft", purpose).join(" "),
     prompt: "select_account",
     state,
     code_challenge: codeChallenge,
@@ -183,6 +197,7 @@ export async function exchangeCode(
   code: string,
   redirectUri: string,
   codeVerifier: string,
+  purpose: OAuthPurpose = "mailbox",
 ): Promise<{
   accessToken: string;
   refreshToken?: string;
@@ -205,7 +220,8 @@ export async function exchangeCode(
     grant_type: "authorization_code",
     code_verifier: codeVerifier,
   });
-  if (!isGoogle) body.set("scope", microsoftScopes().join(" "));
+  const requestedScopes = scopesFor(provider, purpose);
+  if (!isGoogle) body.set("scope", requestedScopes.join(" "));
   const response = await fetch(endpoint, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -229,7 +245,7 @@ export async function exchangeCode(
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
     expiresIn: data.expires_in ?? 3600,
-    scopes: (data.scope || (isGoogle ? googleScopes() : microsoftScopes()).join(" "))
+    scopes: (data.scope || requestedScopes.join(" "))
       .split(" ")
       .filter(Boolean),
   };

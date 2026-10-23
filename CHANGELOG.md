@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Separate Google and Microsoft identity sign-in from mailbox authorization. Sign-in no longer requests email access, forces Google's consent prompt, creates a mailbox connection or replaces existing mailbox credentials. Connect email separately in Settings.
+- Request Microsoft User.Read explicitly for Graph identity lookup and keep token exchange scoped to the selected flow. Provider branding and publisher verification remain separate approval requirements.
+
 ## 0.4.22 · 24 October 2026
 
 - Implement read-only ad-creative mapping from an explicitly approved advertising account to verified Facebook stories and Instagram media. Recheck granting identity, live advertising scopes, account access and actual root authorship before exposing content.

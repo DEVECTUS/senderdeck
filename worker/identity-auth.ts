@@ -2,7 +2,6 @@ import {
   HttpError,
   SESSION_COOKIE,
 } from "./auth";
-import { saveAccount } from "./accounts";
 import { randomBase64Url, sha256Base64Url } from "./crypto";
 import { isUserRetired } from "./retired-users";
 import type { Env, Provider } from "./env";
@@ -33,11 +32,6 @@ interface LoginStateRow {
 interface IdentityRow {
   user_id: string;
   email: string;
-}
-
-interface MatchingAccountRow {
-  user_id: string;
-  label: string;
 }
 
 export async function handleIdentityAuthRoute(
@@ -100,8 +94,8 @@ async function startSignIn(request: Request, env: Env, provider: Provider): Prom
   ]);
 
   const authorizeUrl = provider === "google"
-    ? googleAuthorizeUrl(env, redirectUri, state, codeChallenge)
-    : microsoftAuthorizeUrl(env, redirectUri, state, codeChallenge);
+    ? googleAuthorizeUrl(env, redirectUri, state, codeChallenge, "signin")
+    : microsoftAuthorizeUrl(env, redirectUri, state, codeChallenge, "signin");
   return oauthBrowserRedirect(authorizeUrl, state);
 }
 
@@ -137,7 +131,7 @@ async function finishSignInIfMatched(
       .bind(stateHash, provider).first();
     if (!consumed) throw new HttpError(400, "Sign-in was already used. Start again.");
 
-    const token = await exchangeCode(env, provider, code, stored.redirect_uri, stored.code_verifier);
+    const token = await exchangeCode(env, provider, code, stored.redirect_uri, stored.code_verifier, "signin");
     const profile = provider === "google"
       ? await googleProfile(token.accessToken)
       : await microsoftProfile(token.accessToken);
@@ -148,14 +142,6 @@ async function finishSignInIfMatched(
     )
       .bind(provider, profile.id)
       .first<IdentityRow>();
-    const matchingAccounts = await env.DB.prepare(
-      `SELECT user_id, label FROM email_accounts
-       WHERE provider = ? AND provider_account_id = ?
-       ORDER BY updated_at DESC LIMIT 2`,
-    )
-      .bind(provider, profile.id)
-      .all<MatchingAccountRow>();
-
     // A connected mailbox is not a login identity. Only an existing identity
     // (created on registration or explicitly enabled by its owner) can open it.
     const userId = identity?.user_id || `usr_${randomBase64Url(18)}`;
@@ -181,21 +167,6 @@ async function finishSignInIfMatched(
       .bind(provider, profile.id)
       .first<IdentityRow>();
     if (!resolvedIdentity || resolvedIdentity.user_id !== userId) throw new HttpError(409, "The sign-in identity changed. Start again.");
-
-    const label = matchingAccounts.results.find(
-      (account) => account.user_id === resolvedIdentity.user_id,
-    )?.label || `${provider === "google" ? "Google" : "Microsoft"} account`;
-    await saveAccount(env, {
-      userId: resolvedIdentity.user_id,
-      provider,
-      providerAccountId: profile.id,
-      email,
-      label,
-      accessToken: token.accessToken,
-      refreshToken: token.refreshToken,
-      expiresAt: Date.now() + token.expiresIn * 1000,
-      scopes: token.scopes,
-    });
 
     const destination = new URL(safeReturnPath(stored.return_to), url.origin).toString();
     const response = await createSessionResponse(

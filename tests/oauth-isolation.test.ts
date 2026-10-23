@@ -48,6 +48,40 @@ function providerMock(t: TestContext) {
 }
 
 for (const provider of ["google", "microsoft"] as const) {
+  test(`${provider}: sign-in requests only identity access and preserves mailbox credentials`, async t => {
+    const f = fixture(); t.after(() => f.sql.close());
+    await mailbox(f, provider);
+    f.sql.prepare("INSERT INTO senderdeck_identities VALUES (?,?,?,?,?,?)").run(provider, "provider-subject", "owner", "sample@example.com", Date.now(), Date.now());
+    const before = f.sql.prepare("SELECT * FROM email_accounts").get();
+    let tokenBody: URLSearchParams | undefined;
+    t.mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      if (String(input).includes("/token")) {
+        tokenBody = new URLSearchParams(String(init?.body));
+        return Response.json({ access_token: "identity-only-token", expires_in: 3600 });
+      }
+      if (String(input).includes("userinfo")) return Response.json({ id: "provider-subject", email: "sample@example.com", verified_email: true });
+      if (String(input).includes("graph.microsoft.com")) return Response.json({ id: "provider-subject", mail: "sample@example.com" });
+      throw new Error("Unexpected provider request");
+    });
+    const start = await handleIdentityAuthRoute(new Request(`${origin}/auth/${provider}/start`), f.env);
+    const params = new URL(start!.headers.get("location")!).searchParams;
+    const expected = provider === "google" ? ["openid", "email"] : ["openid", "profile", "email", "User.Read"];
+    assert.deepEqual(params.get("scope")!.split(" "), expected);
+    assert.equal(params.get("prompt"), "select_account");
+    if (provider === "google") {
+      assert.equal(params.get("include_granted_scopes"), "false");
+      assert.equal(params.get("access_type"), "online");
+    }
+    const response = await handleIdentityAuthRoute(new Request(`${origin}/oauth/${provider}/callback?state=${params.get("state")}&code=code`, { headers: { cookie: start!.headers.get("set-cookie")!.split(";")[0] } }), f.env);
+    assert.equal(response?.status, 303);
+    const cookie = response!.headers.getSetCookie().find(c => c.startsWith(SESSION_COOKIE))!.split(";")[0];
+    assert.equal((await authenticatedUser(new Request(origin, { headers: { cookie } }), f.env))?.userId, "owner");
+    assert.deepEqual(f.sql.prepare("SELECT * FROM email_accounts").get(), before);
+    assert.ok(tokenBody);
+    if (provider === "microsoft") assert.deepEqual(tokenBody.get("scope")!.split(" "), expected);
+    else assert.equal(tokenBody.has("scope"), false);
+  });
+
   for (const flow of ["signin", "connect"] as const) {
     test(`${provider} ${flow}: stolen state cannot finish in another browser or consume the real flow`, async t => {
       const f = fixture(); t.after(() => f.sql.close()); const calls = providerMock(t);
@@ -55,6 +89,11 @@ for (const provider of ["google", "microsoft"] as const) {
       const route = flow === "signin" ? handleIdentityAuthRoute : handleOAuthRoute;
       const start = await route(new Request(`${origin}/${flow === "signin" ? "auth" : "oauth"}/${provider}/start`, { headers: { cookie: owner } }), f.env);
       assert.equal(start?.status, 302);
+      const scope = new URL(start!.headers.get("location")!).searchParams.get("scope")!;
+      if (flow === "connect") {
+        assert.match(scope, provider === "google" ? /gmail\.readonly/ : /Mail\.ReadWrite/);
+        assert.match(scope, provider === "google" ? /gmail\.compose/ : /Mail\.Send/);
+      }
       const cookie = start!.headers.get("set-cookie")!;
       assert.match(cookie, /^__Host-senderdeck-oauth-/); assert.match(cookie, /Path=\/; HttpOnly; Secure; SameSite=Lax; Max-Age=600/);
       const state = new URL(start!.headers.get("location")!).searchParams.get("state")!;
@@ -71,6 +110,7 @@ for (const provider of ["google", "microsoft"] as const) {
       }
       const good = await route(new Request(callback, { headers: { cookie: goodCookie } }), f.env);
       assert.equal(good?.status, flow === "signin" ? 303 : 200);
+      assert.equal(f.sql.prepare("SELECT COUNT(*) AS n FROM email_accounts").get()?.n, flow === "signin" ? 0 : 1);
       const beforeReplay = calls.length;
       const replay = await route(new Request(callback, { headers: { cookie: goodCookie } }), f.env);
       assert.ok(!replay || replay.status >= 400); assert.equal(calls.length, beforeReplay);

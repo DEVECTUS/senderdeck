@@ -341,5 +341,5 @@ export function googleScopes(): string[] {
 }
 
 export function microsoftScopes(): string[] {
-  return ["openid", "profile", "email", "offline_access", "Mail.ReadWrite", "Mail.Send"];
+  return ["openid", "profile", "email", "offline_access", "User.Read", "Mail.ReadWrite", "Mail.Send"];
 }

@@ -41,6 +41,8 @@ Customers do not need to create developer apps or run local relays for the hoste
 
 ## Provider sign-in and connected mailboxes
 
+Provider sign-in requests basic identity only: Google `openid email`; Microsoft `openid profile email User.Read`. It creates a SenderDeck session without connecting email or replacing saved mailbox credentials. Connect email separately in Settings to grant mailbox access. See [provider verification](publishing/PROVIDER-SIGN-IN-2026-10-24.md) for the remaining Google and Microsoft approval requirements.
+
 A connected mailbox does not automatically grant sign-in to its owner's SenderDeck account. Under Settings → Connected email accounts, the signed-in owner can select **Enable sign-in** for a mailbox and confirm access to the whole account. A provider identity already assigned to another SenderDeck account cannot be reassigned this way. Disconnecting the mailbox removes its sign-in link. Preserve another sign-in method before disconnecting your login mailbox.
 
 Google and Microsoft authorization must finish in the same browser that started it. Each flow uses its own short-lived Secure, HttpOnly, host-only cookie and one-use server state. Forwarded authorization links and callbacks from another browser are refused. Mailbox connection callbacks also require the same signed-in owner. Starts from before this security update must be restarted.
@@ -135,7 +137,7 @@ The packaged plugin points to the Sites deployment at `/api/mcp`. Sites reserves
 
 ## OAuth permissions
 
-Google requests OpenID email identity plus `gmail.readonly` and `gmail.compose`. Microsoft requests OpenID identity plus `Mail.ReadWrite` and `Mail.Send`, with `offline_access`.
+Mailbox connection requests Google OpenID email identity plus `gmail.readonly` and `gmail.compose`. Microsoft mailbox connection requests OpenID identity plus `User.Read`, `Mail.ReadWrite` and `Mail.Send`, with `offline_access`. Signing in alone does not request mailbox scopes or offline access.
 
 Public submission materials are maintained in `publishing/OPENAI-PLUGIN-SUBMISSION.md` and `publishing/CLAUDE-PUBLISHING-PLAN.md`. Provider verification, publisher verification, reviewer credentials, external security review and legal approval remain account-bound release gates.
 

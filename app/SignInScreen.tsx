@@ -38,7 +38,7 @@ export default function SignInScreen({ returnTo, currentUser, passwordError }: {
           </form>
           <p className="signin-note">New here? Sign in with Google or Microsoft once, then add a username and password in Settings → Sign-in details.</p>
           {currentUser && <p className="signin-scope-note">Currently viewing {currentUser.email} through {currentUser.authSource === "openai" ? "OpenAI" : "SenderDeck"} sign-in. Choose the Google or Microsoft identity used for your brands. This switches the session; it does not merge workspaces or share account access.</p>}
-          <p>You will review the provider permissions before anything is connected.</p>
+          <p>Google or Microsoft sign-in uses only your basic identity. Connect email separately in Settings when you want to grant mailbox access.</p>
           <div className="signin-actions">
             <a className="primary" href={`/auth/google/start?return_to=${encodedReturnTo}`}>
               Continue with Google
