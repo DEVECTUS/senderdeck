@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.19 · 23 October 2026
+
+- Describe MCP operations and enforced limits factually in tool metadata, keeping model workflow guidance in the bundled skills for Claude directory compatibility. Schemas and server-side approval checks are unchanged.
+
 ## 0.4.18 · 23 October 2026
 
 - Bind Google and Microsoft sign-in and mailbox connection callbacks to a per-flow, host-only browser cookie. Consume state atomically and reject connection callbacks after the signed-in owner changes.

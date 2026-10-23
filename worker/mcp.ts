@@ -75,7 +75,7 @@ const tools = [
   },
   {
     name: "account_list",
-    description: "List connected accounts with senderIdentities nested under their owning account. Google identities are fetched live from Gmail sendAs: primary plus accepted aliases only. Aliases share the owner's accountId, never a separate OAuth account. Report senderDiscoveryError; do not infer missing aliases.",
+    description: "List connected accounts with senderIdentities nested under their owning account. Google identities are fetched live from Gmail sendAs: primary plus accepted aliases only. Aliases share the owner's accountId, never a separate OAuth account. Sender discovery failures are returned in senderDiscoveryError; unverified aliases are omitted.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
     securitySchemes: oauthSecurity(),
     annotations: toolAnnotations("List connected accounts", true, false, false),
@@ -108,7 +108,7 @@ const tools = [
   {
     name: "route_account",
     description:
-      "Resolve a label, primary email or exact authorised Gmail alias to one owning account. Exact email matches return selectedFrom; pass it explicitly as from when drafting. Never guesses when multiple accounts match.",
+      "Resolve a label, primary email or exact authorised Gmail alias to one owning account. Exact email matches return selectedFrom. Ambiguous matches fail rather than selecting an account.",
     inputSchema: {
       type: "object",
       properties: {
@@ -124,7 +124,7 @@ const tools = [
   {
     name: "email_search",
     description:
-      "Search email on demand across selected connected accounts. Report per-account errors; failed searches do not mean there are no matching messages. No mailbox content is indexed or retained.",
+      "Search email on demand across selected connected accounts. Returns per-account errors separately from successful no-match results. No mailbox content is indexed or retained.",
     inputSchema: {
       type: "object",
       properties: {
@@ -168,7 +168,7 @@ const tools = [
   },
   {
     name: "draft_update",
-    description: "Edit an existing draft in place; never sends or creates another draft. Inspect first and pass expectedRevision. Optional from selects a current authorised Gmail identity; omission preserves saved From and empty from is invalid. Other omitted fields are preserved; empty strings/arrays clear requested values. attachments replaces ALL files, including inline images. Outlook has one body: use bodyHtml for HTML drafts, or bodyHtml: empty string plus bodyText to explicitly switch to text.",
+    description: "Edit an existing draft in place; never sends or creates another draft. Requires expectedRevision matching the current saved draft. Optional from selects a current authorised Gmail identity; omission preserves saved From and empty from is invalid. Other omitted fields are preserved; empty strings/arrays clear requested values. attachments replaces ALL files, including inline images. Outlook stores one body; bodyHtml selects HTML and an empty bodyHtml with bodyText selects text.",
     inputSchema: draftUpdateSchema(),
     securitySchemes: oauthSecurity(),
     annotations: toolAnnotations("Update an email draft", false, true, true),
@@ -176,7 +176,7 @@ const tools = [
   {
     name: "draft_inspect",
     description:
-      "Re-read saved body, formatting, thread metadata, exact effective sender address, Gmail fromHeader, recipients, subject, attachments and revision. sender may be a Gmail alias under accountId. Inspect immediately before requesting fresh send confirmation.",
+      "Re-read saved body, formatting, thread metadata, exact effective sender address, Gmail fromHeader, recipients, subject, attachments and revision. sender may be a Gmail alias under accountId. Returns the current revision used to validate an exact send confirmation.",
     inputSchema: {
       type: "object",
       properties: { accountId: { type: "string" }, draftId: { type: "string" } },
@@ -189,7 +189,7 @@ const tools = [
   {
     name: "email_send",
     description:
-      "Send one existing draft only after a separate explicit confirmation of its exact sender, recipients, subject, attachments and inspected revision. Revalidates Gmail From against current authorised sendAs identities and rechecks the revision; revoked aliases or changed drafts fail. Never bulk or automatic send.",
+      "Send one existing draft only after a separate explicit confirmation of its exact sender, recipients, subject, attachments and inspected revision. Revalidates Gmail From against current authorised sendAs identities and rechecks the revision; revoked aliases or changed drafts fail. Supports one individually confirmed draft per request, with no bulk-send operation.",
     inputSchema: {
       type: "object",
       properties: {
@@ -199,7 +199,7 @@ const tools = [
         confirmation: {
           type: "object",
           properties: {
-            revision: { type: "string", description: "Copy revision from the immediately preceding draft_inspect. Any edit invalidates earlier approval." },
+            revision: { type: "string", description: "Current inspected draft revision; any edit invalidates earlier approval." },
             sender: { type: "string" },
             to: { type: "array", items: { type: "string" } },
             cc: { type: "array", items: { type: "string" } },
