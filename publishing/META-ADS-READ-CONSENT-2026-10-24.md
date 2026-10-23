@@ -1,0 +1,13 @@
+# Meta ads_read configuration and consent — 24 October 2026
+
+The owner explicitly approved adding only ads_read to SenderDeck's Meta login configuration and requesting fresh DEVECTUS consent. Advertising-account selection, ads_management, campaign changes and social sending were excluded from that approval.
+
+The signed-in developer dashboard for SenderDeck by DEVECTUS app 2213673322866707 initially offered only the existing ten permissions in configuration 1772051498254531 (SenderDeck Social Inbox). Added the Measure ad performance data with Marketing API use case to make ads_read available. Meta's use-case capability table also lists ads_management as available for testing; it was not selected in the login configuration and was not requested or present in the verified fresh consent grant.
+
+Saved the same configuration with ads_read plus the original ten permissions: business_management, instagram_basic, instagram_manage_comments, instagram_manage_messages, pages_manage_engagement, pages_manage_metadata, pages_messaging, pages_read_engagement, pages_read_user_content and pages_show_list. Configuration name, ID, General login variation and user-access-token type were preserved. The expanded saved configuration was inspected after saving and showed exactly those eleven permissions.
+
+Started a new consent flow from the authenticated SenderDeck owner session for DEVECTUS brand 48da196a-d80a-4a1a-ad1f-ae65c89f9b82. Meta showed Barsham Sotoudeh. Existing Page, Instagram and business choices were left unchanged. The final review added access to Facebook ads and related stats; it did not request ads management. Meta confirmed the connection and the callback returned to SenderDeck successfully.
+
+The token-free social_asset_list response from that fresh owner-bound grant independently confirmed ads_read present, ads_management absent and the original social permissions retained. Read-only advertising asset discovery also succeeded and returned DEVECTUS Ads – AU, act_1286084226264225, among the accessible accounts. Listing is not selection. No advertising account was selected or linked to either DEVECTUS social account; no campaign, sending switch, approval policy or social reply was changed. No credential, access token, authorization code, ephemeral OAuth state or grant ID is recorded here.
+
+Production remains v0.4.22, deployed source e1ea84b9075ac9bacc8dcc575003049636c74f20. This was a Meta configuration change; it did not require a website deployment. The fresh grant is short-lived and is not installed into a social account until a separately approved advertising selection; if it expires, repeat consent with the same approved permissions before selection. Catherine/Kalan comment coverage remains unverified.
