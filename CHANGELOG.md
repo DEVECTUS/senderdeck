@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.21 · 24 October 2026
+
+- Report actual provider post authorship separately from the legacy reply-authority gate. Missing permission verdicts are explicit gaps, and different/unknown Instagram owners never gain reply authority.
+- Add separately scoped Facebook Page ads_posts discovery, precise ad-account/permission/webhook diagnostics, and explicit source/size options for continuation.
+- Add a public metadata verification command and safe client refresh instructions; expose the live server version in social reads.
+
 ## 0.4.20 · 24 October 2026
 
 - Bound social inbox discovery to one root page with comment previews, scoped expiring pagination and observed incoming timestamps. Report incomplete recent-comment and promoted/ad coverage explicitly.

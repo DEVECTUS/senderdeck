@@ -34,7 +34,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.20 adds bounded social discovery with comment previews, scoped pagination and explicit coverage gaps; separates post context from incoming activity; and avoids duplicated social read payloads. Partial histories cannot authorise sending. Existing OAuth isolation and exact approval controls remain enforced. Credentials remain outside the ZIP." },
+  publication: { release_notes: "Version 0.4.21 separates provider post authorship from reply authority, adds separately scoped Facebook ad-post discovery and precise coverage diagnostics, and documents client metadata refresh. Bounded pagination and all OAuth/approval controls remain enforced. Credentials remain outside the ZIP." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

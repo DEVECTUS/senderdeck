@@ -28,7 +28,9 @@ export interface Thread {
 }
 export interface HistoryItem { id: string; text: string; from: string; at: number | null; attachments: boolean; senderName?: string; role?: "post_context"; parentId?: string }
 export interface Coverage { complete: boolean; pages: number; gaps: string[]; sourceUrl: string | null }
-export interface History { items: HistoryItem[]; coverage: Coverage; target: string; lastInboundAt: number | null; owned: boolean; nextCursor?: string | null }
+export interface RootOwnership { state: "verified" | "different_asset" | "unverified"; ownerId: string | null; source: string }
+export interface ReplyAuthority { state: "verified" | "denied" | "unverified"; reason: string }
+export interface History { items: HistoryItem[]; coverage: Coverage; target: string; lastInboundAt: number | null; owned: boolean; nextCursor?: string | null; ownership?: RootOwnership; replyAuthority?: ReplyAuthority; ownedMeaning?: string }
 export const id = () => crypto.randomUUID();
 export function str(value: unknown, field: string, max = 500): string {
   if (typeof value !== "string" || !value.trim() || value.length > max) throw new HttpError(400, `Invalid ${field}.`);

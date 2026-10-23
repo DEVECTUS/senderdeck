@@ -297,6 +297,11 @@ test("exposes a healthy stateless MCP contract", async () => {
   const send = listed.result.tools.find((tool) => tool.name === "email_send");
   assert.equal(send.annotations.openWorldHint, true);
   assert.equal(send.annotations.destructiveHint, true);
+  const inbox = listed.result.tools.find(tool => tool.name === "social_inbox").inputSchema;
+  assert.ok(inbox.properties.cursor);
+  assert.equal(inbox.properties.limit.maximum, 20);
+  assert.deepEqual(inbox.properties.source.enum, ["feed", "ads"]);
+  assert.ok(listed.result.tools.find(tool => tool.name === "social_thread_read").inputSchema.properties.cursor);
 });
 
 test("publishes OAuth discovery metadata for the MCP client", async () => {

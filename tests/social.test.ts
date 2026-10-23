@@ -551,7 +551,8 @@ test("unsupported optional post field retries minimal context without granting c
     return Response.json({data:[{id:"comment",message:"Comment",from:{id:"person"},created_time:new Date().toISOString()}]});
   });
   const history=await readHistory(f.env,f.account,{...f.thread,kind:"comment",provider_id:"post",target:"post"});
-  assert.equal(history.items.length,2);assert.equal(history.owned,false);assert.ok(seen.includes("id,message,created_time"));assert.doesNotMatch(JSON.stringify(history),/private-page-token/);
+  assert.equal(history.items.length,2);assert.equal(history.owned,false);assert.ok(seen.includes("id,message,from,created_time"));assert.doesNotMatch(JSON.stringify(history),/private-page-token/);
+  assert.equal(history.replyAuthority?.state,"unverified");assert.equal(history.ownership?.state,"unverified");assert.equal(history.coverage.complete,false);
   assert.ok(assess(defaultProfile(),"Hello",history).blockers.includes("thread_owned_by_another_application_or_unknown"));
 });
 test("root-list success with denied comment edge does not advertise comment history access",async(t)=>{
@@ -641,7 +642,7 @@ test("Instagram per-thread reads preserve the native Suite coverage uncertainty"
   const f=await fixture();t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>new URL(String(input)).pathname.endsWith("/media-root")?Response.json({id:"media-root",caption:"Root",timestamp:new Date().toISOString()}):Response.json({data:[]}));
   const history=await readHistory(f.env,{...f.account,provider:"instagram"},{...f.thread,kind:"comment",provider_id:"media-root",target:"media-root"});
   assert.equal(history.coverage.complete,false);assert.ok(history.coverage.gaps.includes("instagram_native_suite_history_coverage_not_established"));
-  assert.equal(history.lastInboundAt,null);assert.equal(history.items[0].role,"post_context");assert.equal(history.items[0].from,f.account.asset_id);
+  assert.equal(history.lastInboundAt,null);assert.equal(history.items[0].role,"post_context");assert.equal(history.items[0].from,"unknown");assert.equal(history.ownership?.state,"unverified");assert.equal(history.owned,false);
 });
 
 test("comment discovery returns bounded previews, incoming activity and account-bound token-free cursors",async(t)=>{
@@ -695,4 +696,45 @@ test("inbox previews do not reuse legacy caption timestamps as incoming activity
   const result=await socialAction("social_inbox",{...f.scope,kind:"comments"},f.env,"alice") as {threads:Array<{id:string;last_inbound_at:number|null;activityScope:string}>};
   assert.equal(result.threads[0].last_inbound_at,null);assert.match(result.threads[0].activityScope,/preview_only/);
   assert.equal(f.sql.prepare("SELECT last_inbound_at FROM social_threads WHERE id=?").get(f.thread.id)!.last_inbound_at,null);
+});
+
+test("verified Page authorship does not turn unavailable reply authority into permission",async(t)=>{
+  const f=await fixture();
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{
+    const u=new URL(String(input));if(u.pathname.endsWith("/post")) {
+      if(u.searchParams.get("fields")?.includes("can_comment"))return Response.json({error:{code:100,message:"Tried accessing nonexisting field (can_comment) on node type (Post)."}},{status:400});
+      return Response.json({id:"post",from:{id:"page-a"},message:"Own post"});
+    }
+    return Response.json({data:[]});
+  });
+  const history=await readHistory(f.env,f.account,{...f.thread,kind:"comment",provider_id:"post",target:"post"});
+  assert.equal(history.ownership?.state,"verified");assert.equal(history.ownership?.ownerId,"page-a");assert.equal(history.items[0].from,"page-a");
+  assert.equal(history.owned,false);assert.equal(history.replyAuthority?.state,"unverified");assert.equal(history.coverage.complete,false);assert.match(history.ownedMeaning!,/not proof of post authorship/);
+  assert.ok(assess(defaultProfile(),"Hello",history).blockers.includes("thread_owned_by_another_application_or_unknown"));
+});
+
+test("different provider author is not replaced by the selected account or granted reply ownership",async(t)=>{
+  const f=await fixture();
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>new URL(String(input)).pathname.endsWith("/post")?Response.json({id:"post",from:{id:"another-page"},message:"Another author",can_comment:true}):Response.json({data:[]}));
+  const history=await readHistory(f.env,f.account,{...f.thread,kind:"comment",provider_id:"post",target:"post"});
+  assert.equal(history.items[0].from,"another-page");assert.equal(history.ownership?.state,"different_asset");assert.equal(history.owned,false);assert.equal(history.coverage.complete,false);
+});
+
+test("Page ad roots use a distinct endpoint and cursor scope with actionable coverage diagnostics",async(t)=>{
+  const f=await fixture();let ads=0;
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{
+    const u=new URL(String(input));assert.doesNotMatch(u.pathname,/\/feed$/);
+    if(u.pathname.endsWith("/ads_posts")){ads++;return Response.json({data:[{id:"ad-post"}],paging:{next:"https://graph.facebook.com/v26.0/page-a/ads_posts?after=next&limit=2"}});}
+    return Response.json({data:[]});
+  });
+  const result=await inbox(f.env,f.account,"comment",{source:"ads",limit:2});assert.equal(ads,1);assert.equal(result.source,"page_ads_posts");assert.equal(result.threads[0].providerId,"ad-post");
+  assert.equal(result.coverageDiagnostics.adCreativeDiscovery.hasReadScope,false);assert.ok(result.coverageDiagnostics.adCreativeDiscovery.blockers.includes("ads_read_or_ads_management_not_granted"));
+  await assert.rejects(inbox(f.env,f.account,"comment",{cursor:result.nextCursor!}),/differently scoped/);
+  await assert.rejects(inbox(f.env,{...f.account,provider:"instagram"},"comment",{source:"ads"}),/separately verified advertising account/);
+  await inbox(f.env,f.account,"comment",{source:"ads",cursor:result.nextCursor!,limit:1});assert.equal(ads,2);
+});
+
+test("denied Page ad discovery is a specific access failure, never empty coverage",async(t)=>{
+  const f=await fixture();t.mock.method(globalThis,"fetch",async()=>Response.json({error:{code:200,message:"private provider text"}},{status:403}));
+  await assert.rejects(inbox(f.env,f.account,"comment",{source:"ads"}),error=>error instanceof Error&&/ads_posts read failed: HTTP 403, Graph 200/.test(error.message)&&!error.message.includes("private provider text"));
 });

@@ -1,7 +1,7 @@
 import { HttpError } from "../auth";
 import { decrypt, encrypt } from "../crypto";
 import type { Env } from "../env";
-import { json, type SocialAccount, type History, type HistoryItem, type Coverage, type Thread } from "./model";
+import { json, type SocialAccount, type History, type HistoryItem, type Coverage, type Thread, type RootOwnership, type ReplyAuthority } from "./model";
 import { monitoringEvidence } from "./monitoring";
 
 export const GRAPH_VERSION = "v26.0";
@@ -10,7 +10,7 @@ type GraphObject = Record<string, unknown>;
 interface ReadBudget { deadline: number; remaining: number }
 class ReadLimit extends Error {}
 const readBudget = (): ReadBudget => ({ deadline: Date.now() + 20000, remaining: 20 });
-export interface ReadOptions { cursor?: string; limit?: number }
+export interface ReadOptions { cursor?: string; limit?: number; source?: "feed" | "ads" }
 interface Continuation { account: string; scope: string; expires: number; paths: Array<{ path: string; depth: number }> }
 async function resume(env: Env, account: SocialAccount, scope: string, cursor?: string) {
   if (!cursor) return null;
@@ -256,11 +256,18 @@ export async function inbox(env: Env, account: SocialAccount, kind: "message" | 
   const caps = capabilities(env, account);
   if ((kind === "message" ? caps.messages : caps.comments) !== "available") throw new HttpError(409, "This account capability is unavailable or needs live validation.");
   const token = await decrypt(kind === "comment" && account.provider === "instagram" ? account.user_token! : account.token!, env.TOKEN_ENCRYPTION_KEY);
-  const path = kind === "message" ? `${account.parent_id || account.asset_id}/conversations` : `${account.asset_id}/${account.provider === "facebook" ? "feed" : "media"}`;
-  const scope = `inbox:${kind}`; const resumed = await resume(env, account, scope, options.cursor);
+  const source = options.source || "feed";
+  if (!["feed", "ads"].includes(source) || (source === "ads" && (kind !== "comment" || account.provider !== "facebook"))) throw new HttpError(400, "source ads is supported only for Facebook comment discovery via the selected Page's ads_posts edge. Instagram ad-creative discovery requires a separately verified advertising account and ads_read or ads_management; this connector has no ad-account selection yet. Use the Meta Business Suite ad permalink for missing placement-specific comments.");
+  const path = kind === "message" ? `${account.parent_id || account.asset_id}/conversations` : `${account.asset_id}/${account.provider === "facebook" ? source === "ads" ? "ads_posts" : "feed" : "media"}`;
+  const scope = `inbox:${kind}:${source}`; const resumed = await resume(env, account, scope, options.cursor);
   const budget = readBudget(); const limit = options.limit ?? 10;
   if (!Number.isInteger(limit) || limit < 1 || limit > 20) throw new HttpError(400, "limit must be an integer from 1 to 20.");
-  const page = await graph(token, resumed?.[0]?.path || path, resumed ? {} : kind === "message" ? { platform: account.provider === "facebook" ? "messenger" : "instagram", fields: "id,updated_time", limit: String(limit) } : { fields: account.provider === "facebook" ? "id,message,created_time,permalink_url" : "id,caption,timestamp,permalink", limit: String(limit) }, "GET", budget);
+  let page: GraphObject;
+  try { page = await graph(token, resumed?.[0]?.path || path, resumed ? options.limit === undefined ? {} : { limit: String(limit) } : kind === "message" ? { platform: account.provider === "facebook" ? "messenger" : "instagram", fields: "id,updated_time", limit: String(limit) } : { fields: account.provider === "facebook" ? "id,message,created_time,permalink_url" : "id,caption,timestamp,permalink", limit: String(limit) }, "GET", budget); }
+  catch (error) {
+    if (source !== "ads" || !(error instanceof MetaProviderError)) throw error;
+    throw new HttpError(error.status, `The selected Page's ads_posts read failed: HTTP ${error.providerStatus}, Graph ${error.providerCode ?? "unknown"}. No ad coverage was obtained. Check this granting person's Page advertising tasks and app access to ads_posts in Meta's Graph API Explorer. A feed result does not substitute for an ad-post result. ${error.status === 401 ? "Reconnect the expired Meta grant." : "Keep native Business Suite review until access is verified."}`);
+  }
   if (!Array.isArray(page.data)) throw new HttpError(502, "Meta returned an unexpected collection.");
   const result = { rows: page.data as GraphObject[], coverage: { complete: true, pages: 1, gaps: [] as string[], sourceUrl: null } as Coverage };
   if (result.rows.length > 20) throw new HttpError(502, "Meta exceeded the requested root page size. Coverage is incomplete.");
@@ -291,7 +298,16 @@ export async function inbox(env: Env, account: SocialAccount, kind: "message" | 
   }
   threads.sort((a, b) => (b.lastInboundAt || 0) - (a.lastInboundAt || 0));
   result.coverage.gaps = [...new Set(result.coverage.gaps)];
-  return { threads, coverage: result.coverage, nextCursor, ordering: "Observed incoming comments within this root page only; paginate and read each full thread. Instagram does not support ordering results." };
+  return { threads, coverage: result.coverage, nextCursor, source: kind === "comment" ? account.provider === "facebook" ? source === "ads" ? "page_ads_posts" : "page_feed" : "instagram_media" : "conversations", ordering: "Observed incoming comments within this root page only; paginate and read each full thread. Instagram does not support ordering results.", coverageDiagnostics: commentCoverageDiagnostics(account, source) };
+}
+export function commentCoverageDiagnostics(account: SocialAccount, source = "feed") {
+  const scopes = json<string[]>(account.permissions);
+  return { rootSource: account.provider === "facebook" ? source === "ads" ? "page_ads_posts" : "page_feed" : "instagram_media",
+    nativeSuiteParity: "not_established", missingCommentCause: "not_determined_do_not_infer_deleted_hidden_or_ad_only",
+    adCreativeDiscovery: { configured: false, hasReadScope: scopes.includes("ads_read") || scopes.includes("ads_management"), verifiedAdAccount: false,
+      blockers: [...(!scopes.includes("ads_read") && !scopes.includes("ads_management") ? ["ads_read_or_ads_management_not_granted"] : []), "no_verified_ad_account_selection", "ad_creative_media_mapping_not_implemented"],
+      ownerAction: "Identify the missing comment's Facebook/Instagram ad placement and exact post/media permalink in Business Suite. Facebook Page ads_posts can be checked with source ads. Instagram creative mapping needs a separately authorised and explicitly selected ad account; reconnecting the existing Page grant alone does not implement that adapter. Do not change app scopes without owner approval." },
+    incomingEvents: { instagram: account.provider === "instagram" ? "dashboard_comments_subscription_and_signed_delivery_not_verified_by_page_subscription" : "not_applicable", ownerAction: "For future Instagram comments, configure the platform app's Instagram comments webhook field and verify a signed delivery for this exact account. A subscription does not backfill historical comments." } };
 }
 function item(row: GraphObject): HistoryItem {
   const from = row.from as { id?: string; username?: string; name?: string } | undefined;
@@ -301,10 +317,12 @@ function item(row: GraphObject): HistoryItem {
 function commentFields(provider:string){return provider==="facebook"?"id,message,from,created_time,attachment,comment_count":"id,text,from,timestamp";}
 async function commentContext(token:string,rootId:string,provider:string,budget?:ReadBudget){
   let root:GraphObject;
-  try{root=await graph(token,rootId,{fields:provider==="facebook"?"id,message,created_time,can_comment":"id,caption,timestamp"},"GET",budget);}
+  try{root=await graph(token,rootId,{fields:provider==="facebook"?"id,message,from,created_time,can_comment":"id,caption,owner,timestamp"},"GET",budget);}
   catch(error){
-    if(provider!=="facebook"||!(error instanceof MetaProviderError)||error.providerReason!=="unsupported_field:can_comment")throw error;
-    root=await graph(token,rootId,{fields:"id,message,created_time"},"GET",budget);
+    if(!(error instanceof MetaProviderError))throw error;
+    if(provider==="facebook"&&error.providerReason==="unsupported_field:can_comment")root=await graph(token,rootId,{fields:"id,message,from,created_time"},"GET",budget);
+    else if(provider==="instagram"&&error.providerReason==="unsupported_field:owner")root=await graph(token,rootId,{fields:"id,caption,timestamp"},"GET",budget);
+    else throw error;
   }
   if(root.id!==rootId)throw new HttpError(403,"The comment root identity was not verified.");
   return {root,owned:provider==="facebook"?root.can_comment===true:true};
@@ -313,6 +331,7 @@ export async function readHistory(env: Env, account: SocialAccount, thread: Thre
   const token = await decrypt(account.token!, env.TOKEN_ENCRYPTION_KEY);
   const items: HistoryItem[] = []; const gaps: string[] = []; let pages = 0; let target = thread.target; let owned = true;
   let nextCursor: string | null = null;
+  let ownership: RootOwnership | undefined; let replyAuthority: ReplyAuthority | undefined;
   if (thread.kind === "message") {
     const meta = await graph(token, thread.provider_id, { fields: "id,participants,is_owner" });
     owned = meta.is_owner === true;
@@ -334,7 +353,15 @@ export async function readHistory(env: Env, account: SocialAccount, thread: Thre
     const resumed = await resume(env, account, scope, options.cursor);
     const context = await commentContext(rootToken,thread.provider_id,account.provider,budget);
     const root=context.root;owned=context.owned;
-    items.push({ ...item({ ...root, text: root.caption || root.message }), from: account.asset_id, role: "post_context" });
+    const owner = (account.provider === "facebook" ? root.from : root.owner) as {id?:string} | undefined;
+    const ownerId = typeof owner?.id === "string" ? owner.id : null;
+    ownership = { state: ownerId ? ownerId === account.asset_id ? "verified" : "different_asset" : "unverified", ownerId, source: account.provider === "facebook" ? "provider_post_from" : "provider_media_owner" };
+    replyAuthority = account.provider === "facebook" ? { state: root.can_comment === true ? "verified" : root.can_comment === false ? "denied" : "unverified", reason: typeof root.can_comment === "boolean" ? "provider_can_comment" : "provider_can_comment_unavailable_no_write_verdict" } : { state: ownership.state === "verified" ? "verified" : "unverified", reason: ownership.state === "verified" ? "provider_media_owner_matches_selected_account" : "provider_media_owner_not_verified" };
+    if (account.provider === "instagram" && ownership.state !== "verified") owned = false;
+    if (ownership.state === "different_asset") owned = false;
+    if (replyAuthority.state !== "verified") gaps.push("comment_reply_authority_unverified_or_denied");
+    if (ownership.state === "different_asset") gaps.push("comment_root_belongs_to_different_asset");
+    items.push({ ...item({ ...root, text: root.caption || root.message }), from: ownerId || "unknown", role: "post_context" });
     const work = resumed || [{ path: `${thread.provider_id}/comments`, depth: 0 }]; const seen = new Set<string>();
     if (resumed) gaps.push("continued_history_segment_not_a_complete_snapshot");
     while (work.length && pages < 12 && work.length <= 250) {
@@ -368,7 +395,7 @@ export async function readHistory(env: Env, account: SocialAccount, thread: Thre
   items.sort((a, b) => (a.at || 0) - (b.at || 0) || a.id.localeCompare(b.id));
   const inbound = items.filter(i => i.role !== "post_context" && i.from !== "unknown" && (thread.kind === "message" ? i.from === target : i.from !== account.asset_id && i.from !== account.parent_id) && i.at).map(i => i.at!);
   return { items, target, owned, lastInboundAt: inbound.length ? Math.max(...inbound) : null,
-    ...(thread.kind !== "message" ? { nextCursor } : {}), coverage: { complete: gaps.length === 0, pages, gaps: [...new Set(gaps)], sourceUrl: thread.source_url } };
+    ...(thread.kind !== "message" ? { nextCursor, ownership, replyAuthority, ownedMeaning: "Legacy reply-authority gate, not proof of post authorship. See ownership and replyAuthority; account/global send gates still apply." } : {}), coverage: { complete: gaps.length === 0, pages, gaps: [...new Set(gaps)], sourceUrl: thread.source_url } };
 }
 export async function sendReply(env: Env, account: SocialAccount, thread: Thread, text: string) {
   const token = await decrypt(account.token!, env.TOKEN_ENCRYPTION_KEY);
