@@ -28,5 +28,6 @@ Verify the deployed key file and URLs first. HTTP 200 confirms receipt; 202
 means receipt with key validation pending. Neither guarantees indexing.
 
 Use [Bing Webmaster Tools](https://www.bing.com/webmasters) to inspect indexing
-and submit the sitemap. IndexNow submissions are shared with participating
+and submit the sitemap. Keep the `msvalidate.01` verification metadata in the
+root layout so Bing ownership remains verified. IndexNow submissions are shared with participating
 engines, including Bing; Google submission is handled separately.

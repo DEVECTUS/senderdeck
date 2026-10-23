@@ -26,6 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase: new URL(SITE_ORIGIN),
     robots: { index: false, follow: true },
+    verification: { other: { "msvalidate.01": "CCE998DC4B894F0201E2EB8914827675" } },
     title: "SenderDeck by DEVECTUS",
     description,
     icons: {
