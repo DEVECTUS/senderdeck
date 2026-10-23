@@ -23,3 +23,14 @@ Facebook social_inbox supports source ads, using the selected Page's ads_posts e
 For an unresolved comment, the owner should identify the exact Facebook/Instagram placement and post/media permalink from Business Suite. For Page ads_posts access failures, verify the same person's Page advertising role and endpoint access in Graph API Explorer. Instagram ad-account access and explicit asset selection require a separate implemented adapter plus owner-authorised scopes; reconnecting today's Page flow alone does not add that functionality. Future Instagram ingestion also needs the platform app's Instagram comments webhook subscription and a verified signed event for this account. Webhooks do not backfill old comments. Keep native Suite review until parity is demonstrated. Diagnostics name each blocker and do not imply access was checked when it was not.
 
 Validation before publication: TypeScript, production build, 200 unit tests and 20 rendered checks passed. Built-runtime tools/list checks assert cursor, limit and source. Synthetic provider tests cover separate Page ads endpoint/cursors, denied access without secret reflection, actual and different authors, and unknown reply-authority blocking. Live outcomes follow separately after deployment.
+
+## Observed live outcome
+
+Production 0.4.21 was deployed from 2fd0ec59d625c0e3b6e6a8ad11c2912374801f1d as Sites version 58, deployment appgdep_6adb61913c608191b570f2569abcc5a1 (succeeded). The public contract checker confirmed 0.4.21 and all cursor/limit/source fields.
+
+- Facebook sample 177c4204-49ec-4b13-a6e4-9e93be5911a3 returned in 4.9 seconds: provider author 658901873971126, ownership verified; replyAuthority unverified because can_comment was unavailable; owned false; coverage complete false with the explicit authority gap. No permission was granted by inference.
+- The separate Facebook source ads read failed in 6.4 seconds with HTTP 403 / Graph 200. Page advertising tasks were already present, so the denial cannot be attributed to a missing role from this evidence alone. App/grant access to ads_posts remains an actual provider blocker. It was not reported as an empty inbox.
+- Instagram Donova history returned in 15.4 seconds with verified provider owner 17841473414427719; native-Suite coverage remained incomplete.
+- Authenticated Instagram pagination returned two roots, then a different next page of one root when limit was changed to one. Both calls together took 6.9 seconds. This used the live server's advertised schema through the available execution tool; it does not prove that the other chat's cached metadata refreshed.
+
+No client restart/reload, plugin update, OAuth reconnect, permission change, social reply or sending-policy change was performed. Catherine/Kalan parity remains unverified. The current client metadata cache and provider ad-access denial are distinct outstanding conditions; restarting a client cannot fix a Meta permission denial.
