@@ -294,7 +294,7 @@ export async function inbox(env: Env, account: SocialAccount, kind: "message" | 
     const preview: HistoryItem[] = []; let previewComplete = false; let previewError: string | null = null;
     if (kind === "comment") {
       try {
-        const comments = await graph(token, `${String(row.id)}/comments`, { fields: commentFields(account.provider), limit: "5", ...(account.provider === "facebook" ? { order: "reverse_chronological" } : {}) }, "GET", budget);
+        const comments = await graph(token, `${String(row.id)}/${account.provider === "instagram" ? "ordered_comments" : "comments"}`, { fields: commentFields(account.provider), limit: "5", ...(account.provider === "facebook" ? { order: "reverse_chronological" } : {}) }, "GET", budget);
         if (!Array.isArray(comments.data)) throw new HttpError(502, "Meta returned an unexpected comment collection.");
         preview.push(...(comments.data as GraphObject[]).slice(0, 5).map(item));
         previewComplete = !(comments.paging as {next?:string})?.next;
@@ -307,16 +307,17 @@ export async function inbox(env: Env, account: SocialAccount, kind: "message" | 
   }
   threads.sort((a, b) => (b.lastInboundAt || 0) - (a.lastInboundAt || 0));
   result.coverage.gaps = [...new Set(result.coverage.gaps)];
-  return { threads, coverage: result.coverage, nextCursor, source: source === "ad_creatives" ? "selected_ad_account_creatives" : kind === "comment" ? account.provider === "facebook" ? source === "ads" ? "page_ads_posts" : "page_feed" : "instagram_media" : "conversations", ordering: "Observed incoming comments within this root page only; paginate and read each full thread. Instagram does not support ordering results.", coverageDiagnostics: commentCoverageDiagnostics(account, source) };
+  return { threads, coverage: result.coverage, nextCursor, source: source === "ad_creatives" ? "selected_ad_account_creatives" : kind === "comment" ? account.provider === "facebook" ? source === "ads" ? "page_ads_posts" : "page_feed" : "instagram_media" : "conversations", ordering: "Observed incoming comments within this root page only; paginate and read each full thread. Instagram ordered_comments follows Instagram display order, not a complete recent-comment sort.", coverageDiagnostics: commentCoverageDiagnostics(account, source) };
 }
 export function commentCoverageDiagnostics(account: SocialAccount, source = "feed") {
   const scopes = json<string[]>(account.permissions);
   const selected = json<{advertisingAccount?:{id:string}}>(account.validation).advertisingAccount;
   return { rootSource: source === "ad_creatives" ? "selected_ad_account_creatives" : account.provider === "facebook" ? source === "ads" ? "page_ads_posts" : "page_feed" : "instagram_media",
     nativeSuiteParity: "not_established", missingCommentCause: "not_determined_do_not_infer_deleted_hidden_or_ad_only",
+    commentCollection: account.provider === "instagram" ? "ordered_comments_may_include_multiple_ad_media" : "comments",
     adCreativeDiscovery: { configured: true, hasReadScope: scopes.includes("ads_read") || scopes.includes("ads_management"), verifiedAdAccount: !!selected, selectedAdAccountId: selected?.id || null,
       blockers: [...(!scopes.includes("ads_read") && !scopes.includes("ads_management") ? ["ads_read_or_ads_management_not_granted"] : []), ...(!selected ? ["no_verified_ad_account_selection"] : [])],
-      ownerAction: "Identify the missing comment's exact placement and post/media permalink in Business Suite. With owner-authorised ads_read in the platform login configuration, obtain fresh consent through social_account_connect. Use social_asset_list with kind advertising on that owner-bound grant, then explicitly confirm social_asset_select provider advertising for the exact returned act_ ID and target accountId. Read source ad_creatives; runtime rechecks scope, grant identity, account access and each root's actual owner. Do not add scopes or select an account without owner approval." },
+      ownerAction: selected && (scopes.includes("ads_read") || scopes.includes("ads_management")) ? "Advertising selection is configured. Continue source ad_creatives with its nextCursor and read each relevant full thread. Instagram ordered_comments can include multiple ad media; compare exact comment IDs and placement with Business Suite before claiming parity. No further consent or selection is currently requested." : "Identify the missing comment's exact placement and post/media permalink in Business Suite. With owner-authorised ads_read in the platform login configuration, obtain fresh consent through social_account_connect. Use social_asset_list with kind advertising on that owner-bound grant, then explicitly confirm social_asset_select provider advertising for the exact returned act_ ID and target accountId. Read source ad_creatives; runtime rechecks scope, grant identity, account access and each root's actual owner. Do not add scopes or select an account without owner approval." },
     incomingEvents: { instagram: account.provider === "instagram" ? "dashboard_comments_subscription_and_signed_delivery_not_verified_by_page_subscription" : "not_applicable", ownerAction: "For future Instagram comments, configure the platform app's Instagram comments webhook field and verify a signed delivery for this exact account. A subscription does not backfill historical comments." } };
 }
 function item(row: GraphObject): HistoryItem {
@@ -359,7 +360,7 @@ export async function readHistory(env: Env, account: SocialAccount, thread: Thre
   } else {
     // Root context plus every available comment/reply page; never stop because a page is short.
     const rootToken = account.provider === "instagram" && account.user_token ? await decrypt(account.user_token, env.TOKEN_ENCRYPTION_KEY) : token;
-    const budget = readBudget(); const scope = `thread:${thread.id}`;
+    const budget = readBudget(); const scope = `thread:${thread.id}:${account.provider === "instagram" ? "ordered_comments_user_token" : "comments"}`;
     const resumed = await resume(env, account, scope, options.cursor);
     const context = await commentContext(rootToken,thread.provider_id,account.provider,budget);
     const root=context.root;owned=context.owned;
@@ -372,14 +373,15 @@ export async function readHistory(env: Env, account: SocialAccount, thread: Thre
     if (replyAuthority.state !== "verified") gaps.push("comment_reply_authority_unverified_or_denied");
     if (ownership.state === "different_asset") gaps.push("comment_root_belongs_to_different_asset");
     items.push({ ...item({ ...root, text: root.caption || root.message }), from: ownerId || "unknown", role: "post_context" });
-    const work = resumed || [{ path: `${thread.provider_id}/comments`, depth: 0 }]; const seen = new Set<string>();
+    const work = resumed || [{ path: `${thread.provider_id}/${account.provider === "instagram" ? "ordered_comments" : "comments"}`, depth: 0 }]; const seen = new Set<string>();
+    if (account.provider === "instagram") gaps.push("ordered_comments_parent_root_is_requested_context_not_verified_media_placement");
     if (resumed) gaps.push("continued_history_segment_not_a_complete_snapshot");
     while (work.length && pages < 12 && work.length <= 250) {
       const current = work.shift()!;
       if (seen.has(current.path)) { gaps.push("provider_pagination_cycle"); continue; }
       seen.add(current.path);
       let list: GraphObject;
-      try { list = await graph(token, current.path, { fields: commentFields(account.provider), limit: "20" }, "GET", budget); }
+      try { list = await graph(rootToken, current.path, { fields: commentFields(account.provider), limit: "20" }, "GET", budget); }
       catch (error) {
         if (!(error instanceof ReadLimit) && !pages) throw error;
         work.unshift(current); gaps.push(error instanceof ReadLimit ? "read_budget_reached" : "comment_page_unavailable_retry_cursor"); break;

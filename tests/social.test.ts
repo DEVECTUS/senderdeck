@@ -638,6 +638,27 @@ test("comment root listing is explicitly separate from reading comment history",
   const f=await fixture();t.mock.method(globalThis,"fetch",async()=>Response.json({data:[{id:"post"}]}));
   const roots=await inbox(f.env,f.account,"comment");assert.equal(roots.threads.length,1);assert.equal(roots.coverage.complete,false);assert.ok(roots.coverage.gaps.includes("root_list_only_comment_history_requires_separate_read"));
 });
+test("Instagram ordered comments use the user grant and retain cross-placement comments and paged replies",async(t)=>{
+  const f=await fixture();const paths:string[]=[];
+  const account:SocialAccount={...f.account,provider:"instagram"};
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>{
+    const u=new URL(String(input));const p=u.pathname.replace("/v26.0/","");paths.push(p);
+    assert.equal(new Headers(init?.headers).get("authorization"),"Bearer user-token");
+    if(p==="media-root")return Response.json({id:"media-root",owner:{id:account.asset_id},caption:"Context"});
+    if(p==="media-root/ordered_comments")return Response.json({data:[{id:"placement-comment",text:"Other ad placement",from:{id:"customer",username:"commenter"},timestamp:"2026-10-24T00:00:00Z"}]});
+    if(p==="placement-comment/replies"&&!u.searchParams.has("after"))return Response.json({data:[{id:"r1",text:"First reply"}],paging:{next:"https://graph.facebook.com/v26.0/placement-comment/replies?after=next"}});
+    if(p==="placement-comment/replies")return Response.json({data:[{id:"r2",text:"Second reply"}]});
+    throw new Error(`Unexpected endpoint ${p}`);
+  });
+  const history=await readHistory(f.env,account,{...f.thread,kind:"comment",provider_id:"media-root",target:"media-root"});
+  assert.ok(history.items.some(i=>i.id==="placement-comment"&&i.senderName==="commenter"));
+  assert.deepEqual(history.items.filter(i=>i.parentId==="placement-comment").map(i=>i.id),["r1","r2"]);
+  assert.equal(paths.filter(p=>p==="placement-comment/replies").length,2);
+  assert.ok(!paths.includes("media-root/comments"));assert.equal(history.nextCursor,null);
+  assert.equal(history.coverage.complete,false);
+  assert.ok(history.coverage.gaps.includes("ordered_comments_parent_root_is_requested_context_not_verified_media_placement"));
+});
+
 test("Instagram per-thread reads preserve the native Suite coverage uncertainty",async(t)=>{
   const f=await fixture();t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>new URL(String(input)).pathname.endsWith("/media-root")?Response.json({id:"media-root",caption:"Root",timestamp:new Date().toISOString()}):Response.json({data:[]}));
   const history=await readHistory(f.env,{...f.account,provider:"instagram"},{...f.thread,kind:"comment",provider_id:"media-root",target:"media-root"});
