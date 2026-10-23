@@ -8,6 +8,7 @@ import { handleMcp } from "./mcp";
 import { handleOAuthRoute } from "./oauth";
 import { handleMcpAuthentication } from "./mcp-auth";
 import { handleIdentityAuthRoute } from "./identity-auth";
+import { handlePasswordAuth } from "./password-auth";
 import { authenticatedUser, withAuthenticatedUserHeaders } from "./auth";
 import { isPlatformOperator } from "./social/setup";
 import { resolveMetaSecrets } from "./social/config";
@@ -49,6 +50,9 @@ const worker = {
 
     const retirementResponse = await handleAccountRetirement(request, env);
     if (retirementResponse) return retirementResponse;
+
+    const passwordResponse = await handlePasswordAuth(request, env);
+    if (passwordResponse) return passwordResponse;
 
     const identityResponse = await handleIdentityAuthRoute(request, env);
     if (identityResponse) return identityResponse;

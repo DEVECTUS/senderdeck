@@ -30,7 +30,7 @@ Email drafts remain with Google or Microsoft. Email search/read and attachment d
 
 ## Get started
 
-1. Open the [hosted portal](https://senderdeck.devectus.com.au/) and sign in with Google or Microsoft. Review provider consent and connect the mailboxes you intend to use.
+1. Open the [hosted portal](https://senderdeck.devectus.com.au/) and sign in with Google or Microsoft. Review provider consent and connect the mailboxes you intend to use. Existing users can add a separate SenderDeck username/password under Settings → Sign-in details and use the ordinary sign-in page afterward; see [password sign-in](docs/PASSWORD-SIGN-IN.md).
 2. Follow the [Codex and Claude installation guide](https://senderdeck.devectus.com.au/install). The repository includes both plugin formats and a shared remote MCP endpoint: `https://senderdeck.devectus.com.au/api/mcp`.
 3. List accounts and explicitly select a sender before creating a draft. Sending requires a separate confirmation after inspecting the exact message details.
 4. Open [Conversations](https://senderdeck.devectus.com.au/conversations) to create a customer and brand and configure rules, then use the [Meta connection wizard](https://senderdeck.devectus.com.au/connect/meta) to choose a brand, sign in to Meta and select accounts. Platform configuration and maintenance diagnostics are kept in the protected operator area.

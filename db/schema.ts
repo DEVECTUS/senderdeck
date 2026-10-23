@@ -126,6 +126,21 @@ export const oauthStates = sqliteTable(
   (table) => [index("oauth_states_expiry_idx").on(table.expiresAt)],
 );
 
+export const senderdeckPasswordLogins = sqliteTable("senderdeck_password_logins", {
+  userId: text("user_id").primaryKey(),
+  username: text("username").notNull().unique(),
+  email: text("email").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export const senderdeckLoginAttempts = sqliteTable("senderdeck_login_attempts", {
+  key: text("key").primaryKey(),
+  attempts: integer("attempts").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+}, table => [index("senderdeck_login_attempts_expiry_idx").on(table.expiresAt)]);
+
 export const senderdeckIdentities = sqliteTable(
   "senderdeck_identities",
   {

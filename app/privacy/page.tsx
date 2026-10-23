@@ -29,7 +29,8 @@ export default function PrivacyPage() {
         <h2>2. Information we handle</h2>
         <p>Depending on the features you use, SenderDeck handles:</p>
         <ul>
-          <li>Your SenderDeck sign-in identifier and email address, established through Google or Microsoft, temporary marketplace-review access or, for compatible OpenAI-hosted sessions, supplied by the hosting platform.</li>
+          <li>Your SenderDeck sign-in identifier and email address, established through Google or Microsoft, temporary marketplace-review access or, for compatible OpenAI-hosted sessions, supplied by the hosting platform. If you add password sign-in, we also store your chosen username and a salted scrypt password hash, not your readable password. These remain associated with your account until changed or removed through account administration.</li>
+          <li>Hashed username and network-address dimensions, attempt counts and expiry times for password-login rate limiting. These records expire after 15 minutes and are removed during subsequent authentication requests.</li>
           <li>Connected account information, including provider, email address, account label, granted scopes and connection timestamps.</li>
           <li>OAuth access and refresh tokens issued by Google or Microsoft. Tokens are encrypted before storage.</li>
           <li>Email search results, message content and attachment data requested by you. These are fetched on demand and processed transiently.</li>

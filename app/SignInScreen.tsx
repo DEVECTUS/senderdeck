@@ -3,7 +3,7 @@ import Link from "next/link";
 import VersionBadge from "./VersionBadge";
 import type { SenderDeckUser } from "./senderdeck-auth";
 
-export default function SignInScreen({ returnTo, currentUser }: { returnTo: string; currentUser?: SenderDeckUser | null }) {
+export default function SignInScreen({ returnTo, currentUser, passwordError }: { returnTo: string; currentUser?: SenderDeckUser | null; passwordError?: boolean }) {
   const encodedReturnTo = encodeURIComponent(returnTo);
   return (
     <main className="signin-page">
@@ -20,13 +20,23 @@ export default function SignInScreen({ returnTo, currentUser }: { returnTo: stri
           <p className="eyebrow">{"// One SenderDeck identity"}</p>
           <h1 id="signin-title">Sign in once.<br /><span>Use Codex or Claude.</span></h1>
           <p className="lede">
-            Choose the mailbox that will establish your SenderDeck identity. SenderDeck connects
-            that mailbox and keeps every additional Google or Microsoft account separate.
+            Sign in to your SenderDeck workspace with your username and password, or use Google
+            or Microsoft. Each connected mailbox remains a separate sender account.
           </p>
         </div>
 
         <div className="signin-card">
-          <h2>Choose your provider</h2>
+          <h2>Sign in to SenderDeck</h2>
+          <form className="reviewer-form" action="/auth/password" method="post">
+            <input type="hidden" name="return_to" value={returnTo} />
+            {passwordError && <p className="signin-error" role="alert">Username or password not recognised. Please try again.</p>}
+            <label htmlFor="login-username">SenderDeck username</label>
+            <input id="login-username" name="username" autoComplete="username" maxLength={64} required />
+            <label htmlFor="login-password">SenderDeck password</label>
+            <input id="login-password" name="password" type="password" autoComplete="current-password" required />
+            <button type="submit" className="primary">Sign in</button>
+          </form>
+          <p className="signin-note">New here? Sign in with Google or Microsoft once, then add a username and password in Settings → Sign-in details.</p>
           {currentUser && <p className="signin-scope-note">Currently viewing {currentUser.email} through {currentUser.authSource === "openai" ? "OpenAI" : "SenderDeck"} sign-in. Choose the Google or Microsoft identity used for your brands. This switches the session; it does not merge workspaces or share account access.</p>}
           <p>You will review the provider permissions before anything is connected.</p>
           <div className="signin-actions">

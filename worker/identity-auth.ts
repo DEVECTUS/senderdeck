@@ -275,7 +275,7 @@ export async function reviewCredentialsMatch(
     && constantTimeEqual(actualPasswordHash, env.REVIEW_ACCESS_PASSWORD_HASH);
 }
 
-async function createSessionResponse(
+export async function createSessionResponse(
   env: Env,
   userId: string,
   email: string,
