@@ -82,6 +82,7 @@ export interface StoredAccount {
 }
 
 export interface AccountView {
+  signInEnabled?: boolean;
   id: string;
   provider: Provider;
   email: string;

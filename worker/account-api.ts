@@ -1,4 +1,4 @@
-import { disconnectAccount, listAccounts, updateAccountLabel } from "./accounts";
+import { disconnectAccount, enableAccountSignIn, listAccounts, updateAccountLabel } from "./accounts";
 import { errorResponse, HttpError, requireUserId } from "./auth";
 import type { Env } from "./env";
 
@@ -13,10 +13,21 @@ export async function handleAccountApi(
 
   try {
     const userId = await requireUserId(request, env);
+    if (request.method !== "GET" && request.headers.get("origin") !== url.origin) {
+      throw new HttpError(403, "A same-origin request is required.");
+    }
+
+    if (request.method === "POST") {
+      if (request.headers.get("content-type")?.split(";")[0] !== "application/json") throw new HttpError(415, "JSON is required.");
+      const body = await readJson(request);
+      if (body.enableSignIn !== true || body.confirmed !== true) throw new HttpError(400, "Explicit sign-in approval is required.");
+      await enableAccountSignIn(env, userId, requiredString(body.accountId, "accountId"));
+      return jsonResponse({ signInEnabled: true });
+    }
 
     if (request.method === "GET") {
       return jsonResponse({
-        accounts: await listAccounts(env, userId),
+        accounts: await listAccounts(env, userId, true),
         limit: ACCOUNT_LIMIT,
       });
     }
@@ -43,7 +54,7 @@ export async function handleAccountApi(
     return new Response(null, {
       status: 405,
       headers: {
-        allow: "GET, PATCH, DELETE",
+        allow: "GET, POST, PATCH, DELETE",
         "cache-control": "no-store",
       },
     });

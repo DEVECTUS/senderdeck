@@ -12,6 +12,7 @@ interface Account {
   connectedAt: string;
   senderIdentities?: Array<{ email: string; isPrimary: boolean; isDefault: boolean }>;
   senderDiscoveryError?: string;
+  signInEnabled?: boolean;
 }
 
 interface AccountResponse {
@@ -109,6 +110,22 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
 
   const atLimit = accounts.length >= limit;
 
+  async function enableSignIn(account: Account) {
+    if (!window.confirm(`Allow ${account.email} to sign in to this SenderDeck account and access all its connected mailboxes and workspaces?`)) return;
+    setBusyId(account.id);
+    setError(null);
+    try {
+      const response = await fetch("/api/accounts", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ accountId: account.id, enableSignIn: true, confirmed: true }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Could not enable sign-in.");
+      await loadAccounts();
+    } catch (error) { setError(error instanceof Error ? error.message : "Could not enable sign-in."); }
+    finally { setBusyId(null); }
+  }
+
   return (
     <section className="connections" id="connections" aria-labelledby="connections-title">
       <div className="connections-heading">
@@ -188,6 +205,7 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
               </div>
               {editingId !== account.id ? (
                 <div className="account-actions">
+                  {account.signInEnabled ? <span>Sign-in enabled</span> : <button type="button" disabled={busyId === account.id} onClick={() => void enableSignIn(account)}>Enable sign-in</button>}
                   <button
                     type="button"
                     onClick={() => {

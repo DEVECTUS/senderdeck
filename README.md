@@ -39,6 +39,12 @@ The Accounts page groups social connections under customer/organisation, then br
 
 Customers do not need to create developer apps or run local relays for the hosted product. The service operator must complete the provider setup. Installing the plugin or saving a monitoring preference does not activate social access.
 
+## Provider sign-in and connected mailboxes
+
+A connected mailbox does not automatically grant sign-in to its owner's SenderDeck account. Under Settings → Connected email accounts, the signed-in owner can select **Enable sign-in** for a mailbox and confirm access to the whole account. A provider identity already assigned to another SenderDeck account cannot be reassigned this way. Disconnecting the mailbox removes its sign-in link. Preserve another sign-in method before disconnecting your login mailbox.
+
+Google and Microsoft authorization must finish in the same browser that started it. Each flow uses its own short-lived Secure, HttpOnly, host-only cookie and one-use server state. Forwarded authorization links and callbacks from another browser are refused. Mailbox connection callbacks also require the same signed-in owner. Starts from before this security update must be restarted.
+
 ## Social activation and limits
 
 Facebook and Instagram access requires a DEVECTUS-owned platform app, appropriate App Review/Advanced Access, customer consent, explicit asset verification, working subscriptions and a hosted maintenance/reconciliation trigger. Social sending is off by default and also requires brand enablement and exact draft approval. No unattended replies are sent.
@@ -134,6 +140,8 @@ Google requests OpenID email identity plus `gmail.readonly` and `gmail.compose`.
 Public submission materials are maintained in `publishing/OPENAI-PLUGIN-SUBMISSION.md` and `publishing/CLAUDE-PUBLISHING-PLAN.md`. Provider verification, publisher verification, reviewer credentials, external security review and legal approval remain account-bound release gates.
 
 ## Claude testing
+
+For Claude Code 2.1.275 or later, install directly with `/plugin install senderdeck --marketplace DEVECTUS/senderdeck`.
 
 For Claude Code, validate the repository marketplace with `claude plugin validate .`, add it with `claude plugin marketplace add DEVECTUS/senderdeck`, then install `senderdeck@devectus-senderdeck`. Authenticate the bundled remote MCP server from `/mcp`.
 

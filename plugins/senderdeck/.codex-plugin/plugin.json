@@ -1,6 +1,6 @@
 {
   "name": "senderdeck",
-  "version": "0.4.17",
+  "version": "0.4.18",
   "description": "Open-source email and brand conversation tools for Codex and Claude. Google and Microsoft mailboxes, customer workspaces and explicit reply approvals, with a gated Meta social module.",
   "author": {
     "name": "DEVECTUS"
@@ -38,7 +38,7 @@
       "Search my connected inboxes for recent action items.",
       "Draft a reply from the selected account and wait for my approval.",
       "Show the selected brand and its available social capabilities.",
-      "Review this brand’s verified facts and escalation rules."
+      "Review this brand\u2019s verified facts and escalation rules."
     ],
     "brandColor": "#255EDB",
     "composerIcon": "./assets/composer-icon.png",

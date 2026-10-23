@@ -1,6 +1,6 @@
 {
   "name": "senderdeck",
-  "version": "0.4.17",
+  "version": "0.4.18",
   "description": "Open-source email and brand conversation tools for Codex and Claude. Google and Microsoft mailboxes, customer workspaces and explicit reply approvals, with a gated Meta social module.",
   "author": {
     "name": "DEVECTUS",
@@ -20,5 +20,9 @@
     "codex",
     "claude"
   ],
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.mcp.json",
+  "privacyPolicyUrl": "https://senderdeck.devectus.com.au/privacy",
+  "supportUrl": "https://senderdeck.devectus.com.au/support",
+  "termsOfServiceUrl": "https://senderdeck.devectus.com.au/terms",
+  "documentationUrl": "https://senderdeck.devectus.com.au/install"
 }

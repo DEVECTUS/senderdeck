@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.18 · 23 October 2026
+
+- Bind Google and Microsoft sign-in and mailbox connection callbacks to a per-flow, host-only browser cookie. Consume state atomically and reject connection callbacks after the signed-in owner changes.
+- Stop adopting an existing account merely because it has a matching connected mailbox. Owners can explicitly enable sign-in for a selected connection; an identity belonging to another account cannot be transferred.
+- Remove a mailbox's sign-in identity in the same transaction as disconnecting it.
+- Identify the registered requesting application on MCP consent, with escaped text, and include privacy/support/terms URLs in the Claude manifest.
+- Add regression coverage for both providers, cross-browser callbacks, replay, account isolation, owner opt-in, disconnect and consent rendering.
+
 ## 0.4.13 · 22 October 2026
 
 - Add an expiring, hosting-controlled operation to retire one duplicate legacy account and move its social connections into an explicitly selected, matching provider-owned brand.

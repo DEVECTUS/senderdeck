@@ -34,7 +34,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.17 adds clearer direct installation steps with copyable commands and connection URLs, plus dedicated review-account provisioning using ordinary password sign-in. Credentials remain outside the ZIP. Includes salted password hashing, login rate limits and corrected social tool annotations." },
+  publication: { release_notes: "Version 0.4.18 binds provider OAuth to the initiating browser, requires explicit owner approval before connected mailboxes can sign in, removes sign-in links on disconnect and names the requesting application on consent. Credentials remain outside the ZIP." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

@@ -2,6 +2,7 @@ import { authenticatedUser, HttpError, requireUserId } from "./auth";
 import { googleScopes, microsoftScopes, saveAccount } from "./accounts";
 import { randomBase64Url, sha256Base64Url } from "./crypto";
 import type { Env, Provider } from "./env";
+import { oauthBrowserCookie, oauthBrowserRedirect, requireOAuthBrowser } from "./oauth-browser";
 
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 
@@ -65,7 +66,7 @@ async function startOAuth(request: Request, env: Env, provider: Provider): Promi
     provider === "google"
       ? googleAuthorizeUrl(env, redirectUri, state, codeChallenge)
       : microsoftAuthorizeUrl(env, redirectUri, state, codeChallenge);
-  return Response.redirect(authorizeUrl, 302);
+  return oauthBrowserRedirect(authorizeUrl, state);
 }
 
 async function finishOAuth(request: Request, env: Env, provider: Provider): Promise<Response> {
@@ -77,6 +78,7 @@ async function finishOAuth(request: Request, env: Env, provider: Provider): Prom
   if (!code || !state) throw new HttpError(400, "OAuth callback is missing code or state.");
 
   const stateHash = await sha256Base64Url(state);
+  await requireOAuthBrowser(request, state);
   const stored = await env.DB.prepare(
     `SELECT * FROM oauth_states WHERE state_hash = ? AND provider = ?`,
   )
@@ -93,7 +95,12 @@ async function finishOAuth(request: Request, env: Env, provider: Provider): Prom
   if (!stored || stored.expires_at < Date.now()) {
     throw new HttpError(400, "OAuth state is invalid or expired. Start the connection again.");
   }
-  await env.DB.prepare(`DELETE FROM oauth_states WHERE state_hash = ?`).bind(stateHash).run();
+  if (await requireUserId(request, env) !== stored.user_id) {
+    throw new HttpError(403, "The signed-in account changed. Start the connection again.");
+  }
+  const consumed = await env.DB.prepare(`DELETE FROM oauth_states WHERE state_hash = ? AND provider = ? RETURNING state_hash`)
+    .bind(stateHash, provider).first();
+  if (!consumed) throw new HttpError(400, "OAuth state was already used. Start again.");
 
   const token = await exchangeCode(env, provider, code, stored.redirect_uri, stored.code_verifier);
   const profile =
@@ -118,6 +125,7 @@ async function finishOAuth(request: Request, env: Env, provider: Provider): Prom
       headers: {
         "content-type": "text/html; charset=utf-8",
         "cache-control": "no-store",
+        "set-cookie": await oauthBrowserCookie(state, true),
       },
     },
   );

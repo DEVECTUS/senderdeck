@@ -28,13 +28,19 @@ async function accountWithSenders(env: Env, account: StoredAccount): Promise<Acc
   }
 }
 
-export async function listAccounts(env: Env, userId: string): Promise<AccountView[]> {
+export async function listAccounts(env: Env, userId: string, includeSignIn = false): Promise<AccountView[]> {
   const result = await env.DB.prepare(
     `SELECT * FROM email_accounts WHERE user_id = ? ORDER BY created_at ASC`,
   )
     .bind(userId)
     .all<StoredAccount>();
-  return Promise.all(result.results.map((account) => accountWithSenders(env, account)));
+  return Promise.all(result.results.map(async (account) => {
+    const view = await accountWithSenders(env, account);
+    if (includeSignIn) view.signInEnabled = Boolean(await env.DB.prepare(
+      `SELECT user_id FROM senderdeck_identities WHERE provider = ? AND provider_account_id = ? AND user_id = ?`,
+    ).bind(account.provider, account.provider_account_id, account.user_id).first());
+    return view;
+  }));
 }
 
 export async function getAccount(
@@ -136,10 +142,26 @@ export async function disconnectAccount(
   userId: string,
   accountId: string,
 ): Promise<void> {
-  await getAccount(env, userId, accountId);
-  await env.DB.prepare(`DELETE FROM email_accounts WHERE user_id = ? AND id = ?`)
-    .bind(userId, accountId)
-    .run();
+  const account = await getAccount(env, userId, accountId);
+  await env.DB.batch([
+    env.DB.prepare(`DELETE FROM senderdeck_identities WHERE user_id = ? AND provider = ? AND provider_account_id = ?`)
+      .bind(userId, account.provider, account.provider_account_id),
+    env.DB.prepare(`DELETE FROM email_accounts WHERE user_id = ? AND id = ?`).bind(userId, accountId),
+  ]);
+}
+
+export async function enableAccountSignIn(env: Env, userId: string, accountId: string): Promise<void> {
+  const account = await getAccount(env, userId, accountId);
+  const now = Date.now();
+  // The owner selects a current connection. Never transfer another user's login.
+  await env.DB.prepare(`INSERT INTO senderdeck_identities
+    (provider, provider_account_id, user_id, email, created_at, updated_at)
+    SELECT provider, provider_account_id, user_id, email, ?, ? FROM email_accounts
+    WHERE user_id = ? AND id = ? ON CONFLICT(provider, provider_account_id) DO NOTHING`)
+    .bind(now, now, userId, accountId).run();
+  const identity = await env.DB.prepare(`SELECT user_id FROM senderdeck_identities WHERE provider = ? AND provider_account_id = ?`)
+    .bind(account.provider, account.provider_account_id).first<{ user_id: string }>();
+  if (identity?.user_id !== userId) throw new HttpError(409, "This provider identity already signs in to a different SenderDeck account.");
 }
 
 export async function saveAccount(

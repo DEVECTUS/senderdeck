@@ -11,6 +11,7 @@ const SCOPE = "senderdeck";
 interface ClientRow {
   client_id: string;
   redirect_uris: string;
+  client_name?: string | null;
 }
 
 interface AuthorizationRequestRow {
@@ -246,7 +247,7 @@ async function beginAuthorization(request: Request, env: Env): Promise<Response>
     )
     .run();
 
-  return html(consentPage(requestToken, user.email));
+  return html(consentPage(requestToken, user.email, client.client_name || new URL(redirectUri).host));
 }
 
 async function completeAuthorization(request: Request, env: Env): Promise<Response> {
@@ -485,8 +486,8 @@ function oauthRedirectPage(redirectUri: string): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=${safeRedirectUri}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Returning to your AI assistant</title><style>body{margin:0;background:#f3f4ef;color:#17241c;font:16px/1.5 system-ui,sans-serif}.card{max-width:600px;margin:10vh auto;padding:40px;background:#fff;border:1px solid #d5dcd5;border-radius:20px;box-shadow:0 20px 60px #17342018}a{color:#294c35;font-weight:700}</style></head><body><main class="card"><h1>Authorization approved</h1><p>Returning to your AI assistant&hellip;</p><p><a href="${safeRedirectUri}">Continue if you are not redirected automatically.</a></p></main></body></html>`;
 }
 
-function consentPage(requestToken: string, email: string): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect SenderDeck</title><style>body{margin:0;background:#f3f4ef;color:#17241c;font:16px/1.5 system-ui,sans-serif}.card{max-width:600px;margin:10vh auto;padding:40px;background:#fff;border:1px solid #d5dcd5;border-radius:20px;box-shadow:0 20px 60px #17342018}h1{margin-top:0}li{margin:.7rem 0}.actions{display:flex;gap:12px;margin-top:28px}button{padding:12px 18px;border-radius:10px;border:1px solid #294c35;font:inherit;font-weight:700;cursor:pointer}.approve{background:#294c35;color:#fff}.deny{background:#fff;color:#294c35}.fine{color:#526259;font-size:14px}</style></head><body><main class="card"><h1>Connect SenderDeck</h1><p>Signed in as <strong>${escapeHtml(email)}</strong>.</p><p>Your AI assistant is requesting permission to:</p><ul><li>Connect the Google and Microsoft email accounts you choose.</li><li>Search and read messages only when you ask.</li><li>Create drafts and send only after exact confirmation.</li></ul><p class="fine">SenderDeck stores encrypted provider tokens and account labels. It does not index or retain mailbox content.</p><form method="post" action="/oauth/authorize"><input type="hidden" name="request_token" value="${escapeHtml(requestToken)}"><div class="actions"><button class="approve" name="decision" value="approve" type="submit">Allow</button><button class="deny" name="decision" value="deny" type="submit">Cancel</button></div></form></main></body></html>`;
+function consentPage(requestToken: string, email: string, clientName: string): string {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect SenderDeck</title><style>body{margin:0;background:#f3f4ef;color:#17241c;font:16px/1.5 system-ui,sans-serif}.card{max-width:600px;margin:10vh auto;padding:40px;background:#fff;border:1px solid #d5dcd5;border-radius:20px;box-shadow:0 20px 60px #17342018}h1{margin-top:0}li{margin:.7rem 0}.actions{display:flex;gap:12px;margin-top:28px}button{padding:12px 18px;border-radius:10px;border:1px solid #294c35;font:inherit;font-weight:700;cursor:pointer}.approve{background:#294c35;color:#fff}.deny{background:#fff;color:#294c35}.fine{color:#526259;font-size:14px}</style></head><body><main class="card"><h1>Connect SenderDeck</h1><p>Signed in as <strong>${escapeHtml(email)}</strong>.</p><p><strong>${escapeHtml(clientName)}</strong> is requesting permission to:</p><ul><li>Connect the Google and Microsoft email accounts you choose.</li><li>Search and read messages only when you ask.</li><li>Create drafts and send only after exact confirmation.</li></ul><p class="fine">SenderDeck stores encrypted provider tokens and account labels. It does not index or retain mailbox content.</p><form method="post" action="/oauth/authorize"><input type="hidden" name="request_token" value="${escapeHtml(requestToken)}"><div class="actions"><button class="approve" name="decision" value="approve" type="submit">Allow</button><button class="deny" name="decision" value="deny" type="submit">Cancel</button></div></form></main></body></html>`;
 }
 
 function escapeHtml(value: string): string {

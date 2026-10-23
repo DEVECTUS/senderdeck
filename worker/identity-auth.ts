@@ -1,5 +1,4 @@
 import {
-  authenticatedUser,
   HttpError,
   SESSION_COOKIE,
 } from "./auth";
@@ -7,6 +6,7 @@ import { saveAccount } from "./accounts";
 import { randomBase64Url, sha256Base64Url } from "./crypto";
 import { isUserRetired } from "./retired-users";
 import type { Env, Provider } from "./env";
+import { oauthBrowserCookie, oauthBrowserRedirect, requireOAuthBrowser } from "./oauth-browser";
 import {
   assertProviderConfigured,
   exchangeCode,
@@ -78,7 +78,6 @@ async function startSignIn(request: Request, env: Env, provider: Provider): Prom
   const codeChallenge = await sha256Base64Url(codeVerifier);
   const redirectUri = `${url.origin}/oauth/${provider}/callback`;
   const returnTo = safeReturnPath(url.searchParams.get("return_to") || "/settings");
-  const linkingUserId = (await authenticatedUser(request, env))?.userId || null;
   const now = Date.now();
 
   await env.DB.batch([
@@ -94,7 +93,7 @@ async function startSignIn(request: Request, env: Env, provider: Provider): Prom
       codeVerifier,
       redirectUri,
       returnTo,
-      linkingUserId,
+      null,
       now,
       now + LOGIN_STATE_TTL_MS,
     ),
@@ -103,7 +102,7 @@ async function startSignIn(request: Request, env: Env, provider: Provider): Prom
   const authorizeUrl = provider === "google"
     ? googleAuthorizeUrl(env, redirectUri, state, codeChallenge)
     : microsoftAuthorizeUrl(env, redirectUri, state, codeChallenge);
-  return Response.redirect(authorizeUrl, 302);
+  return oauthBrowserRedirect(authorizeUrl, state);
 }
 
 async function finishSignInIfMatched(
@@ -123,11 +122,8 @@ async function finishSignInIfMatched(
     .first<LoginStateRow>();
   if (!stored) return null;
 
-  await env.DB.prepare("DELETE FROM senderdeck_login_states WHERE state_hash = ?")
-    .bind(stateHash)
-    .run();
-
   try {
+    await requireOAuthBrowser(request, state);
     if (stored.expires_at < Date.now()) {
       throw new HttpError(400, "Sign-in expired. Start again.");
     }
@@ -137,6 +133,9 @@ async function finishSignInIfMatched(
     }
     const code = url.searchParams.get("code");
     if (!code) throw new HttpError(400, "Sign-in callback is missing its authorization code.");
+    const consumed = await env.DB.prepare("DELETE FROM senderdeck_login_states WHERE state_hash = ? AND provider = ? RETURNING state_hash")
+      .bind(stateHash, provider).first();
+    if (!consumed) throw new HttpError(400, "Sign-in was already used. Start again.");
 
     const token = await exchangeCode(env, provider, code, stored.redirect_uri, stored.code_verifier);
     const profile = provider === "google"
@@ -157,24 +156,20 @@ async function finishSignInIfMatched(
       .bind(provider, profile.id)
       .all<MatchingAccountRow>();
 
-    const matchedLink = stored.linking_user_id
-      ? matchingAccounts.results.find((account) => account.user_id === stored.linking_user_id)
-      : undefined;
-    const canonicalAccount = matchedLink || matchingAccounts.results[0];
-    const userId = identity?.user_id
-      || matchedLink?.user_id
-      || (matchingAccounts.results.length === 1 ? canonicalAccount?.user_id : null)
-      || stored.linking_user_id
-      || `usr_${randomBase64Url(18)}`;
+    // A connected mailbox is not a login identity. Only an existing identity
+    // (created on registration or explicitly enabled by its owner) can open it.
+    const userId = identity?.user_id || `usr_${randomBase64Url(18)}`;
     const now = Date.now();
     if (await isUserRetired(env, userId)) throw new HttpError(403, "This SenderDeck account has been retired. Use an active sign-in.");
-    await env.DB.prepare(
+    if (identity) {
+      await env.DB.prepare(`UPDATE senderdeck_identities SET email = ?, updated_at = ?
+        WHERE provider = ? AND provider_account_id = ? AND user_id = ?`)
+        .bind(email, now, provider, profile.id, userId).run();
+    } else await env.DB.prepare(
       `INSERT INTO senderdeck_identities
         (provider, provider_account_id, user_id, email, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(provider, provider_account_id) DO UPDATE SET
-         email = excluded.email,
-         updated_at = excluded.updated_at`,
+       ON CONFLICT(provider, provider_account_id) DO NOTHING`,
     )
       .bind(provider, profile.id, userId, email, now, now)
       .run();
@@ -185,7 +180,7 @@ async function finishSignInIfMatched(
     )
       .bind(provider, profile.id)
       .first<IdentityRow>();
-    if (!resolvedIdentity) throw new HttpError(500, "Could not establish the SenderDeck identity.");
+    if (!resolvedIdentity || resolvedIdentity.user_id !== userId) throw new HttpError(409, "The sign-in identity changed. Start again.");
 
     const label = matchingAccounts.results.find(
       (account) => account.user_id === resolvedIdentity.user_id,
@@ -203,13 +198,15 @@ async function finishSignInIfMatched(
     });
 
     const destination = new URL(safeReturnPath(stored.return_to), url.origin).toString();
-    return createSessionResponse(
+    const response = await createSessionResponse(
       env,
       resolvedIdentity.user_id,
       resolvedIdentity.email,
       destination,
       SESSION_TTL_SECONDS,
     );
+    response.headers.append("set-cookie", await oauthBrowserCookie(state, true));
+    return response;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Sign-in failed.";
     return new Response(signInResultPage(message, provider), {
