@@ -688,3 +688,11 @@ test("comment discovery stops provider preview work when the shared time budget 
   t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{calls++;const u=new URL(String(input));if(u.pathname.endsWith("/feed"))return Response.json({data:[{id:"a"},{id:"b"},{id:"c"}]});elapsed+=21000;return Response.json({data:[]});});
   const result=await inbox(f.env,f.account,"comment");assert.equal(calls,2);assert.equal(result.threads[1].previewError,"read_budget_reached");assert.equal(result.coverage.complete,false);
 });
+
+test("inbox previews do not reuse legacy caption timestamps as incoming activity",async(t)=>{
+  const f=await fixture();f.sql.prepare("UPDATE social_threads SET kind='comment',provider_id='post',last_inbound_at=? WHERE id=?").run(Date.now(),f.thread.id);
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>new URL(String(input)).pathname.endsWith("/feed")?Response.json({data:[{id:"post",message:"Our caption"}]}):Response.json({data:[]}));
+  const result=await socialAction("social_inbox",{...f.scope,kind:"comments"},f.env,"alice") as {threads:Array<{id:string;last_inbound_at:number|null;activityScope:string}>};
+  assert.equal(result.threads[0].last_inbound_at,null);assert.match(result.threads[0].activityScope,/preview_only/);
+  assert.equal(f.sql.prepare("SELECT last_inbound_at FROM social_threads WHERE id=?").get(f.thread.id)!.last_inbound_at,null);
+});

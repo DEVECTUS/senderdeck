@@ -239,9 +239,12 @@ export async function socialAction(name: string, a: Args, env: Env, user: string
     const threads = [];
     for (const item of result.threads) {
       const stored = await saveThread(env, account, item.providerId, kind, item.sourceUrl);
-      const lastInbound = Math.max(stored.last_inbound_at || 0, item.lastInboundAt || 0) || null;
-      if (item.lastInboundAt && item.lastInboundAt > (stored.last_inbound_at || 0)) await env.DB.prepare("UPDATE social_threads SET last_inbound_at=? WHERE id=? AND account_id=?").bind(lastInbound, stored.id, account.id).run();
-      threads.push({ ...stored, last_inbound_at: lastInbound, postContext: item.context, preview: item.preview, previewComplete: item.previewComplete, previewError: item.previewError });
+      // Older releases stored post creation dates as incoming activity. A preview
+      // must report its actual observation rather than reusing that stale value.
+      // Full history reads remain the authority for persisted thread activity.
+      const lastInbound = kind === "comment" ? item.lastInboundAt : stored.last_inbound_at;
+      if (kind === "comment" && item.previewComplete && !item.preview.length) await env.DB.prepare("UPDATE social_threads SET last_inbound_at=NULL WHERE id=? AND account_id=?").bind(stored.id, account.id).run();
+      threads.push({ ...stored, last_inbound_at: lastInbound, activityScope: kind === "comment" ? "observed_top_level_preview_only_read_thread_for_full_activity" : "stored_thread_activity", postContext: item.context, preview: item.preview, previewComplete: item.previewComplete, previewError: item.previewError });
     }
     return { threads, coverage: result.coverage, nextCursor: result.nextCursor, ordering: result.ordering, brandId, accountId, contentIsUntrusted: true };
   }
