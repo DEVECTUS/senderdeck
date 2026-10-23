@@ -26,3 +26,11 @@ The owner authorised Claude to use only the dedicated `testuser` review identity
 - The connector form disclosed third-party Google/Microsoft APIs, configurable mailbox health content, gated social capabilities and testing limits. The optional declaration that every tool was tested live through Claude/MCP Inspector remains unchecked. Dedicated credentials were entered only in secure review instructions and are excluded from this report and packages.
 
 Publication is awaiting Anthropic approval. These results do not claim an independent security audit, every-tool live validation, or a new demonstration video. The OpenAI v0.4.17 submission was a separate review during this Claude work. A later owner-requested update replaced it with v0.4.19; see OPENAI-UPDATE-2026-10-23.md.
+
+## Community connector published
+
+The full Anthropic MCP Directory Follow-Up email dated 23 October 2026 11:55:40 UTC approved the MCP server as a Community connector. The official management portal independently showed Approved. Under the owner's existing instruction to publish SenderDeck to Claude, selected Publish and confirmed the publication dialog. The saved portal state then showed Published, Live in the directory, and all three progress steps complete.
+
+The portal's View listing link is https://claude.ai/directory/senderdeck . The email also supplied https://claude.ai/directory/connectors/senderdeck . The portal warns that new listings and updates can take up to one hour to appear in the directory. This is Community approval, not Verified status.
+
+The separate plugin-bundle listing remains In review. No reply or other email was sent to Anthropic. The test account's OAuth connection remains separate from mailbox access granted by later users.
