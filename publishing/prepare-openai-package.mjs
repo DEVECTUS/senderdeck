@@ -2,10 +2,9 @@ import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Existing-listing updates retain the migrated identity; --fresh starts a new listing.
+// The active directory listing and repository package both use "senderdeck".
 // Credentials belong only in the secure review form, never in this package.
 const root = fileURLToPath(new URL("../", import.meta.url));
-const fresh = process.argv.includes("--fresh");
 const output = path.resolve(process.argv[2] || "C:/Temp/senderdeck-resubmission/openai-plugin");
 if (!output.toLowerCase().startsWith("c:\\temp\\")) throw new Error("Package staging must be beneath C:\\Temp.");
 await rm(output, { recursive: true, force: true });
@@ -15,9 +14,12 @@ await rm(path.join(output, ".claude-plugin"), { recursive: true, force: true });
 const manifestPath = path.join(output, ".codex-plugin/plugin.json");
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 const submission = JSON.parse(await readFile(path.join(root, "chatgpt-app-submission.json"), "utf8"));
-if (!fresh) manifest.name = "app-6a87125f6b308191ac268739218eac27";
+if (process.argv.includes("--legacy")) manifest.name = "app-6a87125f6b308191ac268739218eac27";
 manifest.author.name = "DEVECTUS Pty Ltd";
 manifest.interface.developerName = "DEVECTUS Pty Ltd";
+// Directory copy describes the product without mentioning other AI platforms.
+manifest.description = "Email and brand conversation tools: manage Google and Microsoft mailboxes, customer workspaces and explicit reply approvals, with a gated social module.";
+manifest.interface.longDescription = manifest.interface.longDescription.replace(" through Codex or Claude", "");
 // The public directory supports at most three starter prompts.
 if (Array.isArray(manifest.interface.defaultPrompt)) {
   manifest.interface.defaultPrompt = manifest.interface.defaultPrompt.slice(0, 3);
@@ -32,7 +34,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.16 adds ordinary SenderDeck username/password sign-in for existing users, including dedicated review accounts. Users set credentials after recent provider sign-in; passwords use salted scrypt hashes and persistent login rate limits. Existing email ownership and workspace roles apply. Includes the corrected social tool annotations." },
+  publication: { release_notes: "Version 0.4.17 adds clearer direct installation steps with copyable commands and connection URLs, plus dedicated review-account provisioning using ordinary password sign-in. Credentials remain outside the ZIP. Includes salted password hashing, login rate limits and corrected social tool annotations." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

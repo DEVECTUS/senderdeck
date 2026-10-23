@@ -1,131 +1,35 @@
 import VersionBadge from "../VersionBadge";
 import type { Metadata } from "next";
+import { publicPageMetadata } from "../site-seo";
 import Image from "next/image";
 import Link from "next/link";
 import { senderDeckSignInPath } from "../senderdeck-auth";
+import CopyValue from "./CopyValue";
 
 export const metadata: Metadata = {
+  ...publicPageMetadata("/install"),
   title: "Install SenderDeck for Codex or Claude",
-  description:
-    "Add the SenderDeck plugin to Codex, ChatGPT, Claude Code, or Claude using the public marketplace or MCP connector.",
+  description: "Install SenderDeck directly in ChatGPT, Codex, Claude or Claude Code. Copy the connection URL or follow the repository installation steps.",
 };
-
 const repositoryUrl = "https://github.com/DEVECTUS/senderdeck";
 const mcpUrl = "https://senderdeck.devectus.com.au/api/mcp";
 
 export default function InstallPage() {
-  return (
-    <main className="install-page">
-      <nav>
-        <Link className="brand-lockup" href="/" aria-label="SenderDeck home">
-          <Image className="senderdeck-mark" src="/senderdeck-mark.svg" alt="" width={1024} height={1024} priority />
-          <span className="wordmark">SenderDeck</span><VersionBadge />
-        </Link>
-        <Link className="quiet-link" href="/">Back to SenderDeck</Link>
-      </nav>
-
-      <header className="install-hero">
-        <div>
-          <p className="eyebrow">{"// Install SenderDeck"}</p>
-          <h1>Email and brand tools<br /><span>for your AI client.</span></h1>
-        </div>
-        <p className="lede">
-          Choose Codex or Claude, install the public plugin or connector, then authenticate with
-          the same SenderDeck identity you use for email accounts and brand workspaces.
-        </p>
-      </header>
-
-      <section className="install-prerequisite" aria-labelledby="before-installing">
-        <span className="step-number">01</span>
-        <div>
-          <h2 id="before-installing">Connect your email accounts first</h2>
-          <p>
-            SenderDeck needs at least one Google or Microsoft account before an AI client can use it.
-            You can connect up to 10 separate sender identities.
-          </p>
-        </div>
-        <a className="primary" href={senderDeckSignInPath("/settings")}>Connect accounts</a>
-      </section>
-
-      <section className="install-scope" aria-labelledby="included-tools"><h2 id="included-tools">Email tools and brand workflows</h2><p>The plugin bundles 14 email tools, 24 customer/social workspace tools and two workflow skills. Email routing covers sender selection, attachments and inspected draft approval. The social skill covers brand policy, complete available history, escalation and approval of an exact reply revision.</p><p>Customer and brand workspaces are available. Live Facebook and Instagram access requires provider and hosting activation; LinkedIn remains pending. Installing or updating this package does not connect a social account or start monitoring. Read the <Link href="/social-setup">provider requirements</Link> before relying on channel coverage.</p></section>
-
-      <section className="client-install-grid" aria-label="AI client installation choices">
-        <article className="client-install-card codex-card">
-          <div className="client-card-heading">
-            <span className="client-kicker">Codex + ChatGPT</span>
-            <span className="client-number">02A</span>
-          </div>
-          <h2>Install from the public repository</h2>
-          <p>
-            In Codex, add the DEVECTUS repository as a plugin marketplace. Then open Plugins,
-            choose <strong>DEVECTUS Plugins</strong>, and install <strong>SenderDeck</strong>.
-          </p>
-          <div className="command-block" aria-label="Codex marketplace command">
-            <span>Terminal</span>
-            <code>codex plugin marketplace add DEVECTUS/senderdeck</code>
-          </div>
-          <p className="availability-note">
-            If SenderDeck already appears in the public Plugins directory, install it there instead.
-            A directory installation is shared across supported ChatGPT and Codex surfaces.
-          </p>
-          <div className="install-links">
-            <a className="primary" href={repositoryUrl} target="_blank" rel="noopener noreferrer">Open public repository</a>
-            <a className="inline-link" href="https://developers.openai.com/plugins/build/plugins" target="_blank" rel="noopener noreferrer">Codex plugin instructions ↗</a>
-          </div>
-        </article>
-
-        <article className="client-install-card claude-card">
-          <div className="client-card-heading">
-            <span className="client-kicker">Claude</span>
-            <span className="client-number">02B</span>
-          </div>
-          <h2>Choose Claude Code or a web connector</h2>
-          <p>
-            For Claude Code, add the repository marketplace and install the packaged plugin.
-            Authenticate SenderDeck when Claude opens the MCP connection.
-          </p>
-          <div className="command-block" aria-label="Claude Code marketplace commands">
-            <span>Claude Code</span>
-            <code>claude plugin marketplace add DEVECTUS/senderdeck</code>
-            <code>claude plugin install senderdeck@devectus-senderdeck</code>
-          </div>
-          <p>
-            For Claude on the web, open <strong>Customize → Connectors</strong>, choose
-            <strong> Add custom connector</strong>, name it SenderDeck, and use this URL:
-          </p>
-          <div className="command-block connector-url" aria-label="SenderDeck MCP connector URL">
-            <span>Remote MCP URL</span>
-            <code>{mcpUrl}</code>
-          </div>
-          <div className="install-links">
-            <a className="primary" href="https://claude.ai" target="_blank" rel="noopener noreferrer">Open Claude</a>
-            <a className="inline-link" href="https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp" target="_blank" rel="noopener noreferrer">Claude connector instructions ↗</a>
-          </div>
-        </article>
-      </section>
-
-      <section className="install-finish" aria-labelledby="verify-installation">
-        <span className="step-number">03</span>
-        <div>
-          <h2 id="verify-installation">Verify the connection</h2>
-          <p>Start a new task or conversation and ask:</p>
-          <blockquote>“List my connected SenderDeck email accounts.”</blockquote>
-          <p>
-            SenderDeck will ask you to choose a sender identity when needed. It will never send an
-            email until you have reviewed and explicitly confirmed the final send details.
-          </p>
-        </div>
-      </section>
-
-      <footer className="settings-footer">
-        <p>SenderDeck is open source and built by DEVECTUS.</p>
-        <div className="footer-links">
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/security">Security</Link>
-          <Link href="/support">Support</Link>
-          <a href={repositoryUrl} target="_blank" rel="noopener noreferrer">Source code</a>
-        </div>
-      </footer>
-    </main>
-  );
+  return <main className="install-page">
+    <nav><Link className="brand-lockup" href="/" aria-label="SenderDeck home"><Image className="senderdeck-mark" src="/senderdeck-mark.svg" alt="" width={1024} height={1024} priority /><span className="wordmark">SenderDeck</span><VersionBadge /></Link><Link className="quiet-link" href="/">Back to SenderDeck</Link></nav>
+    <header className="install-hero"><div><p className="eyebrow">{"// Install SenderDeck"}</p><h1>Your inboxes.<br /><span>In your AI app.</span></h1></div><p className="lede">Choose your app below. Direct installation is available now; our public OpenAI directory submission is still in progress.</p></header>
+    <section className="install-prerequisite" aria-labelledby="before-installing"><span className="step-number">01</span><div><h2 id="before-installing">Connect your accounts</h2><p>Sign in to SenderDeck and connect the mailboxes you want to use. You can connect up to 10 Google or Microsoft accounts. Use this same SenderDeck login when your AI app asks you to authorise the connection.</p></div><a className="primary" href={senderDeckSignInPath("/settings")}>Set up SenderDeck</a></section>
+    <p className="availability-note">Google mailbox sign-in currently uses an OAuth app in testing. Your Google account must be an approved tester while verification is pending. <Link href="/support">Contact support for test access</Link>. Plugin installation does not remove provider access requirements.</p>
+    <section aria-labelledby="choose-app" className="install-choices"><h2 id="choose-app">02 · Choose your AI app</h2><p>Open the instructions for the app you use. Installation finishes inside that app, where you review and approve access.</p>
+      <div className="client-install-grid">
+        <article className="client-install-card" id="chatgpt"><details open><summary><span className="client-kicker">ChatGPT</span><h3>Add a custom connection</h3></summary><p>Connect SenderDeck directly while the public directory listing is under review. Availability depends on your plan and workspace permissions.</p><ol><li>Open ChatGPT&apos;s <strong>Plugins</strong> page.</li><li>Select <strong>+</strong>, then <strong>Add custom MCP server</strong>.</li><li>Name it <strong>SenderDeck</strong>, paste the server URL below and choose <strong>OAuth</strong> if prompted.</li><li>Review the custom-server notice, create the plugin and finish the SenderDeck sign-in and authorisation.</li><li>Install the resulting personal plugin and start a new <strong>Work</strong> chat. Type <strong>@SenderDeck</strong> to select it.</li></ol><CopyValue label="Server URL" value={mcpUrl} /><div className="install-links"><a className="primary" href="https://chatgpt.com/plugins" target="_blank" rel="noopener noreferrer">Open ChatGPT Plugins ↗</a><a href="https://developers.openai.com/plugins/quickstart" target="_blank" rel="noopener noreferrer">Official instructions ↗</a></div><p className="availability-note">Custom connections expose the server&apos;s tools. Repository plugin installs also include our workflow skills. If your workspace disables custom connections, ask its administrator.</p></details></article>
+        <article className="client-install-card" id="codex"><details><summary><span className="client-kicker">Codex</span><h3>Install the plugin and skills</h3></summary><ol><li>Copy and run this command in your terminal to add our public marketplace.</li><li>Open <strong>Plugins</strong> in the desktop app, choose <strong>DEVECTUS Plugins</strong>, then install <strong>SenderDeck</strong>.</li><li>Complete SenderDeck authorisation and start a new chat.</li></ol><CopyValue label="Codex marketplace command" value="codex plugin marketplace add DEVECTUS/senderdeck" /><p>Use a recent Codex client. If the command is unavailable, follow the official local-plugin setup instructions below.</p><div className="install-links"><a className="primary" href={repositoryUrl} target="_blank" rel="noopener noreferrer">Open public repository ↗</a><a href="https://developers.openai.com/plugins/build/plugins" target="_blank" rel="noopener noreferrer">Official plugin setup ↗</a></div><p className="availability-note">Refresh the marketplace to pick up package updates, then restart the app or start a new chat. Server fixes are deployed separately.</p></details></article>
+        <article className="client-install-card claude-card" id="claude"><details><summary><span className="client-kicker">Claude / Cowork</span><h3>Add a custom connector</h3></summary><ol><li>Open Claude&apos;s <strong>Customize → Connectors</strong> and choose <strong>Add custom connector</strong>.</li><li>Name it <strong>SenderDeck</strong> and paste the server URL below.</li><li>Finish SenderDeck sign-in, review access and connect.</li><li>Enable the connector for a new conversation and try the prompt below.</li></ol><CopyValue label="Claude connector URL" value={mcpUrl} /><div className="install-links"><a className="primary" href="https://claude.ai" target="_blank" rel="noopener noreferrer">Open Claude ↗</a><a href="https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp" target="_blank" rel="noopener noreferrer">Official connector setup ↗</a></div><p className="availability-note">Your workspace may require administrator approval. This custom connector has not been listed or approved in Anthropic&apos;s directory.</p></details></article>
+        <article className="client-install-card claude-card" id="claude-code"><details><summary><span className="client-kicker">Claude Code</span><h3>Install the plugin and skills</h3></summary><ol><li>Run these commands in your terminal, one at a time.</li><li>Complete SenderDeck authorisation when prompted.</li><li>Start a new session so the installed plugin and skills load.</li></ol><CopyValue label="Claude Code installation commands" value={"claude plugin marketplace add DEVECTUS/senderdeck\nclaude plugin install senderdeck@devectus-senderdeck"} /><div className="install-links"><a className="primary" href={repositoryUrl} target="_blank" rel="noopener noreferrer">Open public repository ↗</a><a href="https://code.claude.com/docs/en/discover-plugins" target="_blank" rel="noopener noreferrer">Official plugin setup ↗</a></div><p className="availability-note">To receive new packages automatically, enable auto-update for the DEVECTUS marketplace in Claude Code&apos;s plugin settings. Third-party marketplaces default to manual updates.</p></details></article>
+      </div>
+    </section>
+    <section className="install-finish" aria-labelledby="verify-installation"><span className="step-number">03</span><div><h2 id="verify-installation">Check the connection</h2><p>Start a new conversation and try this prompt:</p><CopyValue label="First prompt" value="List my connected SenderDeck email accounts." /><p>You should see your connected accounts. If an account is missing, sign in to SenderDeck with the identity that owns it. Review every message and sender before giving separate send approval.</p><details className="install-help"><summary>Having trouble?</summary><ul><li><strong>No accounts:</strong> open <Link href="/settings">Email settings</Link> and connect a mailbox under the same SenderDeck identity.</li><li><strong>Connection expired:</strong> reconnect SenderDeck in your AI app. If the mailbox itself needs reconnection, update it in Email settings.</li><li><strong>Tools or skills look old:</strong> refresh your connection or marketplace and start a new conversation.</li><li><strong>Custom connections unavailable:</strong> check the app&apos;s supported plans and workspace policy.</li></ul><Link href="/support">Contact SenderDeck support →</Link></details></div></section>
+    <section className="install-scope" aria-labelledby="included-tools"><h2 id="included-tools">What is available?</h2><p>Email search, reading, attachments, draft editing and confirmed sending are available for Google and Microsoft accounts. Plugin packages also include email-routing and social-conversation workflow skills.</p><p>Brand workspaces and enquiry organisation are available. Live Facebook and Instagram access, social sending and monitoring require provider and hosting activation; LinkedIn remains pending. Installation does not activate these channels. See <Link href="/social-setup">provider requirements</Link>.</p></section>
+    <footer className="settings-footer"><p>Open source. Built by DEVECTUS.</p><div className="footer-links"><Link href="/privacy">Privacy</Link><Link href="/security">Security</Link><Link href="/support">Support</Link><a href={repositoryUrl} target="_blank" rel="noopener noreferrer">Source code</a></div></footer>
+  </main>;
 }

@@ -92,6 +92,43 @@ test("renders the SenderDeck product page", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/);
 });
 
+test("every sitemap entry renders an indexable page with its own production canonical", async () => {
+  const worker = await loadWorker();
+  const sitemap = await readFile(new URL("../dist/client/sitemap.xml", import.meta.url), "utf8");
+  const urls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => match[1]);
+  assert.deepEqual(urls.map(url => new URL(url).pathname).sort(),
+    ["/", "/install", "/privacy", "/security", "/social-setup", "/support", "/terms"]);
+  for (const url of urls) {
+    const response = await worker.fetch(new Request(`http://localhost${new URL(url).pathname}`, {
+      headers: { accept: "text/html", host: "preview.example.com" },
+    }), baseEnv, context);
+    assert.equal(response.status, 200, url);
+    assert.doesNotMatch(response.headers.get("x-robots-tag") ?? "", /noindex/i);
+    const html = await response.text();
+    assert.ok(html.includes(`<link rel="canonical" href="${url}"`), url);
+    assert.match(html, /<meta name="robots" content="index, follow"/);
+    assert.doesNotMatch(html, /<meta name="robots" content="[^"]*noindex/);
+  }
+  const robots = await readFile(new URL("../dist/client/robots.txt", import.meta.url), "utf8");
+  assert.match(robots, /Sitemap: https:\/\/senderdeck\.devectus\.com\.au\/sitemap\.xml/);
+  assert.doesNotMatch(robots, /^Disallow:\s*\/\s*$/m);
+});
+
+test("sign-in and authenticated workspace pages are excluded from search indexing", async () => {
+  const worker = await loadWorker();
+  for (const path of ["/signin", "/accounts", "/settings", "/conversations", "/review-access"]) {
+    const response = await worker.fetch(new Request(`http://localhost${path}`, {
+      headers: { accept: "text/html", "oai-authenticated-user-email": "owner@example.com" },
+    }), baseEnv, context);
+    // Sign-in may redirect an already signed-in user; all rendered screens must be noindex.
+    if ([302, 303, 307].includes(response.status)) continue;
+    assert.equal(response.status, 200, path);
+    const html = await response.text();
+    assert.match(html, /<meta name="robots" content="noindex(?:,|\")/, path);
+    assert.doesNotMatch(html, /<link rel="canonical"/, path);
+  }
+});
+
 test("signed-in home and Accounts lead with the account directory rather than marketing", async () => {
   const worker = await loadWorker();
   for (const path of ["/", "/accounts"]) {

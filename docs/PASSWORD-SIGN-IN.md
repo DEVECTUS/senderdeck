@@ -16,3 +16,9 @@ Passwords require at least 15 characters, with a 1024-byte maximum. Store passwo
 OAuth authorisation resumes through its original relative return path after password sign-in. Reviewers use the same authentication/session and permission checks as ordinary users. The older `/review-access` route remains for compatibility; this feature does not rotate, migrate or expose its separate environment credentials.
 
 No reviewer username or password is embedded in source or release packages. Password recovery and a public registration flow are not part of this release; preserve access to the provider sign-in and password manager.
+
+## Hosting-owner provisioning
+
+The hosting owner can create a password login for one already verified provider identity using a short-lived `PASSWORD_PROVISION_PLAN` secret. It fixes the exact user ID, email, username, salted password hash, expiry (at most one hour), and a hash of a separate random bearer. `/api/password-login/provision` accepts only an empty JSON object over HTTPS with that bearer and no browser Origin header. It verifies the identity, rejects retired users, and cannot overwrite an existing username or credential. Matching repeats are idempotent. No password is sent to or returned by this maintenance endpoint.
+
+Remove the plan immediately after provisioning and deploy the saved version with the new environment revision. With no plan configured, the endpoint returns 404. The resulting credential is an ordinary database password login; there is no privileged reviewer session or permission bypass.

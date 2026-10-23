@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { publicPageMetadata } from "../site-seo";
 import LegalPage from "../LegalPage";
 
 export const metadata: Metadata = {
+  ...publicPageMetadata("/privacy"),
   title: "Privacy | SenderDeck by DEVECTUS",
   description: "How SenderDeck accesses, uses, protects, and deletes account and email data.",
 };

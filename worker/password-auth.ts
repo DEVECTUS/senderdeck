@@ -57,6 +57,7 @@ function redirectInvalid(origin: string, returnTo: string) {
 
 export async function handlePasswordAuth(request: Request, env: Env): Promise<Response | null> {
   const url = new URL(request.url);
+  if (url.pathname === "/api/password-login/provision") return provisionPasswordLogin(request, env);
   if (!["/auth/password", "/api/password-login"].includes(url.pathname)) return null;
   try {
     if (request.method !== "POST" && !(url.pathname === "/api/password-login" && request.method === "GET")) return new Response(null, { status: 405, headers: { allow: url.pathname === "/auth/password" ? "POST" : "GET, POST" } });
@@ -115,6 +116,38 @@ export async function handlePasswordAuth(request: Request, env: Env): Promise<Re
     const response = errorResponse(error instanceof HttpError ? error : new HttpError(500, "Sign-in could not be completed. Please try again."));
     response.headers.set("cache-control", "no-store");
     if (response.status === 429) response.headers.set("retry-after", "900");
+    return response;
+  }
+}
+
+// Hosting-owner maintenance only. Requests cannot select an identity or password.
+async function provisionPasswordLogin(request: Request, env: Env): Promise<Response> {
+  try {
+    if (!env.PASSWORD_PROVISION_PLAN) throw new HttpError(404, "Not found.");
+    const plan = JSON.parse(env.PASSWORD_PROVISION_PLAN) as { userId: string; email: string; username: string; passwordHash: string; tokenHash: string; expiresAt: number };
+    const at = Date.now();
+    if (!plan || typeof plan.userId !== "string" || !plan.userId || plan.userId.length > 200 || typeof plan.email !== "string" || plan.email.length > 320
+      || normaliseUsername(plan.username) !== plan.username || !/^scrypt-v1\$[A-Za-z0-9_-]{32}\$[A-Za-z0-9_-]{43}$/.test(plan.passwordHash)
+      || !/^[A-Za-z0-9_-]{43}$/.test(plan.tokenHash) || !Number.isSafeInteger(plan.expiresAt) || plan.expiresAt <= at || plan.expiresAt > at + 3600000) throw new HttpError(404, "Not found.");
+    const token = request.headers.get("authorization")?.match(/^Bearer ([A-Za-z0-9_-]{43,128})$/)?.[1];
+    if (request.method !== "POST" || new URL(request.url).protocol !== "https:" || request.headers.has("origin") || !token
+      || !timingSafeEqual(Buffer.from(await sha256Base64Url(token)), Buffer.from(plan.tokenHash))) throw new HttpError(401, "Maintenance authentication required.");
+    if (!/^application\/json(?:;|$)/i.test(request.headers.get("content-type") || "")) throw new HttpError(415, "JSON required.");
+    const data = JSON.parse(await limitedBody(request, 128));
+    if (!data || Array.isArray(data) || typeof data !== "object" || Object.keys(data).length) throw new HttpError(400, "This operation accepts no account selectors.");
+    if (await isUserRetired(env, plan.userId)) throw new HttpError(409, "This account has been retired.");
+    const identity = await env.DB.prepare("SELECT user_id FROM senderdeck_identities WHERE user_id=? AND email=?").bind(plan.userId, plan.email).first();
+    if (!identity) throw new HttpError(409, "The planned provider identity is not present.");
+    await env.DB.prepare(`INSERT INTO senderdeck_password_logins (user_id,username,email,password_hash,created_at,updated_at)
+      SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM senderdeck_identities WHERE user_id=? AND email=?)
+      AND NOT EXISTS(SELECT 1 FROM social_runtime WHERE key=? AND value>0)
+      ON CONFLICT DO NOTHING`).bind(plan.userId, plan.username, plan.email, plan.passwordHash, at, at, plan.userId, plan.email, `retired_user:${await sha256Base64Url(plan.userId)}`).run();
+    const saved = await env.DB.prepare("SELECT user_id FROM senderdeck_password_logins WHERE user_id=? AND username=? AND email=? AND password_hash=?").bind(plan.userId, plan.username, plan.email, plan.passwordHash).first();
+    if (!saved) throw new HttpError(409, "Provisioning did not apply. An existing credential was preserved.");
+    return Response.json({ provisioned: true, username: plan.username }, { headers: { "cache-control": "no-store" } });
+  } catch (error) {
+    const response = errorResponse(error instanceof HttpError ? error : new HttpError(409, "Provisioning was not applied."));
+    response.headers.set("cache-control", "no-store");
     return response;
   }
 }

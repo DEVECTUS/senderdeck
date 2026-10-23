@@ -39,6 +39,8 @@ export interface Env {
   ALLOW_DEV_AUTH?: string;
   /** Expiring, narrowly scoped hosting-operator retirement plan. Absent by default. */
   ACCOUNT_RETIREMENT_PLAN?: string;
+  /** Expiring hosting-owner plan for creating one existing user's password login. */
+  PASSWORD_PROVISION_PLAN?: string;
   MAX_ATTACHMENT_BYTES?: string;
   MAX_TOTAL_ATTACHMENT_BYTES?: string;
   BLOCKED_ATTACHMENT_EXTENSIONS?: string;

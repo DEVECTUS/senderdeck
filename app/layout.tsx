@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { SITE_ORIGIN } from "./site-seo";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
@@ -19,16 +19,14 @@ const mono = JetBrains_Mono({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("host");
-  const safeHost = host && /^[a-z0-9.-]+(?::\d+)?$/i.test(host)
-    ? host
-    : "senderdeck.devectus.com.au";
-  const imageUrl = `https://${safeHost}/og.png`;
+  const imageUrl = `${SITE_ORIGIN}/og.png`;
   const description =
     "Open-source email and brand conversation tools for Codex and Claude. Manage Google and Microsoft mailboxes, brand policies and approved replies, with clear social activation requirements.";
 
   return {
+    metadataBase: new URL(SITE_ORIGIN),
+    robots: { index: false, follow: true },
+    verification: { other: { "msvalidate.01": "CCE998DC4B894F0201E2EB8914827675" } },
     title: "SenderDeck by DEVECTUS",
     description,
     icons: {

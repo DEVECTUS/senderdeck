@@ -229,6 +229,21 @@ h1 span { color: var(--blue); }
 .settings-page { max-width: 1440px; margin: 0 auto; }
 
 .install-page { max-width: 1440px; margin: 0 auto; }
+.install-choices { padding-top: 2rem; }
+.install-choices > p { color: var(--muted); line-height: 1.6; }
+.client-install-card summary { cursor: pointer; padding-bottom: 0.8rem; }
+.client-install-card h3 { font-size: clamp(1.4rem, 2.6vw, 2rem); line-height: 1.15; margin: 0.65rem 0; }
+.client-install-card ol, .install-help ul { padding-left: 1.3rem; line-height: 1.7; }
+.client-install-card li, .install-help li { margin-bottom: 0.65rem; }
+.client-install-card details > p { line-height: 1.7; color: var(--muted); }
+.install-copy { border: 1px solid var(--line); padding: 1rem; margin: 1.25rem 0; background: var(--surface); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.75rem; align-items: start; }
+.install-copy label > span { display: block; font-weight: 600; font-size: 0.8rem; margin-bottom: 0.5rem; }
+.install-copy textarea { display: block; width: 100%; min-height: 3rem; resize: vertical; border: 0; padding: 0.4rem 0; background: transparent; color: var(--ink); font: 0.85rem/1.6 var(--font-mono); overflow-wrap: anywhere; }
+.install-copy button { border: 1px solid var(--line); padding: 0.55rem 0.8rem; cursor: pointer; background: white; color: var(--ink); border-radius: 3px; }
+.install-copy [role="status"] { grid-column: 1 / -1; font-size: 0.8rem; color: var(--muted); }
+.install-copy button:focus-visible, .client-install-card summary:focus-visible, .install-help summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.install-help { margin-top: 1.5rem; line-height: 1.7; }
+.install-help summary { cursor: pointer; font-weight: 600; }
 .install-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(280px, 0.48fr);

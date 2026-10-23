@@ -104,3 +104,30 @@ test("bad and unknown logins return generic errors, rate limits persist, and ret
   assert.equal((await handlePasswordAuth(manage(cookie, { username: "reviewer", password }), f.env))?.status, 401);
   f.sql.close();
 });
+
+test("hosting provisioning is disabled by default, requires the exact bearer and never accepts account selectors", async () => {
+  const f = database();
+  const bearer = "b".repeat(43);
+  const request = (body = {}, token = bearer, requestOrigin?: string) => new Request(`${origin}/api/password-login/provision`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json", ...(requestOrigin ? { origin: requestOrigin } : {}) }, body: JSON.stringify(body) });
+  assert.equal((await handlePasswordAuth(request(), f.env))?.status, 404);
+  const plan = { userId: "sample", email: "sample@example.com", username: "review-user", passwordHash: await hashPassword(password), tokenHash: await sha256Base64Url(bearer), expiresAt: Date.now() + 1800000 };
+  f.env.PASSWORD_PROVISION_PLAN = JSON.stringify(plan);
+  assert.equal((await handlePasswordAuth(request({}, "x".repeat(43)), f.env))?.status, 401);
+  assert.equal((await handlePasswordAuth(request({}, bearer, origin), f.env))?.status, 401);
+  assert.equal((await handlePasswordAuth(request({ userId: "owner" }), f.env))?.status, 400);
+  assert.equal((await handlePasswordAuth(request(), f.env))?.status, 409);
+  f.sql.prepare("INSERT INTO senderdeck_identities VALUES (?,?,?,?,?,?)").run("google", "provider-sample", "sample", "sample@example.com", Date.now(), Date.now());
+  assert.equal((await handlePasswordAuth(request(), f.env))?.status, 200);
+  assert.equal((await handlePasswordAuth(request(), f.env))?.status, 200);
+  assert.equal(f.sql.prepare("SELECT COUNT(*) AS n FROM senderdeck_password_logins").get()?.n, 1);
+  const signedIn = await handlePasswordAuth(login("review-user"), f.env);
+  assert.equal(signedIn?.headers.get("location"), `${origin}/settings`);
+  f.env.PASSWORD_PROVISION_PLAN = JSON.stringify({ ...plan, passwordHash: await hashPassword("different long password value") });
+  assert.equal((await handlePasswordAuth(request(), f.env))?.status, 409);
+  assert.equal(f.sql.prepare("SELECT password_hash FROM senderdeck_password_logins").get()?.password_hash, plan.passwordHash);
+  f.env.PASSWORD_PROVISION_PLAN = JSON.stringify({ ...plan, expiresAt: Date.now() - 1 });
+  assert.equal((await handlePasswordAuth(request(), f.env))?.status, 404);
+  delete f.env.PASSWORD_PROVISION_PLAN;
+  assert.equal((await handlePasswordAuth(request(), f.env))?.status, 404);
+  f.sql.close();
+});
