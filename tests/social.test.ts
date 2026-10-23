@@ -6,7 +6,7 @@ import { socialAction, readThread } from "../worker/social/service";
 import { defaultProfile, assess, validateProfile } from "../worker/social/policy";
 import { accountFor, brandFor, notice, safeAccount, maintenanceStatus, type SocialAccount, type Thread, type History } from "../worker/social/model";
 import { graphPages, readHistory, platformStatus, capabilities, discover, validateConnection, inbox } from "../worker/social/meta";
-import { startOAuth, oauthCallback, grantAssets, selectAsset } from "../worker/social/oauth";
+import { startOAuth, oauthCallback, grantAssets, selectAsset, selectAdvertisingAccount } from "../worker/social/oauth";
 import { hmac, receiveMeta, processQueue, maintenance, runHostedMaintenance, verifySignedRequest, metaDeletion } from "../worker/social/webhooks";
 import { handleSocial } from "../worker/social/api";
 import { customerSetup, operatorSetup, checkOperatorApp } from "../worker/social/setup";
@@ -730,11 +730,108 @@ test("Page ad roots use a distinct endpoint and cursor scope with actionable cov
   const result=await inbox(f.env,f.account,"comment",{source:"ads",limit:2});assert.equal(ads,1);assert.equal(result.source,"page_ads_posts");assert.equal(result.threads[0].providerId,"ad-post");
   assert.equal(result.coverageDiagnostics.adCreativeDiscovery.hasReadScope,false);assert.ok(result.coverageDiagnostics.adCreativeDiscovery.blockers.includes("ads_read_or_ads_management_not_granted"));
   await assert.rejects(inbox(f.env,f.account,"comment",{cursor:result.nextCursor!}),/differently scoped/);
-  await assert.rejects(inbox(f.env,{...f.account,provider:"instagram"},"comment",{source:"ads"}),/separately verified advertising account/);
+  await assert.rejects(inbox(f.env,{...f.account,provider:"instagram"},"comment",{source:"ads"}),/source ad_creatives/);
   await inbox(f.env,f.account,"comment",{source:"ads",cursor:result.nextCursor!,limit:1});assert.equal(ads,2);
 });
 
 test("denied Page ad discovery is a specific access failure, never empty coverage",async(t)=>{
   const f=await fixture();t.mock.method(globalThis,"fetch",async()=>Response.json({error:{code:200,message:"private provider text"}},{status:403}));
   await assert.rejects(inbox(f.env,f.account,"comment",{source:"ads"}),error=>error instanceof Error&&/ads_posts read failed: HTTP 403, Graph 200/.test(error.message)&&!error.message.includes("private provider text"));
+});
+
+async function advertisingFixture() {
+  const f=await fixture();
+  const grant={userToken:"advertising-user-token",providerUserId:"meta-user",permissions:[...scopes,"ads_read"],candidates:[],expiresAt:null};
+  f.sql.prepare("INSERT INTO social_grants (id,brand_id,user_id,encrypted,expires_at) VALUES ('ad-grant',?,'alice',?,?)").run(f.brandId,await encrypt(JSON.stringify(grant),f.env.TOKEN_ENCRYPTION_KEY),Date.now()+60000);
+  return {...f,confirmation:`Select advertising account act_123 for social account ${f.account.id} in brand ${f.brandId}`};
+}
+test("advertising discovery and selection require live scope and separate exact owner confirmation",async(t)=>{
+  const f=await advertisingFixture();let adsCalls=0;
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{const u=new URL(String(input));if(u.pathname.endsWith("/debug_token"))return Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes}});adsCalls++;return Response.json({data:[]});});
+  await assert.rejects(selectAdvertisingAccount(f.env,"alice",f.brandId,"ad-grant",f.account.id,"act_123",false,f.confirmation),/Separate owner confirmation/);
+  await assert.rejects(selectAdvertisingAccount(f.env,"alice",f.brandId,"ad-grant",f.account.id,"act_123",true,"wrong"),/Separate owner confirmation/);
+  await assert.rejects(grantAssets(f.env,"alice",f.brandId,"ad-grant","advertising"),/ads_read grant/);
+  await assert.rejects(selectAdvertisingAccount(f.env,"alice",f.brandId,"ad-grant",f.account.id,"act_123",true,f.confirmation),/ads_read grant/);
+  assert.equal(adsCalls,0);assert.equal(JSON.parse(String(f.sql.prepare("SELECT validation FROM social_accounts WHERE id=?").get(f.account.id)!.validation)).advertisingAccount,undefined);
+});
+test("advertising selection stays user/brand/role bound and rejects an altered granting identity",async(t)=>{
+  const f=await advertisingFixture();
+  t.mock.method(globalThis,"fetch",async()=>Response.json({data:{app_id:"platform",is_valid:true,user_id:"another-person",scopes:[...scopes,"ads_read"]}}));
+  await assert.rejects(selectAdvertisingAccount(f.env,"bob",f.brandId,"ad-grant",f.account.id,"act_123",true,f.confirmation),/not found/);
+  await assert.rejects(selectAdvertisingAccount(f.env,"alice","wrong-brand","ad-grant",f.account.id,"act_123",true,f.confirmation),/not found/);
+  await assert.rejects(selectAdvertisingAccount(f.env,"alice",f.brandId,"ad-grant",f.account.id,"act_123",true,f.confirmation),/identity does not match/);
+  f.sql.prepare("UPDATE social_grants SET user_id='someone-else'").run();
+  await assert.rejects(selectAdvertisingAccount(f.env,"alice",f.brandId,"ad-grant",f.account.id,"act_123",true,f.confirmation),/expired or was not found/);
+  f.sql.prepare("UPDATE social_members SET role='viewer' WHERE user_id='alice'").run();
+  await assert.rejects(selectAdvertisingAccount(f.env,"alice",f.brandId,"ad-grant",f.account.id,"act_123",true,f.confirmation),/role/);
+});
+test("confirmed advertising selection validates the exact account and preserves sending and Page credentials",async(t)=>{
+  const f=await advertisingFixture();const profile=String(f.sql.prepare("SELECT profile FROM social_brands WHERE id=?").get(f.brandId)!.profile);
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>{
+    assert.equal(init?.method,"GET");const u=new URL(String(input));
+    if(u.pathname.endsWith("debug_token"))return Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes:[...scopes,"ads_read"]}});
+    if(u.pathname.endsWith("me/adaccounts"))return Response.json({data:[{id:"act_123",name:"Approved advertising",account_status:1}],paging:{next:"https://graph.facebook.com/v26.0/me/adaccounts?after=more",cursors:{after:"more"}}});
+    assert.ok(u.pathname.endsWith("/act_123"));return Response.json({id:"act_123",name:"Approved advertising",account_status:1});
+  });
+  const listed=await grantAssets(f.env,"alice",f.brandId,"ad-grant","advertising");assert.equal(listed.assets[0].assetId,"act_123");assert.doesNotMatch(JSON.stringify(listed),/advertising-user-token/);
+  const selected=await selectAdvertisingAccount(f.env,"alice",f.brandId,"ad-grant",f.account.id,"act_123",true,f.confirmation);assert.equal(selected.sendingPolicyChanged,false);
+  const saved=await accountFor(f.env,"alice",f.brandId,f.account.id);assert.equal(saved.account.token,f.account.token);assert.equal(await decrypt(saved.account.user_token!,f.env.TOKEN_ENCRYPTION_KEY),"advertising-user-token");
+  assert.equal(JSON.parse(saved.account.validation).advertisingAccount.id,"act_123");assert.equal(String(f.sql.prepare("SELECT profile FROM social_brands WHERE id=?").get(f.brandId)!.profile),profile);
+});
+test("unapproved ad-creative mapping never reads an advertising endpoint",async(t)=>{
+  const f=await fixture();let calls=0;t.mock.method(globalThis,"fetch",async()=>{calls++;throw Error("should not fetch");});
+  await assert.rejects(inbox(f.env,f.account,"comment",{source:"ad_creatives"}),/explicitly approved/);assert.equal(calls,0);
+});
+test("creative mapping verifies Instagram root owners, deduplicates and scopes resumable pages",async(t)=>{
+  const f=await fixture();const validation=JSON.stringify({...JSON.parse(f.account.validation),advertisingAccount:{id:"act_123",name:"Approved",selectedAt:123,selectedBy:"alice"}});
+  const account={...f.account,provider:"instagram" as const,asset_id:"ig-a",validation,permissions:JSON.stringify([...scopes,"ads_read"])};
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>{
+    const u=new URL(String(input));assert.equal(init?.method,"GET");assert.equal(u.searchParams.has("access_token"),false);
+    if(u.pathname.endsWith("debug_token"))return Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes:[...scopes,"ads_read"]}});
+    if(u.pathname.endsWith("/act_123"))return Response.json({id:"act_123",name:"Approved"});
+    if(u.pathname.endsWith("/adcreatives"))return Response.json(u.searchParams.has("after")?{data:[{id:"c4",effective_instagram_media_id:"103"}]}:{data:[{id:"c1",effective_instagram_media_id:"101"},{id:"c2",effective_instagram_media_id:"102"},{id:"c3",effective_instagram_media_id:"101"}],paging:{next:"https://graph.facebook.com/v26.0/act_123/adcreatives?after=more&access_token=provider-secret"}});
+    if(u.pathname.endsWith("/comments"))return Response.json({data:[]});
+    const id=u.pathname.split("/").at(-1)!;return Response.json({id,owner:{id:id==="102"?"other-customer":"ig-a"},caption:id==="102"?"FOREIGN PRIVATE CAPTION":"Selected brand",permalink:"https://instagram.example/owned"});
+  });
+  const first=await inbox(f.env,account,"comment",{source:"ad_creatives"});assert.deepEqual(first.threads.map(t=>t.providerId),["101"]);assert.equal(first.source,"selected_ad_account_creatives");assert.ok(first.nextCursor);
+  assert.doesNotMatch(JSON.stringify(first),/FOREIGN PRIVATE CAPTION|provider-secret/);assert.doesNotMatch(await decrypt(first.nextCursor!,f.env.TOKEN_ENCRYPTION_KEY),/provider-secret|access_token/);
+  const second=await inbox(f.env,account,"comment",{source:"ad_creatives",cursor:first.nextCursor!});assert.deepEqual(second.threads.map(t=>t.providerId),["103"]);assert.equal(second.nextCursor,null);
+  await assert.rejects(inbox(f.env,{...account,validation:validation.replace('"selectedAt":123','"selectedAt":124')},"comment",{source:"ad_creatives",cursor:first.nextCursor!}),/differently scoped/);
+});
+test("creative Facebook story mapping uses Page credentials and actual post authorship",async(t)=>{
+  const f=await fixture();const account={...f.account,asset_id:"100",parent_id:"100",validation:JSON.stringify({...JSON.parse(f.account.validation),advertisingAccount:{id:"act_123",selectedAt:1}})};
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>{const u=new URL(String(input));
+    if(u.pathname.endsWith("debug_token"))return Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes:[...scopes,"ads_read"]}});
+    if(u.pathname.endsWith("/act_123"))return Response.json({id:"act_123"});
+    if(u.pathname.endsWith("/adcreatives"))return Response.json({data:[{id:"c1",effective_object_story_id:"100_9"}]});
+    assert.equal(new Headers(init?.headers).get("authorization"),"Bearer page-token");
+    return u.pathname.endsWith("/100_9")?Response.json({id:"100_9",from:{id:"100"},message:"Verified story"}):Response.json({data:[]});
+  });
+  const result=await inbox(f.env,account,"comment",{source:"ad_creatives"});assert.equal(result.threads[0].providerId,"100_9");
+});
+test("revoked advertising scope stops creative mapping before account or media access",async(t)=>{
+  const f=await fixture();const account={...f.account,validation:JSON.stringify({...JSON.parse(f.account.validation),advertisingAccount:{id:"act_123",selectedAt:1}})};let calls=0;
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{calls++;assert.ok(String(input).includes("debug_token"));return Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes}});});
+  await assert.rejects(inbox(f.env,account,"comment",{source:"ad_creatives"}),/ads_read grant/);assert.equal(calls,1);
+});
+
+test("creative root verification failures resume at the unprocessed root without dropping it",async(t)=>{
+  const f=await fixture();const account={...f.account,provider:"instagram" as const,asset_id:"ig-a",validation:JSON.stringify({...JSON.parse(f.account.validation),advertisingAccount:{id:"act_123",selectedAt:1}})};let fail=true;
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>{const u=new URL(String(input));
+    if(u.pathname.endsWith("debug_token"))return Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes:[...scopes,"ads_read"]}});
+    if(u.pathname.endsWith("/act_123"))return Response.json({id:"act_123"});
+    if(u.pathname.endsWith("/adcreatives"))return Response.json({data:[{id:"c1",effective_instagram_media_id:"101"},{id:"c2",effective_instagram_media_id:"102"}]});
+    if(u.pathname.endsWith("/comments"))return Response.json({data:[]});
+    const id=u.pathname.split("/").at(-1)!;if(id==="102"&&fail)throw Error("private provider failure");return Response.json({id,owner:{id:"ig-a"},caption:"Owned"});
+  });
+  const first=await inbox(f.env,account,"comment",{source:"ad_creatives"});assert.deepEqual(first.threads.map(t=>t.providerId),["101"]);assert.ok(first.nextCursor);assert.equal(first.coverage.complete,false);
+  fail=false;const second=await inbox(f.env,account,"comment",{source:"ad_creatives",cursor:first.nextCursor!});assert.deepEqual(second.threads.map(t=>t.providerId),["102"]);assert.equal(second.nextCursor,null);
+});
+
+test("advertising selection refuses reduced social scopes and mismatched account IDs without replacing credentials",async(t)=>{
+  const f=await advertisingFixture();let reduced=true;
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL)=>String(input).includes("debug_token")?Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes:reduced?["ads_read"]:[...scopes,"ads_read"]}}):Response.json({id:"act_999",name:"Wrong account"}));
+  await assert.rejects(selectAdvertisingAccount(f.env,"alice",f.brandId,"ad-grant",f.account.id,"act_123",true,f.confirmation),/retain the existing social permissions/);
+  reduced=false;await assert.rejects(selectAdvertisingAccount(f.env,"alice",f.brandId,"ad-grant",f.account.id,"act_123",true,f.confirmation),/identity was not verified/);
+  const saved=(await accountFor(f.env,"alice",f.brandId,f.account.id)).account;assert.equal(saved.user_token,f.account.user_token);assert.equal(saved.permissions,f.account.permissions);
 });

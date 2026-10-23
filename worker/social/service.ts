@@ -5,7 +5,7 @@ import { accountFor, admins, audit, brandFor, deleteLocalAccount, editors, id, j
 import { assess, defaultProfile, profileOf, validateProfile } from "./policy";
 import { capabilities, commentCoverageDiagnostics, inbox, platformStatus, readHistory, sendReply, validateConnection } from "./meta";
 import { version } from "../../package.json";
-import { grantAssets, selectAsset, startOAuth } from "./oauth";
+import { grantAssets, selectAsset, selectAdvertisingAccount, startOAuth } from "./oauth";
 import { resolveMetaSecrets } from "./config";
 import { accountMonitoring, recordPoll } from "./monitoring";
 import { subscribePageAccount } from "./webhook-setup";
@@ -161,8 +161,11 @@ export async function socialAction(name: string, a: Args, env: Env, user: string
     return updated;
   }
   if (name === "social_account_connect") return startOAuth(env, user, brandId);
-  if (name === "social_asset_list") return grantAssets(env, user, brandId, arg(a, "grantId"));
-  if (name === "social_asset_select") return selectAsset(env, user, brandId, arg(a, "grantId"), arg(a, "provider"), arg(a, "assetId"));
+  if (name === "social_asset_list") return grantAssets(env, user, brandId, arg(a, "grantId"), a.kind === undefined ? "social" : arg(a,"kind"), a.cursor === undefined ? undefined : arg(a,"cursor",2000));
+  if (name === "social_asset_select") {
+    if (a.provider === "advertising") return selectAdvertisingAccount(env, user, brandId, arg(a,"grantId"), arg(a,"accountId"), arg(a,"assetId"), a.confirmed, a.confirmation);
+    return selectAsset(env, user, brandId, arg(a, "grantId"), arg(a, "provider"), arg(a, "assetId"));
+  }
   if (name === "social_account_list") {
     await brandFor(env, user, brandId);
     const accounts = (await env.DB.prepare("SELECT * FROM social_accounts WHERE brand_id=? ORDER BY name").bind(brandId).all<SocialAccount>()).results;
@@ -237,7 +240,7 @@ export async function socialAction(name: string, a: Args, env: Env, user: string
     if (!["message", "comment"].includes(kind)) throw new HttpError(400, "Choose message or comment. Use social_workspace_list for brandId, then social_account_list for accountId. Mentions remain pending validation.");
     await usable(env, account, kind);
     const source = a.source === undefined ? undefined : arg(a, "source");
-    if (source !== undefined && source !== "feed" && source !== "ads") throw new HttpError(400, "source must be feed or ads.");
+    if (source !== undefined && source !== "feed" && source !== "ads" && source !== "ad_creatives") throw new HttpError(400, "source must be feed, ads or ad_creatives.");
     const result = await inbox(env, account, kind as "message" | "comment", { cursor: a.cursor === undefined ? undefined : arg(a,"cursor",100000), limit: a.limit === undefined ? undefined : a.limit as number, source });
     const threads = [];
     for (const item of result.threads) {

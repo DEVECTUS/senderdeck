@@ -7,10 +7,10 @@ import { monitoringEvidence } from "./monitoring";
 export const GRAPH_VERSION = "v26.0";
 const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}/`;
 type GraphObject = Record<string, unknown>;
-interface ReadBudget { deadline: number; remaining: number }
+export interface ReadBudget { deadline: number; remaining: number }
 class ReadLimit extends Error {}
 const readBudget = (): ReadBudget => ({ deadline: Date.now() + 20000, remaining: 20 });
-export interface ReadOptions { cursor?: string; limit?: number; source?: "feed" | "ads" }
+export interface ReadOptions { cursor?: string; limit?: number; source?: "feed" | "ads" | "ad_creatives" }
 interface Continuation { account: string; scope: string; expires: number; paths: Array<{ path: string; depth: number }> }
 async function resume(env: Env, account: SocialAccount, scope: string, cursor?: string) {
   if (!cursor) return null;
@@ -98,8 +98,8 @@ export async function graphPages(token: string, path: string, params: Record<str
   if (next && pages >= pageLimit) gaps.push("provider_page_limit_reached");
   return { rows, coverage: { complete: gaps.length === 0, pages, gaps, sourceUrl: null } as Coverage };
 }
-export async function inspectToken(env: Env, token: string) {
-  const raw = await graph(`${env.META_APP_ID}|${env.META_APP_SECRET}`, "debug_token", { input_token: token });
+export async function inspectToken(env: Env, token: string, budget?: ReadBudget) {
+  const raw = await graph(`${env.META_APP_ID}|${env.META_APP_SECRET}`, "debug_token", { input_token: token }, "GET", budget);
   const data = raw.data as { app_id?: string; is_valid?: boolean; user_id?: string; scopes?: string[]; granular_scopes?:Array<{scope?:unknown;target_ids?:unknown}>; expires_at?: number; data_access_expires_at?: number } | undefined;
   if (!data?.is_valid || data.app_id !== env.META_APP_ID || !data.user_id) throw new HttpError(403, "Token does not belong to the configured platform app or is invalid.");
   const expiries = [data.expires_at, data.data_access_expires_at].filter((n): n is number => typeof n === "number" && n > 0);
@@ -250,20 +250,28 @@ export async function validateConnection(env: Env, account: SocialAccount) {
       if (!webhook) errors.push("instagram_dashboard_setup_and_signed_delivery_required");
     }
   } catch { errors.push("webhook_subscription_unverified"); }
-  return { token, details: { ...details, permissions: details.permissions.filter(scope => granting.permissions.includes(scope)) }, validation: { ...previous, historyProbeVersion:2, historyProbeScope:"one_returned_root_not_complete_native_history", taskDiscovery: { source: selected.discoverySource || "accounts", state: tasks.length ? "returned" : "unverified", reason: tasks.length ? "provider_returned_page_tasks" : "provider_did_not_return_page_tasks" }, tasks, reads, probes, errors, webhook }, status: reads.messages||reads.comments ? "connected" : "limited" };
+  const advertisingScopes = json<{advertisingAccount?:unknown}>(account.validation).advertisingAccount ? granting.permissions.filter(scope => scope === "ads_read" || scope === "ads_management") : [];
+  return { token, details: { ...details, permissions: [...new Set([...details.permissions.filter(scope => granting.permissions.includes(scope)), ...advertisingScopes])] }, validation: { ...previous, historyProbeVersion:2, historyProbeScope:"one_returned_root_not_complete_native_history", taskDiscovery: { source: selected.discoverySource || "accounts", state: tasks.length ? "returned" : "unverified", reason: tasks.length ? "provider_returned_page_tasks" : "provider_did_not_return_page_tasks" }, tasks, reads, probes, errors, webhook }, status: reads.messages||reads.comments ? "connected" : "limited" };
 }
 export async function inbox(env: Env, account: SocialAccount, kind: "message" | "comment", options: ReadOptions = {}) {
   const caps = capabilities(env, account);
   if ((kind === "message" ? caps.messages : caps.comments) !== "available") throw new HttpError(409, "This account capability is unavailable or needs live validation.");
   const token = await decrypt(kind === "comment" && account.provider === "instagram" ? account.user_token! : account.token!, env.TOKEN_ENCRYPTION_KEY);
   const source = options.source || "feed";
-  if (!["feed", "ads"].includes(source) || (source === "ads" && (kind !== "comment" || account.provider !== "facebook"))) throw new HttpError(400, "source ads is supported only for Facebook comment discovery via the selected Page's ads_posts edge. Instagram ad-creative discovery requires a separately verified advertising account and ads_read or ads_management; this connector has no ad-account selection yet. Use the Meta Business Suite ad permalink for missing placement-specific comments.");
+  if (!["feed", "ads", "ad_creatives"].includes(source) || (source !== "feed" && kind !== "comment") || (source === "ads" && account.provider !== "facebook")) throw new HttpError(400, "source ads is only for Facebook comments. For Instagram or Facebook creative mapping use source ad_creatives after explicit advertising-account selection with an existing ads_read grant.");
   const path = kind === "message" ? `${account.parent_id || account.asset_id}/conversations` : `${account.asset_id}/${account.provider === "facebook" ? source === "ads" ? "ads_posts" : "feed" : "media"}`;
-  const scope = `inbox:${kind}:${source}`; const resumed = await resume(env, account, scope, options.cursor);
+  const selected = json<{advertisingAccount?:{id:string;selectedAt:number}}>(account.validation).advertisingAccount;
+  const scope = `inbox:${kind}:${source}${source === "ad_creatives" ? `:${selected?.id || "none"}:${selected?.selectedAt || 0}` : ""}`; const resumed = await resume(env, account, scope, options.cursor);
   const budget = readBudget(); const limit = options.limit ?? 10;
   if (!Number.isInteger(limit) || limit < 1 || limit > 20) throw new HttpError(400, "limit must be an integer from 1 to 20.");
   let page: GraphObject;
-  try { page = await graph(token, resumed?.[0]?.path || path, resumed ? options.limit === undefined ? {} : { limit: String(limit) } : kind === "message" ? { platform: account.provider === "facebook" ? "messenger" : "instagram", fields: "id,updated_time", limit: String(limit) } : { fields: account.provider === "facebook" ? "id,message,created_time,permalink_url" : "id,caption,timestamp,permalink", limit: String(limit) }, "GET", budget); }
+  let creativeGaps: string[] = []; let creativeNext: {path:string;depth:number} | null = null;
+  try {
+    if (source === "ad_creatives") {
+      const mapped = await (await import("./advertising")).adCreativeRoots(env, account, limit, budget, resumed?.[0]);
+      page = { data: mapped.roots }; creativeGaps = mapped.gaps; creativeNext = mapped.next;
+    } else page = await graph(token, resumed?.[0]?.path || path, resumed ? options.limit === undefined ? {} : { limit: String(limit) } : kind === "message" ? { platform: account.provider === "facebook" ? "messenger" : "instagram", fields: "id,updated_time", limit: String(limit) } : { fields: account.provider === "facebook" ? "id,message,created_time,permalink_url" : "id,caption,timestamp,permalink", limit: String(limit) }, "GET", budget);
+  }
   catch (error) {
     if (source !== "ads" || !(error instanceof MetaProviderError)) throw error;
     throw new HttpError(error.status, `The selected Page's ads_posts read failed: HTTP ${error.providerStatus}, Graph ${error.providerCode ?? "unknown"}. No ad coverage was obtained. Check this granting person's Page advertising tasks and app access to ads_posts in Meta's Graph API Explorer. A feed result does not substitute for an ad-post result. ${error.status === 401 ? "Reconnect the expired Meta grant." : "Keep native Business Suite review until access is verified."}`);
@@ -272,7 +280,8 @@ export async function inbox(env: Env, account: SocialAccount, kind: "message" | 
   const result = { rows: page.data as GraphObject[], coverage: { complete: true, pages: 1, gaps: [] as string[], sourceUrl: null } as Coverage };
   if (result.rows.length > 20) throw new HttpError(502, "Meta exceeded the requested root page size. Coverage is incomplete.");
   const next = (page.paging as {next?:string})?.next;
-  const nextCursor = await continuation(env, account, scope, next ? [{ path: next, depth: 0 }] : []);
+  const nextCursor = await continuation(env, account, scope, creativeNext ? [creativeNext] : next ? [{ path: next, depth: 0 }] : []);
+  result.coverage.gaps.push(...creativeGaps);
   if (nextCursor) { result.coverage.gaps.push("more_root_pages_available_use_nextCursor"); result.coverage.complete = false; }
   if(kind==="comment"){result.coverage.gaps.push("root_list_only_comment_history_requires_separate_read");result.coverage.complete=false;}
   if (account.provider === "instagram" && kind === "message") { result.coverage.gaps.push("instagram_requests_inactive_over_30_days_are_not_returned"); result.coverage.complete = false; }
@@ -298,15 +307,16 @@ export async function inbox(env: Env, account: SocialAccount, kind: "message" | 
   }
   threads.sort((a, b) => (b.lastInboundAt || 0) - (a.lastInboundAt || 0));
   result.coverage.gaps = [...new Set(result.coverage.gaps)];
-  return { threads, coverage: result.coverage, nextCursor, source: kind === "comment" ? account.provider === "facebook" ? source === "ads" ? "page_ads_posts" : "page_feed" : "instagram_media" : "conversations", ordering: "Observed incoming comments within this root page only; paginate and read each full thread. Instagram does not support ordering results.", coverageDiagnostics: commentCoverageDiagnostics(account, source) };
+  return { threads, coverage: result.coverage, nextCursor, source: source === "ad_creatives" ? "selected_ad_account_creatives" : kind === "comment" ? account.provider === "facebook" ? source === "ads" ? "page_ads_posts" : "page_feed" : "instagram_media" : "conversations", ordering: "Observed incoming comments within this root page only; paginate and read each full thread. Instagram does not support ordering results.", coverageDiagnostics: commentCoverageDiagnostics(account, source) };
 }
 export function commentCoverageDiagnostics(account: SocialAccount, source = "feed") {
   const scopes = json<string[]>(account.permissions);
-  return { rootSource: account.provider === "facebook" ? source === "ads" ? "page_ads_posts" : "page_feed" : "instagram_media",
+  const selected = json<{advertisingAccount?:{id:string}}>(account.validation).advertisingAccount;
+  return { rootSource: source === "ad_creatives" ? "selected_ad_account_creatives" : account.provider === "facebook" ? source === "ads" ? "page_ads_posts" : "page_feed" : "instagram_media",
     nativeSuiteParity: "not_established", missingCommentCause: "not_determined_do_not_infer_deleted_hidden_or_ad_only",
-    adCreativeDiscovery: { configured: false, hasReadScope: scopes.includes("ads_read") || scopes.includes("ads_management"), verifiedAdAccount: false,
-      blockers: [...(!scopes.includes("ads_read") && !scopes.includes("ads_management") ? ["ads_read_or_ads_management_not_granted"] : []), "no_verified_ad_account_selection", "ad_creative_media_mapping_not_implemented"],
-      ownerAction: "Identify the missing comment's Facebook/Instagram ad placement and exact post/media permalink in Business Suite. Facebook Page ads_posts can be checked with source ads. Instagram creative mapping needs a separately authorised and explicitly selected ad account; reconnecting the existing Page grant alone does not implement that adapter. Do not change app scopes without owner approval." },
+    adCreativeDiscovery: { configured: true, hasReadScope: scopes.includes("ads_read") || scopes.includes("ads_management"), verifiedAdAccount: !!selected, selectedAdAccountId: selected?.id || null,
+      blockers: [...(!scopes.includes("ads_read") && !scopes.includes("ads_management") ? ["ads_read_or_ads_management_not_granted"] : []), ...(!selected ? ["no_verified_ad_account_selection"] : [])],
+      ownerAction: "Identify the missing comment's exact placement and post/media permalink in Business Suite. With owner-authorised ads_read in the platform login configuration, obtain fresh consent through social_account_connect. Use social_asset_list with kind advertising on that owner-bound grant, then explicitly confirm social_asset_select provider advertising for the exact returned act_ ID and target accountId. Read source ad_creatives; runtime rechecks scope, grant identity, account access and each root's actual owner. Do not add scopes or select an account without owner approval." },
     incomingEvents: { instagram: account.provider === "instagram" ? "dashboard_comments_subscription_and_signed_delivery_not_verified_by_page_subscription" : "not_applicable", ownerAction: "For future Instagram comments, configure the platform app's Instagram comments webhook field and verify a signed delivery for this exact account. A subscription does not backfill historical comments." } };
 }
 function item(row: GraphObject): HistoryItem {

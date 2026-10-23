@@ -9,7 +9,7 @@ if (!response.ok) throw new Error(`tools/list returned HTTP ${response.status}`)
 const data = await response.json();
 const tools = data.result?.tools;
 if (!Array.isArray(tools)) throw new Error("The endpoint did not return tools/list.");
-const expected = { social_inbox: ["brandId", "accountId", "kind", "cursor", "limit", "source"], social_thread_read: ["brandId", "accountId", "threadId", "cursor"] };
+const expected = { social_inbox: ["brandId", "accountId", "kind", "cursor", "limit", "source"], social_thread_read: ["brandId", "accountId", "threadId", "cursor"], social_asset_list: ["brandId", "grantId", "kind", "cursor"], social_asset_select: ["brandId", "grantId", "provider", "assetId", "accountId", "confirmed", "confirmation"] };
 const advertised = {};
 for (const [name, required] of Object.entries(expected)) {
   const schema = tools.find(tool => tool.name === name)?.inputSchema;
@@ -17,4 +17,5 @@ for (const [name, required] of Object.entries(expected)) {
   if (required.some(key => !fields.includes(key))) throw new Error(`${name} is missing current fields: ${required.filter(key => !fields.includes(key)).join(", ")}`);
   advertised[name] = fields;
 }
+if (!tools.find(tool => tool.name === "social_inbox").inputSchema.properties.source.enum.includes("ad_creatives")) throw new Error("The server does not advertise ad-creative mapping.");
 console.log(JSON.stringify({ version, advertised, refresh: "If the connected client advertises fewer fields, reload its MCP connection or restart the client, then verify again. This public check does not refresh client state or validate authenticated calls." }, null, 2));

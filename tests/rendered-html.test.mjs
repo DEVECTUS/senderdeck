@@ -300,7 +300,7 @@ test("exposes a healthy stateless MCP contract", async () => {
   const inbox = listed.result.tools.find(tool => tool.name === "social_inbox").inputSchema;
   assert.ok(inbox.properties.cursor);
   assert.equal(inbox.properties.limit.maximum, 20);
-  assert.deepEqual(inbox.properties.source.enum, ["feed", "ads"]);
+  assert.deepEqual(inbox.properties.source.enum, ["feed", "ads", "ad_creatives"]);
   assert.ok(listed.result.tools.find(tool => tool.name === "social_thread_read").inputSchema.properties.cursor);
 });
 

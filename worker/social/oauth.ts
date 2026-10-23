@@ -1,7 +1,8 @@
 import { HttpError, requireUserId } from "../auth";
 import { encrypt, decrypt, randomBase64Url, sha256Base64Url } from "../crypto";
 import type { Env } from "../env";
-import { admins, brandFor, id, json, audit, notice, type SocialAccount } from "./model";
+import { admins, accountFor, brandFor, id, json, audit, notice, type SocialAccount } from "./model";
+import { advertisingAssets, advertisingGrant, advertisingAccount } from "./advertising";
 import { subscribePageAccount } from "./webhook-setup";
 import { discover, inspectToken, graph, GRAPH_VERSION, requireMeta, validateConnection, type MetaGrant } from "./meta";
 
@@ -48,8 +49,10 @@ async function getGrant(env: Env, user: string, brandId: string, grantId: string
   if (!row) throw new HttpError(404, "Asset selection expired or was not found.");
   return json<MetaGrant>(await decrypt(row.encrypted, env.TOKEN_ENCRYPTION_KEY));
 }
-export async function grantAssets(env: Env, user: string, brandId: string, grantId: string) {
+export async function grantAssets(env: Env, user: string, brandId: string, grantId: string, kind = "social", cursor?: string) {
   const grant = await getGrant(env, user, brandId, grantId);
+  if (kind === "advertising") return advertisingAssets(env, grant.userToken, cursor);
+  if (kind !== "social") throw new HttpError(400, "Asset kind must be social or advertising.");
   const current = await discover(env,grant.userToken);
   const assets = [];
   for (const { token: _token, ...asset } of current.candidates) {
@@ -57,6 +60,24 @@ export async function grantAssets(env: Env, user: string, brandId: string, grant
     assets.push({ ...asset, assignment });
   }
   return { assets, permissions: current.permissions, diagnostics:current.diagnostics||null, expiresIn: "up to ten minutes" };
+}
+export async function selectAdvertisingAccount(env: Env, user: string, brandId: string, grantId: string, accountId: string, advertisingId: string, confirmed: unknown, confirmation: unknown) {
+  const { account } = await accountFor(env, user, brandId, accountId, admins);
+  if (!["facebook", "instagram"].includes(account.provider)) throw new HttpError(409, "Advertising mapping needs a selected Facebook or Instagram account.");
+  if (!account.provider_user_id) throw new HttpError(409, "The granting identity for this social account must be verified before advertising selection.");
+  const exact = `Select advertising account ${advertisingId} for social account ${accountId} in brand ${brandId}`;
+  if (confirmed !== true || confirmation !== exact) throw new HttpError(400, `Separate owner confirmation is required: ${exact}`);
+  const saved = await getGrant(env, user, brandId, grantId);
+  const live = await advertisingGrant(env, saved.userToken, account.provider_user_id);
+  if (json<string[]>(account.permissions).some(scope => !live.permissions.includes(scope))) throw new HttpError(409, "The new grant must retain the existing social permissions as well as advertising read access. No credentials were replaced.");
+  const selected = await advertisingAccount(saved.userToken, advertisingId);
+  const selection = { id: selected.id, name: selected.name, selectedAt: Date.now(), selectedBy: user };
+  const validation = { ...json<Record<string, unknown>>(account.validation), advertisingAccount: selection };
+  const updated = await env.DB.prepare("UPDATE social_accounts SET user_token=?,permissions=?,validation=? WHERE id=? AND brand_id=? AND provider_user_id=? RETURNING id")
+    .bind(await encrypt(saved.userToken, env.TOKEN_ENCRYPTION_KEY), JSON.stringify(live.permissions), JSON.stringify(validation), account.id, brandId, live.providerUserId).first();
+  if (!updated) throw new HttpError(409, "The social account changed during selection. Read it again before continuing.");
+  await audit(env, brandId, user, "advertising_account_selected", account.id, selected.id);
+  return { selected: selection, accountId, brandId, readOnlyMapping: true, sendingPolicyChanged: false };
 }
 async function assetAssignment(env: Env, user: string, brandId: string, provider: string, assetId: string) {
   const existing = await env.DB.prepare("SELECT id,brand_id FROM social_accounts WHERE provider=? AND asset_id=?").bind(provider,assetId).first<{id:string;brand_id:string}>();

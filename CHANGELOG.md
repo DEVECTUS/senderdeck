@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.22 · 24 October 2026
+
+- Implement read-only ad-creative mapping from an explicitly approved advertising account to verified Facebook stories and Instagram media. Recheck granting identity, live advertising scopes, account access and actual root authorship before exposing content.
+- Add owner-bound advertising asset discovery and separately confirmed account selection to the existing asset tools, without requesting scopes or changing campaigns or sending policy.
+- Bound creative reads, deduplicate roots and preserve retry positions with scoped cursors. Report owner permission/selection blockers separately from implementation readiness.
+
 ## 0.4.21 · 24 October 2026
 
 - Report actual provider post authorship separately from the legacy reply-authority gate. Missing permission verdicts are explicit gaps, and different/unknown Instagram owners never gain reply authority.
