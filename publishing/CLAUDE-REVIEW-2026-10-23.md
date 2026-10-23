@@ -13,3 +13,16 @@ Existing identities created before this patch are retained; the patch does not a
 Publication and resubmission status must be recorded from the portal after deployment; preparing this file is not evidence of submission or approval. The OpenAI v0.4.17 submission remains a separate review.
 
 Validation: TypeScript passed; the full production build, 20 rendered-page checks and all 191 unit tests passed. Anthropic CLI validation passed for the plugin folder and repository marketplace. The Sites build helper failed to locate npm through the Windows shim; the standard repository npm test command built and tested the same source successfully.
+
+## Observed publication outcome
+
+The owner authorised Claude to use only the dedicated `testuser` review identity and confirmed the four Anthropic resubmission declarations. Claude OAuth showed the isolated sample mailbox before approval, completed successfully and discovered 38 tools. No email was sent.
+
+- The security fixes were deployed as 0.4.18 at `3a6a3698eb2e7fd967477663cc9364fb56fc62e8`.
+- 0.4.19 at `1b1c06fd00e41db91c361fc1b94811b675f21bf0` makes MCP descriptions factual while retaining workflow guidance in the skills. The live endpoint reports 0.4.19. TypeScript, build, 20 rendered-page checks, all 191 unit tests and Anthropic plugin validation passed.
+- Existing plugin resubmitted: https://claude.ai/directory/manage/plugins/5a677931-1197-4a4e-a9c1-1588d5da313b . The portal fetched v0.4.19 at 1b1c06f; validation, directory policy and security scan passed with non-blocking notes. It explicitly says publication waits for an Anthropic reviewer. No reviewer decision is recorded for v0.4.19, and it is not live.
+- Four manifest warnings concern documentationUrl, privacyPolicyUrl, supportUrl and termsOfServiceUrl. Expanded feedback says the directory reads them, Claude Code ignores them at load time, and no action is needed.
+- Separate MCP connector submitted: https://claude.ai/directory/manage/senderdeck . The saved status is In review, with OAuth required and DCR configured, 38 tools, and Live not yet reached.
+- The connector form disclosed third-party Google/Microsoft APIs, configurable mailbox health content, gated social capabilities and testing limits. The optional declaration that every tool was tested live through Claude/MCP Inspector remains unchecked. Dedicated credentials were entered only in secure review instructions and are excluded from this report and packages.
+
+Publication is awaiting Anthropic approval. These results do not claim an independent security audit, every-tool live validation, or a new demonstration video. The prior OpenAI v0.4.17 submission remains a separate review; it was not replaced or withdrawn during this Claude work.
