@@ -32,7 +32,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.13 shortens the public display name to SenderDeck while retaining DEVECTUS Pty Ltd as the verified publisher. It also adds durable account-retirement safeguards and preserves the existing email and brand-conversation review controls." },
+  publication: { release_notes: "Version 0.4.14 corrects social_brand_update to advertise destructiveHint true because it replaces the whole brand policy and invalidates draft approvals. Its description instructs clients to preserve settings the user has not requested changing. The display name remains SenderDeck." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);
