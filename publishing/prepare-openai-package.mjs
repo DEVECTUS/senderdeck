@@ -32,7 +32,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.14 corrects social_brand_update to advertise destructiveHint true because it replaces the whole brand policy and invalidates draft approvals. Its description instructs clients to preserve settings the user has not requested changing. The display name remains SenderDeck." },
+  publication: { release_notes: "Version 0.4.15 corrects social_thread_read and social_inbox to advertise readOnlyHint false and explain their local snapshot and enquiry-record writes. Includes the corrected destructive annotation for whole-brand policy replacement. The display name remains SenderDeck." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);
