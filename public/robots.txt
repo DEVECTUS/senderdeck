@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /oauth/
+Disallow: /mcp
+Disallow: /health
+
+Sitemap: https://senderdeck.devectus.com.au/sitemap.xml

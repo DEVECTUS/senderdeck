@@ -1,10 +1,12 @@
 import VersionBadge from "../VersionBadge";
 import type { Metadata } from "next";
+import { publicPageMetadata } from "../site-seo";
 import Image from "next/image";
 import Link from "next/link";
 import { senderDeckSignInPath } from "../senderdeck-auth";
 
 export const metadata: Metadata = {
+  ...publicPageMetadata("/install"),
   title: "Install SenderDeck for Codex or Claude",
   description:
     "Add the SenderDeck plugin to Codex, ChatGPT, Claude Code, or Claude using the public marketplace or MCP connector.",

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { publicPageMetadata } from "../site-seo";
 import LegalPage from "../LegalPage";
 
 export const metadata: Metadata = {
+  ...publicPageMetadata("/security"),
   title: "Security | SenderDeck by DEVECTUS",
   description: "SenderDeck security architecture, controls and responsible disclosure.",
 };

@@ -1,5 +1,6 @@
 import VersionBadge from "./VersionBadge";
 import type { Metadata } from "next";
+import { publicPageMetadata } from "./site-seo";
 import Image from "next/image";
 import AccountOverview from "./AccountOverview";
 import WorkspaceNav from "./WorkspaceNav";
@@ -7,6 +8,7 @@ import Link from "next/link";
 import { getSenderDeckUser, senderDeckSignInPath } from "./senderdeck-auth";
 
 export const metadata: Metadata = {
+  ...publicPageMetadata("/"),
   title: "SenderDeck by DEVECTUS",
   description:
     "Open-source email and brand conversation tools for Codex and Claude. Manage Gmail and Microsoft accounts, brand rules and approved replies, with clear social activation requirements.",
