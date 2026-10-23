@@ -1,6 +1,14 @@
 # Catherine and Kalan comment investigation
 
-24 October 2026, Australia/Sydney. The cause is narrowed down but unresolved. Do not claim full Suite parity, deletion, hidden status or recovery.
+24 October 2026, Australia/Sydney. Available ad-creative pagination is now exhausted on both accounts. The specific provider reason for the missing comments remains unresolved. Do not claim full Suite parity, deletion, hidden status or recovery.
+
+## Completed inventory and final live check
+
+The bounded hourly continuation finished on 24 October: Facebook 111 successful pages and 553 distinct roots; Instagram 111 successful pages and 474 distinct media roots. Both returned no further discovery cursor. No Catherine/Kalan preview or additional matching dental Donova media appeared in the remaining pages. This exhausts the selected account's returned creative inventory, not every possible Meta placement or every historical comment on every root.
+
+The final authenticated v0.4.24 ordered_comments checks of both known dental Donova roots again returned the same 13 comment/reply IDs plus post context, six collection pages each, verified selected-asset ownership and no history continuation. Catherine and Kalan were still absent. Existing explicit native-Suite and media-placement uncertainty remains material. The native evidence records their earlier Suite appearance; this completion check did not re-inspect the browser or assert their current moderation status.
+
+No further pagination remains to explain this discrepancy. The remaining investigation needs Meta to correlate the Suite-only entries with underlying comment IDs/placements and explain their API availability. A reviewable, unsent report is in META-COMMENT-COVERAGE-SUPPORT-DRAFT-2026-10-24.md. No support request, social reply, permission or sending-policy change was made. The inventory continuation automation is no longer needed after this completion.
 
 ## Verified findings
 
