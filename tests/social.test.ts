@@ -1018,3 +1018,110 @@ test("advertising selection refuses reduced social scopes and mismatched account
   reduced=false;await assert.rejects(selectAdvertisingAccount(f.env,"alice",f.brandId,"ad-grant",f.account.id,"act_123",true,f.confirmation),/identity was not verified/);
   const saved=(await accountFor(f.env,"alice",f.brandId,f.account.id)).account;assert.equal(saved.user_token,f.account.user_token);assert.equal(saved.permissions,f.account.permissions);
 });
+
+async function whatsappFixture(t: TestContext) {
+  const f = await fixture();
+  const permissions = ["whatsapp_business_management", "whatsapp_business_messaging"];
+  f.sql.prepare("UPDATE social_accounts SET provider='whatsapp',asset_id='12345',parent_id='67890',permissions=? WHERE id=?").run(JSON.stringify(permissions), f.account.id);
+  let sends = 0;
+  t.mock.method(globalThis, "fetch", async(input:RequestInfo|URL, init?:RequestInit) => {
+    const url = new URL(String(input));
+    const path = url.pathname.replace("/v26.0/", "");
+    assert.equal(url.origin, "https://graph.facebook.com");
+    if (path === "debug_token") return Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes:permissions}});
+    if (path === "67890/phone_numbers") return Response.json({data:[{id:"12345",verified_name:"Synthetic WhatsApp"}]});
+    if (path === "67890/subscribed_apps") return Response.json({data:[{whatsapp_business_api_data:{id:"platform"}}]});
+    if (path === "12345/messages" && init?.method === "POST") {
+      const body = new URLSearchParams(init.body as URLSearchParams);
+      assert.equal(body.get("messaging_product"), "whatsapp");
+      assert.equal(body.get("to"), "61400111222");
+      assert.deepEqual(JSON.parse(body.get("text")!), {body:"Hello there.",preview_url:false});
+      sends++; return Response.json({messages:[{id:"wamid.outgoing"}]});
+    }
+    throw new Error(`Unexpected WhatsApp endpoint: ${path}`);
+  });
+  const incoming = async(messageId="wamid.incoming", at=Date.now()-60000, text="Hello", overrides:Record<string,unknown>={}) => {
+    const raw = JSON.stringify({object:"whatsapp_business_account",entry:[{id:"67890",changes:[{field:"messages",value:{messaging_product:"whatsapp",metadata:{phone_number_id:"12345"},messages:[{id:messageId,from:"61400111222",timestamp:String(Math.floor(at/1000)),type:"text",text:{body:text},...overrides}]}}]}]});
+    const pending:Promise<unknown>[]=[];
+    const result=await receiveMeta(new Request("https://senderdeck.test/api/social/webhooks/meta",{method:"POST",headers:{"x-hub-signature-256":`sha256=${await hmac(f.env.META_APP_SECRET!,raw)}`},body:raw}),f.env,p=>pending.push(p));
+    await Promise.all(pending);return result;
+  };
+  const scope = () => ({brandId:f.brandId,accountId:f.account.id,threadId:(f.sql.prepare("SELECT id FROM social_threads WHERE account_id=? AND provider_id='61400111222'").get(f.account.id) as {id:string}).id});
+  const draft = async(acknowledgeHistoryGap=true) => {
+    const selected=scope();
+    const read=await socialAction("social_thread_read",selected,f.env,"alice") as History & {snapshotId:string};
+    const created=await socialAction("social_draft_create",{...selected,snapshotId:read.snapshotId,text:"Hello there.",acknowledgeHistoryGap},f.env,"alice") as {draftId:string;revision:string;assessment:{blockers:string[]}};
+    const inspected=await socialAction("social_draft_inspect",{...selected,draftId:created.draftId},f.env,"alice") as {approvalToken:string;requiredConfirmation:string;acknowledgeHistoryGap:boolean};
+    return {read,created,inspected,args:{...selected,draftId:created.draftId,revision:created.revision,approvalToken:inspected.approvalToken,confirmed:true,confirmation:inspected.requiredConfirmation}};
+  };
+  return {...f,incoming,scope,draft,sends:()=>sends};
+}
+
+test("WhatsApp signed inbound text uses exact draft approval, encrypted retention and one send claim", async t => {
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());
+  await f.incoming();await f.incoming();
+  assert.equal((f.sql.prepare("SELECT COUNT(*) AS count FROM social_whatsapp_messages").get() as {count:number}).count,1);
+  assert.ok(!(f.sql.prepare("SELECT encrypted FROM social_whatsapp_messages").get() as {encrypted:string}).encrypted.includes("Hello"));
+  const d=await f.draft();assert.equal(d.read.coverage.complete,false);assert.deepEqual(d.created.assessment.blockers,[]);assert.equal(d.inspected.acknowledgeHistoryGap,true);
+  await assert.rejects(socialAction("social_reply_send",{...d.args,revision:"changed"},f.env,"alice"),/Fresh explicit approval/);
+  await assert.rejects(socialAction("social_reply_send",d.args,f.env,"mallory"),/not found|access/i);
+  assert.equal(f.sends(),0);
+  const result=await socialAction("social_reply_send",d.args,f.env,"alice") as {providerId:string};
+  assert.equal(result.providerId,"wamid.outgoing");assert.equal(f.sends(),1);
+  await assert.rejects(socialAction("social_reply_send",d.args,f.env,"alice"));assert.equal(f.sends(),1);
+  await socialAction("social_account_disconnect",{brandId:f.brandId,accountId:f.account.id,confirmed:true},f.env,"alice");
+  assert.equal((f.sql.prepare("SELECT COUNT(*) AS count FROM social_whatsapp_messages").get() as {count:number}).count,0);
+});
+
+test("WhatsApp refuses missing history acknowledgement, stale approval, media and closed windows", async t => {
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());await f.incoming();
+  const unacknowledged=await f.draft(false);assert.ok(unacknowledged.created.assessment.blockers.includes("incomplete_history"));
+  await assert.rejects(socialAction("social_reply_send",unacknowledged.args,f.env,"alice"),/incomplete_history/);
+  const changed=await f.draft();await f.incoming("wamid.changed",Date.now()-30000,"More context");
+  await assert.rejects(socialAction("social_reply_send",changed.args,f.env,"alice"),/Conversation changed/);
+  await f.incoming("wamid.media",Date.now()-20000,"",{type:"image"});
+  const media=await f.draft();assert.ok(media.created.assessment.blockers.includes("attachments_require_native_review"));
+  await assert.rejects(socialAction("social_reply_send",media.args,f.env,"alice"),/attachments_require_native_review/);
+  f.sql.prepare("DELETE FROM social_whatsapp_messages").run();
+  await f.incoming("wamid.old",Date.now()-86400001);
+  const old=await f.draft();await assert.rejects(socialAction("social_reply_send",old.args,f.env,"alice"),/24-hour/);assert.equal(f.sends(),0);
+});
+
+test("WhatsApp routes by WABA and phone together, rejects forged signatures and scopes", async t => {
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());
+  const raw=JSON.stringify({object:"whatsapp_business_account",entry:[{id:"wrong-waba",changes:[{field:"messages",value:{messaging_product:"whatsapp",metadata:{phone_number_id:"12345"},messages:[{id:"forged",from:"61400111222",timestamp:String(Math.floor(Date.now()/1000)),type:"text",text:{body:"wrong workspace"}}]}}]}]});
+  await assert.rejects(receiveMeta(new Request("https://senderdeck.test/api/social/webhooks/meta",{method:"POST",body:raw}),f.env,()=>{}),/signature/);
+  await receiveMeta(new Request("https://senderdeck.test/api/social/webhooks/meta",{method:"POST",headers:{"x-hub-signature-256":`sha256=${await hmac(f.env.META_APP_SECRET!,raw)}`},body:raw}),f.env,()=>{});
+  assert.equal((f.sql.prepare("SELECT COUNT(*) AS count FROM social_whatsapp_messages").get() as {count:number}).count,0);
+  await f.incoming();const d=await f.draft();f.env.SOCIAL_SEND_ENABLED="false";
+  await assert.rejects(socialAction("social_reply_send",d.args,f.env,"alice"),/disabled/);assert.equal(f.sends(),0);
+});
+
+test("WhatsApp OAuth configuration, discovery and selection preserve owner and tenant boundaries", async t => {
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());
+  await assert.rejects(startOAuth(f.env,"alice",f.brandId,"whatsapp"),/not configured/);
+  f.env.WHATSAPP_LOGIN_CONFIG_ID="whatsapp-config";
+  const start=await startOAuth(f.env,"alice",f.brandId,"whatsapp");
+  const url=new URL(start.authorizationUrl);assert.equal(url.searchParams.get("config_id"),"whatsapp-config");assert.equal(url.searchParams.get("redirect_uri"),"https://senderdeck.test/oauth/social/whatsapp/callback");
+  await assert.rejects(startOAuth(f.env,"mallory",f.brandId,"whatsapp"),/not found/);
+  const grant={userToken:"user-token",providerUserId:"meta-user",permissions:["whatsapp_business_management","whatsapp_business_messaging"],candidates:[],expiresAt:null};
+  const encrypted=await encrypt(JSON.stringify(grant),f.env.TOKEN_ENCRYPTION_KEY);
+  f.sql.prepare("INSERT INTO social_grants (id,brand_id,user_id,encrypted,expires_at) VALUES (?,?,?,?,?)").run("wa-grant",f.brandId,"alice",encrypted,Date.now()+600000);
+  const assets=await grantAssets(f.env,"alice",f.brandId,"wa-grant","whatsapp",undefined,"67890");
+  assert.equal(assets.assets[0].provider,"whatsapp");assert.equal(assets.assets[0].assignment.state,"this_brand");assert.doesNotMatch(JSON.stringify(assets),/user-token|meta-user/);
+  await assert.rejects(selectAsset(f.env,"alice",f.brandId,"wa-grant","whatsapp","99999","67890"),/not present/);
+  const selected=await selectAsset(f.env,"alice",f.brandId,"wa-grant","whatsapp","12345","67890");assert.equal(selected.accountId,f.account.id);assert.equal(selected.validation.webhook,true);
+  const other=await socialAction("social_brand_create",{customerId:f.customerId,name:"Other brand"},f.env,"alice") as {brandId:string};
+  f.sql.prepare("INSERT INTO social_grants (id,brand_id,user_id,encrypted,expires_at) VALUES (?,?,?,?,?)").run("other-grant",other.brandId,"alice",encrypted,Date.now()+600000);
+  await assert.rejects(selectAsset(f.env,"alice",other.brandId,"other-grant","whatsapp","12345","67890"),/already connected/);
+  await assert.rejects(grantAssets(f.env,"mallory",f.brandId,"wa-grant","whatsapp",undefined,"67890"),/not found/);
+});
+
+test("WhatsApp revoked messaging permission and app subscription prevent approval from sending", async t => {
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());await f.incoming();const d=await f.draft();
+  const original=globalThis.fetch;
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>String(input).includes("debug_token")?Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes:["whatsapp_business_management"]}}):original(input,init));
+  await assert.rejects(socialAction("social_reply_send",d.args,f.env,"alice"),/permissions/);assert.equal(f.sends(),0);
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>String(input).includes("subscribed_apps")?Response.json({data:[]}):original(input,init));
+  await assert.rejects(socialAction("social_reply_send",d.args,f.env,"alice"),/not validated/);assert.equal(f.sends(),0);
+});

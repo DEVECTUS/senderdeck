@@ -37,12 +37,13 @@ export async function operatorSetup(env: Env, user: string) {
     {key:"META_APP_ID", configured:!!env.META_APP_ID, secret:false, value:env.META_APP_ID || null},
     {key:"META_APP_SECRET", configured:!!statusEnv.META_APP_SECRET, secret:true, source:env.META_APP_SECRET?"hosting":stored.some(row=>row.key==="META_APP_SECRET")?"encrypted_store":"missing"},
     {key:"META_LOGIN_CONFIG_ID", configured:!!env.META_LOGIN_CONFIG_ID, secret:false, value:env.META_LOGIN_CONFIG_ID || null},
+    {key:"WHATSAPP_LOGIN_CONFIG_ID", configured:!!env.WHATSAPP_LOGIN_CONFIG_ID, secret:false, value:env.WHATSAPP_LOGIN_CONFIG_ID || null},
     {key:"META_WEBHOOK_VERIFY_TOKEN", configured:!!statusEnv.META_WEBHOOK_VERIFY_TOKEN, secret:true, source:env.META_WEBHOOK_VERIFY_TOKEN?"hosting":stored.some(row=>row.key==="META_WEBHOOK_VERIFY_TOKEN")?"encrypted_store":"missing"},
     {key:"SOCIAL_PUBLIC_ORIGIN", configured:!!env.SOCIAL_PUBLIC_ORIGIN, secret:false, value:env.SOCIAL_PUBLIC_ORIGIN || null},
     {key:"SOCIAL_MAINTENANCE_TOKEN", configured:!!env.SOCIAL_MAINTENANCE_TOKEN, secret:true},
   ];
   const observed = await env.DB.prepare("SELECT MAX(created_at) AS last_event FROM social_queue").first<{last_event:number|null}>();
-  return { fields, routes: { callback:`${origin}/oauth/social/meta/callback`, webhook:`${origin}/api/social/webhooks/meta`, deauthorisation:`${origin}/api/social/meta/deauthorize`, deletion:`${origin}/api/social/meta/delete`, maintenance:`${origin}/api/social/maintenance`, privacy:`${origin}/privacy` },
+  return { fields, routes: { whatsappCallback:`${origin}/oauth/social/whatsapp/callback`, callback:`${origin}/oauth/social/meta/callback`, webhook:`${origin}/api/social/webhooks/meta`, deauthorisation:`${origin}/api/social/meta/deauthorize`, deletion:`${origin}/api/social/meta/delete`, maintenance:`${origin}/api/social/maintenance`, privacy:`${origin}/privacy` },
     platform, runtime, webhookLastObservedAt:observed?.last_event || null, businessVerification:"must_be_verified_in_meta", appReview:"must_be_verified_in_meta",
     credentialEntry:"Only a verified, hosting-allowlisted platform operator may enter the two Meta secrets below. Values are encrypted with the hosting encryption key. The app secret is never returned. Only the explicit, protected operator clipboard action can return the webhook verification token. Native hosting secrets take precedence and cannot be replaced here.",
     activationNote:"Settings and mock tests do not prove provider approval, webhook delivery, a running scheduler or complete conversation history." };

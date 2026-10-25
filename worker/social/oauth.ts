@@ -1,3 +1,4 @@
+import { whatsappAssets } from "./whatsapp";
 import { HttpError, requireUserId } from "../auth";
 import { encrypt, decrypt, randomBase64Url, sha256Base64Url } from "../crypto";
 import type { Env } from "../env";
@@ -14,34 +15,40 @@ export function publicOrigin(env: Env) {
 export function socialRedirect(env: Env, path: string) {
   return new Response(null,{status:303,headers:{location:`${publicOrigin(env)}${path}`,"cache-control":"no-store","referrer-policy":"no-referrer"}});
 }
-export async function startOAuth(env: Env, user: string, brandId: string) {
-  await brandFor(env, user, brandId, admins); requireMeta(env);
+export async function startOAuth(env: Env, user: string, brandId: string, provider = "meta") {
+  await brandFor(env, user, brandId, admins);
+  if (!["meta", "whatsapp"].includes(provider)) throw new HttpError(400, "Choose meta or whatsapp.");
+  if (provider === "meta") requireMeta(env);
+  else if (!env.META_APP_ID || !env.META_APP_SECRET || !env.WHATSAPP_LOGIN_CONFIG_ID) throw new HttpError(409, "WhatsApp Business OAuth is not configured.");
   // Expiry is checked in the queries themselves. Cleanup cadence must not
   // prevent a customer from authorising an account.
-  const state = randomBase64Url(); const redirect = `${publicOrigin(env)}/oauth/social/meta/callback`;
+  const state = randomBase64Url(); const redirect = `${publicOrigin(env)}/oauth/social/${provider}/callback`;
   await env.DB.prepare("INSERT INTO social_oauth (hash, brand_id, user_id, redirect_uri, expires_at) VALUES (?, ?, ?, ?, ?)").bind(await sha256Base64Url(state), brandId, user, redirect, Date.now() + 600000).run();
   const url = new URL(`https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`);
-  for (const [key, value] of Object.entries({ client_id: env.META_APP_ID!, config_id: env.META_LOGIN_CONFIG_ID!, response_type: "code", redirect_uri: redirect, state })) url.searchParams.set(key, value);
-  return { authorizationUrl: url.toString(), brandId, provider: "meta", action: "Open the hosted authorisation flow, then select and verify each business asset." };
+  for (const [key, value] of Object.entries({ client_id: env.META_APP_ID!, config_id: provider === "whatsapp" ? env.WHATSAPP_LOGIN_CONFIG_ID! : env.META_LOGIN_CONFIG_ID!, response_type: "code", redirect_uri: redirect, state })) url.searchParams.set(key, value);
+  return { authorizationUrl: url.toString(), brandId, provider, action: "Open the hosted authorisation flow, then select and verify each business asset." };
 }
 export async function oauthCallback(request: Request, env: Env) {
   const url = new URL(request.url);
-  if (url.pathname !== "/oauth/social/meta/callback") return null;
+  if (!["/oauth/social/meta/callback", "/oauth/social/whatsapp/callback"].includes(url.pathname)) return null;
   if (request.method !== "GET") throw new HttpError(405, "Method not allowed.");
-  const user = await requireUserId(request, env); requireMeta(env);
+  const user = await requireUserId(request, env);
+  const whatsapp = url.pathname === "/oauth/social/whatsapp/callback";
+  if (!env.META_APP_ID || !env.META_APP_SECRET) throw new HttpError(503, "Meta is not configured.");
   const state = url.searchParams.get("state");
   if (!state || state.length > 1000) throw new HttpError(400, "Invalid OAuth state.");
   const row = await env.DB.prepare("DELETE FROM social_oauth WHERE hash = ? AND user_id = ? AND expires_at > ? RETURNING *").bind(await sha256Base64Url(state), user, Date.now()).first<{ brand_id: string; redirect_uri: string }>();
-  if (!row) return socialRedirect(env,"/connect/meta?connection=restart_required");
+  if (row && row.redirect_uri !== `${publicOrigin(env)}${url.pathname}`) throw new HttpError(403, "OAuth callback does not match its connection flow.");
+  if (!row) return socialRedirect(env,`/connect/meta?connection=restart_required${whatsapp ? "&provider=whatsapp" : ""}`);
   await brandFor(env, user, row.brand_id, admins);
   const code = url.searchParams.get("code");
-  if (!code || url.searchParams.has("error")) return socialRedirect(env,`/connect/meta?brand=${encodeURIComponent(row.brand_id)}&connection=cancelled`);
+  if (!code || url.searchParams.has("error")) return socialRedirect(env,`/connect/meta?brand=${encodeURIComponent(row.brand_id)}&connection=cancelled${whatsapp ? "&provider=whatsapp" : ""}`);
   const exchange = await graph(`${env.META_APP_ID}|${env.META_APP_SECRET}`, "oauth/access_token", { client_id: env.META_APP_ID!, client_secret: env.META_APP_SECRET!, redirect_uri: row.redirect_uri, code });
   if (typeof exchange.access_token !== "string") throw new HttpError(502, "Meta did not return an authorisation token.");
-  const grant = await discover(env, exchange.access_token);
+  const grant = whatsapp ? { ...await inspectToken(env, exchange.access_token), userToken: exchange.access_token, candidates: [] } : await discover(env, exchange.access_token);
   const grantId = id();
   await env.DB.prepare("INSERT INTO social_grants (id, brand_id, user_id, encrypted, expires_at) VALUES (?, ?, ?, ?, ?)").bind(grantId, row.brand_id, user, await encrypt(JSON.stringify(grant), env.TOKEN_ENCRYPTION_KEY), Date.now() + 600000).run();
-  return socialRedirect(env,`/connect/meta?brand=${encodeURIComponent(row.brand_id)}&grant=${encodeURIComponent(grantId)}`);
+  return socialRedirect(env,`/connect/meta?brand=${encodeURIComponent(row.brand_id)}&grant=${encodeURIComponent(grantId)}${whatsapp ? "&provider=whatsapp" : ""}`);
 }
 async function getGrant(env: Env, user: string, brandId: string, grantId: string) {
   await brandFor(env, user, brandId, admins);
@@ -49,10 +56,14 @@ async function getGrant(env: Env, user: string, brandId: string, grantId: string
   if (!row) throw new HttpError(404, "Asset selection expired or was not found.");
   return json<MetaGrant>(await decrypt(row.encrypted, env.TOKEN_ENCRYPTION_KEY));
 }
-export async function grantAssets(env: Env, user: string, brandId: string, grantId: string, kind = "social", cursor?: string) {
+export async function grantAssets(env: Env, user: string, brandId: string, grantId: string, kind = "social", cursor?: string, wabaId?: string) {
   const grant = await getGrant(env, user, brandId, grantId);
   if (kind === "advertising") return advertisingAssets(env, grant.userToken, cursor);
-  if (kind !== "social") throw new HttpError(400, "Asset kind must be social or advertising.");
+  if (kind === "whatsapp") {
+    const result = await whatsappAssets(env, grant.userToken, strWaba(wabaId));
+    return { assets: await Promise.all(result.assets.map(async ({token: _token, ...asset}) => ({...asset, assignment: await assetAssignment(env, user, brandId, asset.provider, asset.assetId)}))) };
+  }
+  if (kind !== "social") throw new HttpError(400, "Asset kind must be social, advertising or whatsapp.");
   const current = await discover(env,grant.userToken);
   const assets = [];
   for (const { token: _token, ...asset } of current.candidates) {
@@ -88,10 +99,10 @@ async function assetAssignment(env: Env, user: string, brandId: string, provider
   const visible = await env.DB.prepare("SELECT b.id,b.name FROM social_brands b JOIN social_members m ON m.customer_id=b.customer_id WHERE b.id=? AND m.user_id=?").bind(existing.brand_id,user).first<{id:string;name:string}>();
   return visible ? { state: "other_brand" as const, brandId:visible.id, brandName:visible.name } : { state: "other_workspace" as const };
 }
-export async function selectAsset(env: Env, user: string, brandId: string, grantId: string, provider: string, assetId: string) {
+export async function selectAsset(env: Env, user: string, brandId: string, grantId: string, provider: string, assetId: string, wabaId?: string) {
   const saved = await getGrant(env, user, brandId, grantId);
   // Re-discover the grant rather than trusting a caller-supplied Page, task or token.
-  const grant = await discover(env, saved.userToken);
+  const grant = provider === "whatsapp" ? { ...saved, candidates: (await whatsappAssets(env, saved.userToken, strWaba(wabaId))).assets } : await discover(env, saved.userToken);
   const asset = grant.candidates.find(a => a.provider === provider && a.assetId === assetId);
   if (!asset) throw new HttpError(403, "The selected asset is not present in the current authorisation.");
   const existing = await env.DB.prepare("SELECT id, brand_id FROM social_accounts WHERE provider = ? AND asset_id = ?").bind(provider, assetId).first<{id: string; brand_id: string}>();
@@ -127,3 +138,5 @@ export async function selectAsset(env: Env, user: string, brandId: string, grant
   }
   return { accountId: account.id, status: account.status, validation: live.validation, eventSubscription };
 }
+
+function strWaba(value?: string) { if (!value || !/^\d{1,32}$/.test(value)) throw new HttpError(400, "Provide the WhatsApp Business Account ID."); return value; }

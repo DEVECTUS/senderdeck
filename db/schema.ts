@@ -252,3 +252,12 @@ export const mcpOauthTokens = sqliteTable(
     index("mcp_oauth_tokens_user_idx").on(table.userId),
   ],
 );
+
+export const socialWhatsappMessages = sqliteTable("social_whatsapp_messages", {
+  accountId: text("account_id").notNull().references(() => socialAccounts.id, {onDelete:"cascade"}),
+  providerId: text("provider_id").notNull(),
+  peer: text("peer").notNull(),
+  sentAt: integer("sent_at").notNull(),
+  encrypted: text("encrypted").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+}, table => [uniqueIndex("social_whatsapp_message_unique").on(table.accountId, table.providerId), index("social_whatsapp_thread_idx").on(table.accountId, table.peer, table.sentAt)]);

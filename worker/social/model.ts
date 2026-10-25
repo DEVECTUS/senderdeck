@@ -2,7 +2,7 @@ import { HttpError } from "../auth";
 import type { Env } from "../env";
 import { decrypt } from "../crypto";
 
-export type SocialProvider = "facebook" | "instagram" | "linkedin" | "email";
+export type SocialProvider = "facebook" | "instagram" | "linkedin" | "email" | "whatsapp";
 export type Role = "owner" | "admin" | "editor" | "reviewer" | "viewer";
 export const editors: Role[] = ["owner", "admin", "editor"];
 export const reviewers: Role[] = ["owner", "admin", "reviewer"];

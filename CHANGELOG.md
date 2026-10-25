@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.30 - 2026-10-26
+
+- Add WhatsApp Business connection for existing Cloud API numbers, signed inbound message handling and encrypted retained history.
+- Reuse immutable drafts, exact revision inspection and explicit approval for text replies within the 24-hour inbound window.
+- Require acknowledgement of webhook-only history limits; block templates, media sending, truncated history and existing brand-policy blockers.
+- Append WhatsApp migration 0010 while preserving the deployed 0.4.29 sign-in and Instagram moderation changes.
+
 ## 0.4.29 · 25 October 2026
 
 - Fix comment moderation rejecting verified owned advertising placements because the media-product allowlist omitted Meta's documented AD classification. Accept AD only from the directly fetched actual comment media after ownership verification.

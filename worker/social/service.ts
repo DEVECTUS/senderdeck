@@ -1,3 +1,4 @@
+import { historyGap } from "./whatsapp";
 import { HttpError } from "../auth";
 import { decrypt, encrypt, randomBase64Url, sha256Base64Url } from "../crypto";
 import type { Env } from "../env";
@@ -14,7 +15,7 @@ import { moderationAction } from "./moderation";
 type Args = Record<string, unknown>;
 interface Snapshot { id: string; thread_id: string; user_id: string; digest: string; encrypted: string; complete: number; expires_at: number }
 interface Draft { id: string; thread_id: string; snapshot_id: string; brand_revision: number; revision: string; encrypted: string; state: string; approval_hash: string | null; approver: string | null; approval_expires_at: number | null; expires_at: number }
-interface DraftBody { text: string; attachments: never[]; target: string; assessment: ReturnType<typeof assess>; sourceUrl: string | null }
+interface DraftBody { text: string; attachments: never[]; target: string; assessment: ReturnType<typeof assess>; sourceUrl: string | null; acknowledgeHistoryGap?: boolean }
 const now = () => Date.now();
 const arg = (a: Args, key: string, max?: number) => str(a[key], key, max);
 export async function refreshAccount(env: Env, account: SocialAccount) {
@@ -52,6 +53,11 @@ export async function reconcileAccount(env: Env, account: SocialAccount) {
 }
 async function reconcileAccountWork(env: Env, account: SocialAccount) {
   await refreshAccount(env, account);
+  if (account.provider === "whatsapp") {
+    await recordPoll(env, account.id, [historyGap]);
+    await env.DB.prepare("UPDATE social_accounts SET last_reconciled_at=? WHERE id=?").bind(now(), account.id).run();
+    return {coverageComplete:false, errors:[historyGap], source:"signed_webhooks", checkedAt:new Date().toISOString()};
+  }
   const result: Array<{kind: string; threads: Thread[]; coverage: unknown}> = [];
   const errors: string[] = [];
   for (const kind of ["message", "comment"] as const) {
@@ -162,11 +168,11 @@ export async function socialAction(name: string, a: Args, env: Env, user: string
     await audit(env, brandId, user, "brand_updated", brandId, String(brand.revision + 1));
     return updated;
   }
-  if (name === "social_account_connect") return startOAuth(env, user, brandId);
-  if (name === "social_asset_list") return grantAssets(env, user, brandId, arg(a, "grantId"), a.kind === undefined ? "social" : arg(a,"kind"), a.cursor === undefined ? undefined : arg(a,"cursor",2000));
+  if (name === "social_account_connect") return startOAuth(env, user, brandId, a.provider === undefined ? "meta" : arg(a,"provider"));
+  if (name === "social_asset_list") return grantAssets(env, user, brandId, arg(a, "grantId"), a.kind === undefined ? "social" : arg(a,"kind"), a.cursor === undefined ? undefined : arg(a,"cursor",2000), a.wabaId === undefined ? undefined : arg(a,"wabaId"));
   if (name === "social_asset_select") {
     if (a.provider === "advertising") return selectAdvertisingAccount(env, user, brandId, arg(a,"grantId"), arg(a,"accountId"), arg(a,"assetId"), a.confirmed, a.confirmation);
-    return selectAsset(env, user, brandId, arg(a, "grantId"), arg(a, "provider"), arg(a, "assetId"));
+    return selectAsset(env, user, brandId, arg(a, "grantId"), arg(a, "provider"), arg(a, "assetId"), a.wabaId === undefined ? undefined : arg(a,"wabaId"));
   }
   if (name === "social_account_list") {
     await brandFor(env, user, brandId);
@@ -243,6 +249,11 @@ export async function socialAction(name: string, a: Args, env: Env, user: string
     await usable(env, account, kind);
     const source = a.source === undefined ? undefined : arg(a, "source");
     if (source !== undefined && source !== "feed" && source !== "ads" && source !== "ad_creatives") throw new HttpError(400, "source must be feed, ads or ad_creatives.");
+    if (account.provider === "whatsapp") {
+      if (a.cursor || source && source !== "feed") throw new HttpError(400, "WhatsApp exposes retained webhook threads only; cursors and advertising sources are unsupported.");
+      const threads = (await env.DB.prepare("SELECT * FROM social_threads WHERE account_id=? AND kind='message' ORDER BY updated_at DESC LIMIT 200").bind(account.id).all<Thread>()).results;
+      return { threads, limit: 200, coverage: {complete:false,pages:1,gaps:[historyGap],sourceUrl:null}, source:"signed_webhooks", contentIsUntrusted:true };
+    }
     const result = await inbox(env, account, kind as "message" | "comment", { cursor: a.cursor === undefined ? undefined : arg(a,"cursor",100000), limit: a.limit === undefined ? undefined : a.limit as number, source });
     const threads = [];
     for (const item of result.threads) {
@@ -274,7 +285,7 @@ export async function socialAction(name: string, a: Args, env: Env, user: string
     if (Array.isArray(a.attachments) && a.attachments.length) throw new HttpError(409, "Social attachment sending is not validated. Prepare a text-only draft or use the native provider.");
     const target = a.targetId ? arg(a, "targetId") : history.target;
     if (thread.kind === "message" ? target !== history.target : !history.items.some(i => i.id === target)) throw new HttpError(400, "Reply target must be present in the fetched account history.");
-    const body: DraftBody = { text, attachments: [], target, assessment: assess(profileOf(brand.profile), text, history), sourceUrl: history.coverage.sourceUrl };
+    const body: DraftBody = { text, attachments: [], target, assessment: assessDraft(brand, account, text, history, a.acknowledgeHistoryGap === true), sourceUrl: history.coverage.sourceUrl, ...(account.provider === "whatsapp" ? {acknowledgeHistoryGap: a.acknowledgeHistoryGap === true} : {}) };
     const draftId = id(); const revision = await sha256Base64Url(JSON.stringify({ draftId, brandId, brandRevision: brand.revision, accountId, threadId: thread.id, snapshot: snapshot.digest, body }));
     await env.DB.batch([
       env.DB.prepare("UPDATE social_drafts SET state='superseded',approval_hash=NULL WHERE thread_id=? AND state='draft'").bind(thread.id),
@@ -294,6 +305,7 @@ export async function socialAction(name: string, a: Args, env: Env, user: string
     await env.DB.prepare("UPDATE social_drafts SET approval_hash=?,approver=?,approval_expires_at=? WHERE id=? AND state='draft'").bind(await sha256Base64Url(approvalToken), user, now() + 300000, draft.id).run();
     return { brand: { id: brandId, name: brand.name, revision: brand.revision }, account: { id: accountId, name: account.name, provider: account.provider, assetId: account.asset_id }, channel: thread.kind,
       threadId: thread.id, recipientOrTarget: body.target, text: body.text, attachments: [], draftId: draft.id, revision: draft.revision, assessment: body.assessment,
+      ...(account.provider === "whatsapp" ? { historyCoverage: {complete:false,gaps:[historyGap]}, acknowledgeHistoryGap: body.acknowledgeHistoryGap, responseWindow: "24 hours after the latest retained inbound message; no template sending" } : {}),
       delivery: "Not sent. Requires a separate explicit human confirmation.", approvalToken, approvalExpiresInSeconds: 300, requiredConfirmation: `Send revision ${draft.revision}` };
   }
   if (name === "social_reply_send") return approvedSend(env, user, brand, account, thread, draft, body, a);
@@ -310,7 +322,7 @@ async function approvedSend(env: Env, user: string, brand: Brand, account: Socia
   const current = await readHistory(env, account, thread);
   const snapshot = await env.DB.prepare("SELECT digest FROM social_snapshots WHERE id=? AND thread_id=? AND expires_at>?").bind(draft.snapshot_id, thread.id, now()).first<{digest: string}>();
   if (!snapshot || snapshot.digest !== await historyDigest(current)) throw new HttpError(409, "Conversation changed or its review expired. Read again and approve a new draft.");
-  const assessment = assess(profileOf(brand.profile), body.text, current);
+  const assessment = assessDraft(brand, account, body.text, current, body.acknowledgeHistoryGap === true);
   if (!assessment.sendable) throw new HttpError(409, `Draft requires review: ${assessment.blockers.join(", ")}.`);
   if (thread.kind === "message" && (!current.lastInboundAt || current.lastInboundAt > now() || now() - current.lastInboundAt >= 86400000)) throw new HttpError(409, "The verified 24-hour response window is closed.");
   // One atomic claim prevents concurrent duplicate requests, including after an uncertain delivery.
@@ -329,4 +341,10 @@ async function approvedSend(env: Env, user: string, brand: Brand, account: Socia
     await notice(env, account.id, "delivery_unknown_check_native_provider_before_any_retry", `delivery:${draft.id}`);
     throw new HttpError(502, "Delivery could not be confirmed. Check the native provider; this draft cannot be retried automatically.");
   }
+}
+
+function assessDraft(brand: Brand, account: SocialAccount, text: string, history: History, acknowledged: boolean) {
+  const review = account.provider === "whatsapp" && acknowledged && history.items.length > 0 && history.coverage.gaps.length === 1 && history.coverage.gaps[0] === historyGap
+    ? {...history, coverage: {...history.coverage, complete:true}} : history;
+  return assess(profileOf(brand.profile), text, review);
 }

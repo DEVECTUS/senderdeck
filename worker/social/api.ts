@@ -58,7 +58,7 @@ export async function handleSocial(request: Request, env: Env, defer: (p: Promis
     const result = await socialAction(body.action, body.args, env, user);
     return Response.json(result, {headers: {"cache-control": "no-store"}});
   } catch (error) {
-    if (path === "/oauth/social/meta/callback") return socialRedirect(env,`/connect/meta?connection=${error instanceof HttpError&&error.status===401?"restart_required":"failed"}`);
+    if (["/oauth/social/meta/callback", "/oauth/social/whatsapp/callback"].includes(path)) return socialRedirect(env,`/connect/meta?connection=${error instanceof HttpError&&error.status===401?"restart_required":"failed"}${path.includes("/whatsapp/") ? "&provider=whatsapp" : ""}`);
     return Response.json({error: error instanceof HttpError ? error.message : "The social operation could not be completed."}, {status: error instanceof HttpError ? error.status : 500, headers: {"cache-control": "no-store"}});
   }
 }

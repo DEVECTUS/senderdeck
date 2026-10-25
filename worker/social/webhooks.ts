@@ -1,3 +1,4 @@
+import { receiveWhatsApp } from "./whatsapp";
 import { HttpError } from "../auth";
 import { decrypt, encrypt, sha256Base64Url } from "../crypto";
 import type { Env } from "../env";
@@ -58,6 +59,7 @@ export async function receiveMeta(request: Request, env: Env, defer: (p: Promise
   if (!Array.isArray(payload.entry) || payload.entry.length > 100) throw new HttpError(400, "Invalid webhook entries.");
   for (const entry of payload.entry) {
     if (!entry.id) continue;
+    if (payload.object === "whatsapp_business_account") { await receiveWhatsApp(env, entry); continue; }
     const provider = payload.object === "instagram" ? "instagram" : payload.object === "page" ? "facebook" : null;
     if (!provider) continue; // Unvalidated application integration event shapes never change customer state.
     const accounts = (await env.DB.prepare("SELECT * FROM social_accounts WHERE provider=? AND asset_id=? AND status!='revoked'").bind(provider, entry.id).all<SocialAccount>()).results;
@@ -115,6 +117,7 @@ export async function maintenance(env: Env) {
     await notice(env, draft.account_id, "delivery_unknown_check_native_provider_before_any_retry", `delivery:${draft.id}`);
   }
   await env.DB.batch([
+    env.DB.prepare("DELETE FROM social_whatsapp_messages WHERE expires_at<?").bind(at),
     env.DB.prepare("DELETE FROM social_oauth WHERE expires_at<?").bind(at),
     env.DB.prepare("DELETE FROM social_grants WHERE expires_at<?").bind(at),
     env.DB.prepare("DELETE FROM social_snapshots WHERE expires_at<?").bind(at),
@@ -123,7 +126,7 @@ export async function maintenance(env: Env) {
     env.DB.prepare("UPDATE social_queue SET encrypted='',state=CASE WHEN state='done' THEN 'done' ELSE 'expired' END WHERE expires_at<?").bind(at),
     env.DB.prepare("DELETE FROM social_queue WHERE expires_at<?").bind(at - 30 * 86400000),
   ]);
-  const accounts = (await env.DB.prepare("SELECT * FROM social_accounts WHERE provider IN ('facebook','instagram') AND status!='revoked'").all<SocialAccount>()).results;
+  const accounts = (await env.DB.prepare("SELECT * FROM social_accounts WHERE provider IN ('facebook','instagram','whatsapp') AND status!='revoked'").all<SocialAccount>()).results;
   let reconciled = 0;
   for (const account of accounts) {
     const settings = json<{ enabled?: boolean; intervalMinutes?: number }>(account.monitoring);
@@ -131,6 +134,7 @@ export async function maintenance(env: Env) {
     const days = brand ? json<{retentionDays: number}>(brand.profile).retentionDays : 30;
     const cutoff = at - days * 86400000;
     await env.DB.batch([
+      env.DB.prepare("DELETE FROM social_whatsapp_messages WHERE account_id=? AND sent_at<?").bind(account.id, cutoff),
       env.DB.prepare("DELETE FROM social_threads WHERE account_id=? AND updated_at<?").bind(account.id, cutoff),
       env.DB.prepare("DELETE FROM social_notices WHERE account_id=? AND created_at<?").bind(account.id, cutoff),
       env.DB.prepare("DELETE FROM social_activity WHERE brand_id=? AND created_at<?").bind(account.brand_id, cutoff),
@@ -161,7 +165,7 @@ export async function metaDeletion(request: Request, env: Env) {
   if (request.method !== "POST") throw new HttpError(405, "Method not allowed.");
   const form = new URLSearchParams(await limitedBody(request));
   const user = await verifySignedRequest(env.META_APP_SECRET, form.get("signed_request") || "");
-  const accounts = (await env.DB.prepare("SELECT id,brand_id FROM social_accounts WHERE provider_user_id=? AND provider IN ('facebook','instagram')").bind(user).all<{id: string;brand_id:string}>()).results;
+  const accounts = (await env.DB.prepare("SELECT id,brand_id FROM social_accounts WHERE provider_user_id=? AND provider IN ('facebook','instagram','whatsapp')").bind(user).all<{id: string;brand_id:string}>()).results;
   for (const account of accounts) await deleteLocalAccount(env, account);
   // Temporary selection grants are encrypted; inspect only those for the affected provider user.
   const grants = (await env.DB.prepare("SELECT id,encrypted FROM social_grants").all<{id: string;encrypted: string}>()).results;

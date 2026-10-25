@@ -14,6 +14,7 @@ SenderDeck connects AI clients to explicitly selected accounts so you can review
 | Customer and brand workspaces | Multiple brands, account associations, customer roles, tone/language/punctuation settings, verified facts and escalation rules | Available in Conversations |
 | Enquiries and approvals | Status, assigned owner, next action, minimal audit records, encrypted expiring social drafts, exact revision approval | Implemented; social sending disabled in the current deployment |
 | Facebook and Instagram | Hosted Meta OAuth, asset discovery/verification, messages, comment/reply trees, signed webhooks and reconciliation adapters | Activation pending platform approval, owner consent, live validation and hosted scheduling |
+| WhatsApp Business | Existing Cloud API number connection, signed inbound webhooks, encrypted retained history, text drafts and exact approval within 24 hours | Implemented locally; migration, Meta configuration and live acceptance required; templates/media sending unavailable |
 | LinkedIn | Explicit capability blockers and programme/data-use requirements | No live community or inbox access; Page messaging requires separate partner access |
 | Other social capabilities | Instagram mentions, social attachment sending and provider-specific history extensions | Unavailable pending validation |
 
@@ -54,6 +55,8 @@ Instagram comment hiding/restoration is available through `social_comment_inspec
 Facebook and Instagram access requires a DEVECTUS-owned platform app, appropriate App Review/Advanced Access, customer consent, explicit asset verification, working subscriptions and a hosted maintenance/reconciliation trigger. Social sending is off by default and also requires brand enablement and exact draft approval. No unattended replies are sent.
 
 Connecting Meta requires configured platform credentials and actual customer grants. Background monitoring and physical retention cleanup separately require a working hosted maintenance trigger; a stale heartbeat does not prevent sign-in or account selection. Existing browser monitoring should continue until actual API coverage is proved. Meta may expose only 20 recent message details; Instagram Requests and media have additional limits. Unsupported history and attachments require native review. LinkedIn has separate programme, messaging and data-use restrictions.
+
+See [WhatsApp Business setup and limitations](docs/WHATSAPP-BUSINESS.md).
 
 See [activation and live acceptance requirements](docs/SOCIAL-ACTIVATION.md) or the [hosted provider guide](https://senderdeck.devectus.com.au/social-setup). Configuration switches are not a substitute for provider approval or successful live tests.
 

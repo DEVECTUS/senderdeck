@@ -1,3 +1,4 @@
+import { validateWhatsApp, whatsappHistory, sendWhatsApp } from "./whatsapp";
 import { HttpError } from "../auth";
 import { decrypt, encrypt } from "../crypto";
 import type { Env } from "../env";
@@ -47,6 +48,7 @@ export function platformStatus(env: Env) {
     meta: { configured: missing.length === 0, missing, accessTier: tier, customerAccess: tier === "advanced" ? "requires_per_account_validation" : "pending_app_review",
       webhookConfigured: Boolean(env.META_WEBHOOK_VERIFY_TOKEN && env.META_APP_SECRET), graphVersion: GRAPH_VERSION,
       blockers: [...(missing.length ? ["platform_app_not_configured"] : []), ...(tier !== "advanced" ? ["advanced_access_and_business_verification_required_for_external_customers"] : [])] },
+    whatsapp: { configured: Boolean(env.META_APP_ID && env.META_APP_SECRET && env.WHATSAPP_LOGIN_CONFIG_ID), history: "retained_signed_webhooks_only", templates: "unavailable", mediaSending: "unavailable" },
     linkedin: { configured: Boolean(env.LINKEDIN_CLIENT_ID && env.LINKEDIN_CLIENT_SECRET), community: "pending_authorisation", pageMessaging: "unavailable",
       blockers: ["community_management_standard_access", "assistant_data_use_review", "member_data_retention_and_export_restrictions", "page_messaging_requires_separate_partner_access"] },
     sending: env.SOCIAL_SEND_ENABLED === "true" ? "requires_brand_and_account_validation" : "disabled",
@@ -158,6 +160,10 @@ export function capabilities(env: Env, account: SocialAccount) {
   const v = json<{ reads?: Record<string, boolean>; tasks?: string[]; webhook?: boolean;historyProbeVersion?:number }>(account.validation);
   const live = v.historyProbeVersion===2 && account.status === "connected" && !!account.validated_at && Date.now() - account.validated_at < 3600000 && (!account.expires_at || account.expires_at > Date.now());
   const has = (...required: string[]) => required.every(s => scopes.includes(s));
+  if (account.provider === "whatsapp") {
+    const messages = live && !!v.reads?.messages && has("whatsapp_business_messaging", "whatsapp_business_management");
+    return { messages: messages ? "available" : "unavailable", comments: "unavailable", mentions: "unavailable", messageBlockers: messages ? [] : ["whatsapp_validation_required"], sendMessages: messages && !!v.webhook && env.SOCIAL_SEND_ENABLED === "true" && env.META_ACCESS_TIER === "advanced", replyComments: false, webhook: !!v.webhook, generalCustomerAccess: env.META_ACCESS_TIER === "advanced", lastValidatedAt: account.validated_at, needsValidation: !live, pageMessaging: undefined };
+  }
   const fb = account.provider === "facebook";
   const meta = fb || account.provider === "instagram";
   const messagingTask = v.tasks?.some(t => ["MESSAGING", "MANAGE", ...(fb ? ["MODERATE"] : [])].includes(t)) || false;
@@ -174,6 +180,7 @@ export function capabilities(env: Env, account: SocialAccount) {
     needsValidation: !live, pageMessaging: account.provider === "linkedin" ? "unavailable_requires_partner_access" : undefined };
 }
 export async function validateConnection(env: Env, account: SocialAccount) {
+  if (account.provider === "whatsapp") return validateWhatsApp(env, account);
   if (!account.token || !["facebook", "instagram"].includes(account.provider)) throw new HttpError(409, "This provider is pending authorisation.");
   const token = await decrypt(account.token, env.TOKEN_ENCRYPTION_KEY);
   const details = await inspectToken(env, token);
@@ -343,6 +350,7 @@ async function commentContext(token:string,rootId:string,provider:string,budget?
   return {root,owned:provider==="facebook"?root.can_comment===true:true};
 }
 export async function readHistory(env: Env, account: SocialAccount, thread: Thread, options: ReadOptions = {}): Promise<History> {
+  if (account.provider === "whatsapp") { if (options.cursor) throw new HttpError(400, "WhatsApp history cursors are unsupported."); return whatsappHistory(env, account, thread); }
   const token = await decrypt(account.token!, env.TOKEN_ENCRYPTION_KEY);
   const items: HistoryItem[] = []; const gaps: string[] = []; let pages = 0; let target = thread.target; let owned = true;
   let nextCursor: string | null = null;
@@ -414,6 +422,7 @@ export async function readHistory(env: Env, account: SocialAccount, thread: Thre
     ...(thread.kind !== "message" ? { nextCursor, ownership, replyAuthority, ownedMeaning: "Legacy reply-authority gate, not proof of post authorship. See ownership and replyAuthority; account/global send gates still apply." } : {}), coverage: { complete: gaps.length === 0, pages, gaps: [...new Set(gaps)], sourceUrl: thread.source_url } };
 }
 export async function sendReply(env: Env, account: SocialAccount, thread: Thread, text: string) {
+  if (account.provider === "whatsapp") return sendWhatsApp(env, account, thread, text);
   const token = await decrypt(account.token!, env.TOKEN_ENCRYPTION_KEY);
   if (thread.kind === "message") return graph(token, `${account.parent_id || account.asset_id}/messages`, { recipient: JSON.stringify({ id: thread.target }), messaging_type: "RESPONSE", message: JSON.stringify({ text }) }, "POST");
   return graph(token, `${thread.target}/${account.provider === "facebook" ? "comments" : "replies"}`, { message: text }, "POST");
