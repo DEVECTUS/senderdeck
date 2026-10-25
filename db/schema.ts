@@ -70,6 +70,13 @@ export const socialQueue = sqliteTable("social_queue", {
   error: text("error"), createdAt: integer("created_at").notNull(), expiresAt: integer("expires_at").notNull(),
   claimedAt: integer("claimed_at"),
 }, t => [index("social_queue_state").on(t.state, t.createdAt)]);
+// Exact, short-lived moderation approvals; provider text is encrypted at rest.
+export const socialModerations = sqliteTable("social_moderations", {
+  id: text("id").primaryKey(), accountId: text("account_id").notNull().references(() => socialAccounts.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull(), brandRevision: integer("brand_revision").notNull(), revision: text("revision").notNull(),
+  encrypted: text("encrypted").notNull(), approvalHash: text("approval_hash").notNull(),
+  state: text("state").notNull(), expiresAt: integer("expires_at").notNull(), createdAt: integer("created_at").notNull(),
+}, t => [index("social_moderation_expiry").on(t.expiresAt)]);
 export const socialActivity = sqliteTable("social_activity", {
   id: text("id").primaryKey(), brandId: text("brand_id").notNull().references(() => socialBrands.id, { onDelete: "cascade" }),
   actor: text("actor").notNull(), action: text("action").notNull(), objectId: text("object_id").notNull(),

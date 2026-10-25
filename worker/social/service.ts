@@ -9,6 +9,7 @@ import { grantAssets, selectAsset, selectAdvertisingAccount, startOAuth } from "
 import { resolveMetaSecrets } from "./config";
 import { accountMonitoring, recordPoll } from "./monitoring";
 import { subscribePageAccount } from "./webhook-setup";
+import { moderationAction } from "./moderation";
 
 type Args = Record<string, unknown>;
 interface Snapshot { id: string; thread_id: string; user_id: string; digest: string; encrypted: string; complete: number; expires_at: number }
@@ -109,6 +110,7 @@ export async function readThread(env: Env, user: string, account: SocialAccount,
 }
 export async function socialAction(name: string, a: Args, env: Env, user: string): Promise<unknown> {
   env = await resolveMetaSecrets(env);
+  if (name === "social_comment_inspect" || name === "social_comment_moderate") return moderationAction(name, a, env, user);
   if (name === "social_workspace_list") {
     const customers = (await env.DB.prepare("SELECT c.*, m.role FROM social_customers c JOIN social_members m ON m.customer_id=c.id WHERE m.user_id=? ORDER BY c.name").bind(user).all()).results;
     const brands = (await env.DB.prepare("SELECT b.*, m.role FROM social_brands b JOIN social_members m ON m.customer_id=b.customer_id WHERE m.user_id=? ORDER BY b.name").bind(user).all<Brand>()).results;

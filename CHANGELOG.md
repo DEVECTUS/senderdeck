@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.27 · 25 October 2026
+
+- Add Instagram comment inspection and reversible hide/unhide through MCP, with exact actor/account/comment/text/action approval and fresh provider media ownership, grant, permission and moderation-task checks.
+- Require owner/admin moderation authority separately from reply reviewer authority. Verify visibility by reading the comment after each change, record audit outcomes and block automatic retries of uncertain results.
+- Keep existing sending policy and provider scopes unchanged. No comment deletion is exposed. Add encrypted approvals and regression coverage for moderation boundaries.
+
 ## 0.4.26 · 25 October 2026
 
 - Add locally served Google, Microsoft, OpenAI, Facebook, Instagram, Meta and LinkedIn marks to provider choices and connected accounts.

@@ -118,6 +118,7 @@ export async function maintenance(env: Env) {
     env.DB.prepare("DELETE FROM social_oauth WHERE expires_at<?").bind(at),
     env.DB.prepare("DELETE FROM social_grants WHERE expires_at<?").bind(at),
     env.DB.prepare("DELETE FROM social_snapshots WHERE expires_at<?").bind(at),
+    env.DB.prepare("DELETE FROM social_moderations WHERE expires_at<?").bind(at),
     env.DB.prepare("DELETE FROM social_drafts WHERE expires_at<? AND state!='sending'").bind(at),
     env.DB.prepare("UPDATE social_queue SET encrypted='',state=CASE WHEN state='done' THEN 'done' ELSE 'expired' END WHERE expires_at<?").bind(at),
     env.DB.prepare("DELETE FROM social_queue WHERE expires_at<?").bind(at - 30 * 86400000),

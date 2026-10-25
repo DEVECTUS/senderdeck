@@ -34,7 +34,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.26 adds recognisable, locally served provider marks across sign-in and connection screens, a compact provider chooser and expandable password/help details. It reduces repeated copy without changing authentication, permissions or account data." },
+  publication: { release_notes: "Version 0.4.27 adds explicitly approved Instagram comment hide/unhide, current grant and actual media ownership checks, single-use encrypted approvals, visibility readback and audit outcomes. Moderation requires owner/admin authority and remains separate from reply sending. No deletion, new provider scopes or sending activation." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

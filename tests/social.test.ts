@@ -29,6 +29,40 @@ function database() {
   return {sql,DB};
 }
 const scopes=["pages_show_list","pages_read_engagement","pages_read_user_content","pages_manage_metadata","pages_messaging","pages_manage_engagement","instagram_basic","instagram_manage_messages","instagram_manage_comments"];
+interface ModerationOptions { hidden?:boolean; text?:string; mediaId?:string; owner?:string; author?:string; product?:string; scopes?:string[]; tasks?:string[]; identity?:string; failWrite?:boolean; failReadback?:boolean; noAck?:boolean }
+async function moderationFixture(t:TestContext, options:ModerationOptions={}) {
+  const f=await fixture();
+  f.sql.prepare("UPDATE social_accounts SET provider='instagram',asset_id='ig-a' WHERE id=?").run(f.account.id);
+  // Moderation must work without changing or using reply sending policy.
+  f.env.SOCIAL_SEND_ENABLED="false";
+  const profile=defaultProfile();f.sql.prepare("UPDATE social_brands SET profile=? WHERE id=?").run(JSON.stringify(profile),f.brandId);
+  let hidden=options.hidden??false;const writes:Array<{id:string;params:string}>=[];
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>{
+    const url=new URL(String(input));const path=url.pathname.replace("/v26.0/","");
+    assert.equal(url.origin,"https://graph.facebook.com");assert.notEqual(init?.method,"DELETE");
+    if(init?.method==="POST") {
+      assert.equal(new Headers(init.headers).get("authorization"),"Bearer user-token");
+      assert.equal(path,"10001");const params=new URLSearchParams(init.body as URLSearchParams);assert.deepEqual([...params.keys()],["hide"]);
+      writes.push({id:path,params:params.toString()});hidden=params.get("hide")==="true";
+      if(options.failWrite)throw new Error("synthetic sensitive token must never escape");
+      return Response.json({success:!options.noAck});
+    }
+    if(path==="debug_token")return Response.json({data:{app_id:"platform",is_valid:true,user_id:options.identity??"meta-user",scopes:options.scopes??scopes}});
+    if(path==="me/accounts")return Response.json({data:[{id:"page-a",access_token:"page-token",tasks:options.tasks??["MODERATE"],instagram_business_account:{id:"ig-a"}}]});
+    assert.equal(new Headers(init?.headers).get("authorization"),"Bearer user-token");
+    if(path==="ig-a")return Response.json({id:path,username:"business"});
+    if(path==="10001") {
+      if(writes.length&&options.failReadback)return Response.json({error:{code:100}},{status:400});
+      return Response.json({id:path,text:options.text??"Synthetic comment",hidden,from:{id:"visitor",username:options.author??"visitor"},media:{id:options.mediaId??"20001"}});
+    }
+    if(path===(options.mediaId??"20001"))return Response.json({id:path,owner:{id:options.owner??"ig-a"},media_product_type:options.product??"REELS"});
+    throw new Error(`Unexpected moderation request ${path}`);
+  });
+  const scope={brandId:f.brandId,accountId:f.account.id};
+  const inspect=()=>socialAction("social_comment_inspect",{...scope,commentId:"10001",action:hidden?"unhide":"hide"},f.env,"alice") as Promise<Record<string,unknown>>;
+  const args=(plan:Record<string,unknown>)=>({...scope,operationId:plan.operationId,revision:plan.revision,approvalToken:plan.approvalToken,confirmed:true,confirmation:plan.requiredConfirmation});
+  return {...f,scope,inspect,args,writes,options};
+}
 async function fixture() {
   const {sql,DB}=database();
   const env:Env={DB,TOKEN_ENCRYPTION_KEY:Buffer.alloc(32,9).toString("base64"),ALLOW_DEV_AUTH:"true",META_APP_ID:"platform",META_APP_SECRET:"app-secret",META_LOGIN_CONFIG_ID:"login-config",META_WEBHOOK_VERIFY_TOKEN:"verify-secret",META_ACCESS_TIER:"advanced",SOCIAL_PUBLIC_ORIGIN:"https://senderdeck.test",SOCIAL_SEND_ENABLED:"true",SOCIAL_SCHEDULER_ENABLED:"true"};
@@ -69,6 +103,76 @@ async function prepared(f:Awaited<ReturnType<typeof fixture>>) {
   const inspect=await socialAction("social_draft_inspect",{...f.scope,draftId:draft.draftId},f.env,"alice") as {approvalToken:string;requiredConfirmation:string};
   return {...f.scope,...draft,approvalToken:inspect.approvalToken,confirmed:true,confirmation:inspect.requiredConfirmation};
 }
+
+test("Instagram hiding uses only the approved comment, user grant and hide parameter then verifies readback",async t=>{
+  const f=await moderationFixture(t);const plan=await f.inspect();assert.equal(f.writes.length,0);assert.equal(plan.mediaId,"20001");assert.equal(plan.text,"Synthetic comment");
+  const stored=String(f.sql.prepare("SELECT encrypted FROM social_moderations").get()!.encrypted);assert.ok(!stored.includes("Synthetic comment"));
+  const result=await socialAction("social_comment_moderate",f.args(plan),f.env,"alice") as Record<string,unknown>;
+  assert.equal(result.hidden,true);assert.equal(result.verified,true);assert.equal(result.deleted,false);assert.deepEqual(f.writes,[{id:"10001",params:"hide=true"}]);
+  assert.equal(f.env.SOCIAL_SEND_ENABLED,"false");assert.equal(f.sql.prepare("SELECT state FROM social_moderations").get()!.state,"verified");
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_activity WHERE action='comment_moderation_verified'").get()!.n,1);
+  await assert.rejects(socialAction("social_comment_moderate",f.args(plan),f.env,"alice"),/consumed/);assert.equal(f.writes.length,1);
+});
+test("unhide is independently inspected and confirmed with false, never deletion",async t=>{
+  const f=await moderationFixture(t,{hidden:true});const plan=await f.inspect();assert.equal(plan.action,"unhide");
+  const result=await socialAction("social_comment_moderate",f.args(plan),f.env,"alice") as {hidden:boolean};assert.equal(result.hidden,false);assert.equal(f.writes[0].params,"hide=false");
+});
+test("moderation rejects mismatched approval and scope without provider writes",async t=>{
+  const f=await moderationFixture(t);const plan=await f.inspect();
+  for(const override of [{confirmed:false},{confirmation:"Hide all comments"},{revision:"other"},{approvalToken:"other"}]) await assert.rejects(socialAction("social_comment_moderate",{...f.args(plan),...override},f.env,"alice"),/approval/);
+  await assert.rejects(socialAction("social_comment_moderate",f.args(plan),f.env,"bob"),/not found/);
+  await assert.rejects(socialAction("social_comment_moderate",{...f.args(plan),accountId:"other"},f.env,"alice"),/not found/);
+  assert.equal(f.writes.length,0);
+});
+test("reply reviewers and viewers have no moderation authority",async t=>{
+  const f=await moderationFixture(t);
+  for(const role of ["reviewer","editor","viewer"]) {
+    f.sql.prepare("UPDATE social_members SET role=? WHERE user_id='alice'").run(role);
+    await assert.rejects(f.inspect(),/role/);
+  }
+  assert.equal(f.writes.length,0);
+});
+test("moderation blocks changed text, actual media, visibility and brand revisions",async t=>{
+  const f=await moderationFixture(t);const plan=await f.inspect();f.options.text="Changed comment";
+  await assert.rejects(socialAction("social_comment_moderate",f.args(plan),f.env,"alice"),/changed/);
+  f.options.text=undefined;f.options.mediaId="20002";
+  await assert.rejects(socialAction("social_comment_moderate",f.args(plan),f.env,"alice"),/changed/);
+  f.options.mediaId=undefined;f.sql.prepare("UPDATE social_brands SET revision=revision+1").run();
+  await assert.rejects(socialAction("social_comment_moderate",f.args(plan),f.env,"alice"),/changed/);assert.equal(f.writes.length,0);
+});
+test("moderation checks current ownership, permissions, identity and task rather than cached reply authority",async t=>{
+  const f=await moderationFixture(t);
+  f.options.owner="other-placement-owner";await assert.rejects(f.inspect(),/actual media/);f.options.owner=undefined;
+  f.options.author="business";await assert.rejects(f.inspect(),/Owner comments/);f.options.author=undefined;
+  f.options.product="LIVE";await assert.rejects(f.inspect(),/Live/);f.options.product=undefined;
+  f.options.scopes=scopes.filter(x=>x!=="instagram_manage_comments");await assert.rejects(f.inspect(),/permissions are missing/);f.options.scopes=undefined;
+  f.options.identity="changed-user";await assert.rejects(f.inspect(),/identity/);f.options.identity=undefined;
+  f.options.tasks=["MESSAGING"];await assert.rejects(f.inspect(),/moderation task/);assert.equal(f.writes.length,0);
+});
+test("moderation revalidates revoked permission and membership after inspection",async t=>{
+  const f=await moderationFixture(t);const plan=await f.inspect();f.options.scopes=[];
+  await assert.rejects(socialAction("social_comment_moderate",f.args(plan),f.env,"alice"),/permissions/);f.options.scopes=undefined;
+  f.sql.prepare("DELETE FROM social_members WHERE user_id='alice'").run();
+  await assert.rejects(socialAction("social_comment_moderate",f.args(plan),f.env,"alice"),/not found/);assert.equal(f.writes.length,0);
+});
+test("expired and concurrent moderation approvals cannot write twice",async t=>{
+  const f=await moderationFixture(t);const expired=await f.inspect();f.sql.prepare("UPDATE social_moderations SET expires_at=0").run();
+  await assert.rejects(socialAction("social_comment_moderate",f.args(expired),f.env,"alice"),/expired/);
+  const plan=await f.inspect();const results=await Promise.allSettled([socialAction("social_comment_moderate",f.args(plan),f.env,"alice"),socialAction("social_comment_moderate",f.args(plan),f.env,"alice")]);
+  assert.equal(results.filter(r=>r.status==="fulfilled").length,1);assert.equal(f.writes.length,1);
+});
+test("uncertain moderation is audited without credential leakage or automatic retry",async t=>{
+  const f=await moderationFixture(t,{failWrite:true});const plan=await f.inspect();
+  await assert.rejects(socialAction("social_comment_moderate",f.args(plan),f.env,"alice"),error=>{assert.match(String(error),/result is unknown/);assert.doesNotMatch(String(error),/sensitive token/);return true;});
+  assert.equal(f.sql.prepare("SELECT state FROM social_moderations").get()!.state,"result_unknown");
+  await assert.rejects(socialAction("social_comment_moderate",f.args(plan),f.env,"alice"),/uncertain/);assert.equal(f.writes.length,1);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_activity WHERE action='comment_moderation_result_unknown'").get()!.n,1);
+});
+test("a provider acknowledgement alone never claims verified hiding",async t=>{
+  const f=await moderationFixture(t,{failReadback:true});const plan=await f.inspect();
+  await assert.rejects(socialAction("social_comment_moderate",f.args(plan),f.env,"alice"),/result is unknown/);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_activity WHERE action='comment_moderation_verified'").get()!.n,0);
+});
 
 test("new brands start without business identity, verified URLs or inherited customer rules",async()=>{
   const f=await fixture();

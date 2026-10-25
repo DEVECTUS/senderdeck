@@ -49,6 +49,8 @@ Google and Microsoft authorization must finish in the same browser that started 
 
 ## Social activation and limits
 
+Instagram comment hiding/restoration is available through `social_comment_inspect` and `social_comment_moderate`, or the authenticated [Comment visibility page](https://senderdeck.devectus.com.au/comments/moderate). Each operation requires exact human approval, owner/admin membership, a current provider grant and verified actual media ownership, then reads visibility back. It does not enable replies or request new scopes. See the [moderation contract and limitations](publishing/INSTAGRAM-MODERATION.md).
+
 Facebook and Instagram access requires a DEVECTUS-owned platform app, appropriate App Review/Advanced Access, customer consent, explicit asset verification, working subscriptions and a hosted maintenance/reconciliation trigger. Social sending is off by default and also requires brand enablement and exact draft approval. No unattended replies are sent.
 
 Connecting Meta requires configured platform credentials and actual customer grants. Background monitoring and physical retention cleanup separately require a working hosted maintenance trigger; a stale heartbeat does not prevent sign-in or account selection. Existing browser monitoring should continue until actual API coverage is proved. Meta may expose only 20 recent message details; Instagram Requests and media have additional limits. Unsupported history and attachments require native review. LinkedIn has separate programme, messaging and data-use restrictions.

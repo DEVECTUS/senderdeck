@@ -45,6 +45,15 @@ test("customer Meta wizard is protected and contains no credential inputs", asyn
   const worker=await loadWorker();const response=await worker.fetch(new Request("http://localhost/connect/meta",{headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com"}}),baseEnv,context);
   assert.equal(response.status,200);const html=await response.text();assert.match(html,/Choose brand/);assert.match(html,/Sign in to Meta/);assert.match(html,/Choose accounts/);assert.match(html,/Connect Facebook/);assert.doesNotMatch(html,/<input[^>]*type="password"|Hosted maintenance|Discovery evidence|Graph error|Install Page event subscription|Refresh readiness/);
 });
+
+test("comment visibility requires sign-in and renders exact single-comment approval controls", async()=>{
+  const worker=await loadWorker();
+  const anonymous=await worker.fetch(new Request("http://localhost/comments/moderate",{headers:{accept:"text/html"}}),baseEnv,context);
+  assert.ok(anonymous.status===302||anonymous.status===307);assert.match(anonymous.headers.get("location")||"",/signin/);
+  const response=await worker.fetch(new Request("http://localhost/comments/moderate",{headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com"}}),baseEnv,context);
+  assert.equal(response.status,200);const html=await response.text();
+  assert.match(html,/Comment visibility/);assert.match(html,/Comment ID/);assert.match(html,/Restore comment/);assert.match(html,/noindex/);assert.doesNotMatch(html,/access_token|type="password"/);
+});
 test("operator pages require the hosting allowlist rather than workspace ownership",async()=>{
   const worker=await loadWorker();const request=new Request("http://localhost/operator/social",{headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com","x-senderdeck-platform-operator":"true"}});
   assert.equal((await worker.fetch(request,baseEnv,context)).status,403);
@@ -285,8 +294,10 @@ test("exposes a healthy stateless MCP contract", async () => {
   );
   const listed = await list.json();
   const names = listed.result.tools.map((tool) => tool.name);
-  assert.equal(names.length, 38);
-  assert.equal(names.filter(name => name.startsWith("social_")).length, 24);
+  assert.equal(names.length, 40);
+  assert.equal(names.filter(name => name.startsWith("social_")).length, 26);
+  assert.ok(names.includes("social_comment_inspect"));
+  assert.ok(names.includes("social_comment_moderate"));
   assert.ok(names.includes("social_reply_send"));
   assert.ok(names.includes("draft_update"));
   assert.ok(names.includes("email_send"));

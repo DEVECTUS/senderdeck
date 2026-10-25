@@ -10,6 +10,7 @@ export default async function ConversationsPage() {
   return <main className="social-page">
     <WorkspaceNav source={user.authSource} email={user.email} active="conversations" />
     <Conversations userId={user.userId} />
+    <p className="social-muted"><Link href="/comments/moderate">Instagram comment visibility →</Link></p>
     <footer className="social-footer"><span>SenderDeck by DEVECTUS · Human approval before every reply</span><div><Link href="/social-setup">Provider setup</Link><Link href="/privacy">Privacy</Link><Link href="/security">Security</Link></div></footer>
   </main>;
 }
