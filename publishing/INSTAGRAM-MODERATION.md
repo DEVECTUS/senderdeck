@@ -16,4 +16,6 @@ Approvals store provider text encrypted for at most five minutes until maintenan
 
 Official reference: https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-comment
 
+Version 0.4.28 distinguishes a provider-reported LIVE classification from missing or unsupported classifications. The latter error includes only short uppercase classification codes from the verified actual media and comment media reference. A native reel appearance does not establish API media eligibility. Retry inspection to obtain the current diagnostic; do not weaken ownership or live-media checks based on a generic error. No eligibility expansion is included in that diagnostic release.
+
 After upgrading the marketplace, restart the client/start a new session if the two tools are absent. The server's public `tools/list` verifies deployment but does not prove that an existing client has refreshed discovery or that a specific account has live provider access.

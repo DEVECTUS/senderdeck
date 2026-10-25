@@ -34,7 +34,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.27 adds explicitly approved Instagram comment hide/unhide, current grant and actual media ownership checks, single-use encrypted approvals, visibility readback and audit outcomes. Moderation requires owner/admin authority and remains separate from reply sending. No deletion, new provider scopes or sending activation." },
+  publication: { release_notes: "Version 0.4.28 distinguishes live media from unverified Instagram media classification and adds bounded classification diagnostics without reflecting raw provider data. Existing moderation eligibility, ownership, approval and readback requirements remain unchanged." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

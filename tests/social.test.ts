@@ -29,7 +29,7 @@ function database() {
   return {sql,DB};
 }
 const scopes=["pages_show_list","pages_read_engagement","pages_read_user_content","pages_manage_metadata","pages_messaging","pages_manage_engagement","instagram_basic","instagram_manage_messages","instagram_manage_comments"];
-interface ModerationOptions { hidden?:boolean; text?:string; mediaId?:string; owner?:string; author?:string; product?:string; scopes?:string[]; tasks?:string[]; identity?:string; failWrite?:boolean; failReadback?:boolean; noAck?:boolean }
+interface ModerationOptions { hidden?:boolean; text?:string; mediaId?:string; owner?:string; author?:string; product?:string|null; referenceProduct?:string; scopes?:string[]; tasks?:string[]; identity?:string; failWrite?:boolean; failReadback?:boolean; noAck?:boolean }
 async function moderationFixture(t:TestContext, options:ModerationOptions={}) {
   const f=await fixture();
   f.sql.prepare("UPDATE social_accounts SET provider='instagram',asset_id='ig-a' WHERE id=?").run(f.account.id);
@@ -53,9 +53,9 @@ async function moderationFixture(t:TestContext, options:ModerationOptions={}) {
     if(path==="ig-a")return Response.json({id:path,username:"business"});
     if(path==="10001") {
       if(writes.length&&options.failReadback)return Response.json({error:{code:100}},{status:400});
-      return Response.json({id:path,text:options.text??"Synthetic comment",hidden,from:{id:"visitor",username:options.author??"visitor"},media:{id:options.mediaId??"20001"}});
+      return Response.json({id:path,text:options.text??"Synthetic comment",hidden,from:{id:"visitor",username:options.author??"visitor"},media:{id:options.mediaId??"20001",media_product_type:options.referenceProduct}});
     }
-    if(path===(options.mediaId??"20001"))return Response.json({id:path,owner:{id:options.owner??"ig-a"},media_product_type:options.product??"REELS"});
+    if(path===(options.mediaId??"20001"))return Response.json({id:path,owner:{id:options.owner??"ig-a"},media_product_type:options.product===null?undefined:options.product??"REELS"});
     throw new Error(`Unexpected moderation request ${path}`);
   });
   const scope={brandId:f.brandId,accountId:f.account.id};
@@ -112,6 +112,16 @@ test("Instagram hiding uses only the approved comment, user grant and hide param
   assert.equal(f.env.SOCIAL_SEND_ENABLED,"false");assert.equal(f.sql.prepare("SELECT state FROM social_moderations").get()!.state,"verified");
   assert.equal(f.sql.prepare("SELECT count(*) n FROM social_activity WHERE action='comment_moderation_verified'").get()!.n,1);
   await assert.rejects(socialAction("social_comment_moderate",f.args(plan),f.env,"alice"),/consumed/);assert.equal(f.writes.length,1);
+});
+test("moderation distinguishes missing, unsupported and live media without reflecting provider payloads",async t=>{
+  const f=await moderationFixture(t,{product:null});
+  await assert.rejects(f.inspect(),/media.media_product_type=missing; comment.media.media_product_type=missing/);
+  f.options.product="AD";await assert.rejects(f.inspect(),/media.media_product_type=AD/);
+  f.options.product="LIVE";await assert.rejects(f.inspect(),/Live Instagram media/);
+  f.options.product="REELS";f.options.referenceProduct="LIVE";await assert.rejects(f.inspect(),/Live Instagram media/);
+  f.options.referenceProduct=undefined;f.options.product="secret-provider-payload";
+  await assert.rejects(f.inspect(),e=>{assert.match(String(e),/media.media_product_type=invalid/);assert.doesNotMatch(String(e),/secret-provider-payload/);return true;});
+  assert.equal(f.writes.length,0);
 });
 test("unhide is independently inspected and confirmed with false, never deletion",async t=>{
   const f=await moderationFixture(t,{hidden:true});const plan=await f.inspect();assert.equal(plan.action,"unhide");

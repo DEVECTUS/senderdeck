@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.28 · 25 October 2026
+
+- Distinguish confirmed live Instagram media from missing or unsupported media classifications during comment inspection. Return only bounded classification codes for the actual media and comment-media reference; never expose raw provider payloads.
+- Preserve the existing moderation allowlist and ownership/approval checks. This diagnostic release does not establish the cause of any particular provider response or enable unsupported media.
+
 ## 0.4.27 · 25 October 2026
 
 - Add Instagram comment inspection and reversible hide/unhide through MCP, with exact actor/account/comment/text/action approval and fresh provider media ownership, grant, permission and moderation-task checks.

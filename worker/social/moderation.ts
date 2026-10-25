@@ -14,6 +14,11 @@ function providerId(value: unknown, field: string) {
   if (!/^\d{1,32}$/.test(result)) throw new HttpError(400, `Invalid ${field}. Use the exact provider ID.`);
   return result;
 }
+// Only short classification codes may appear in an error. Never reflect arbitrary
+// provider payloads, author data, tokens or request details into diagnostics.
+function classification(value: unknown): string {
+  return value === undefined || value === null ? "missing" : typeof value === "string" && /^[A-Z_]{1,24}$/.test(value) ? value : "invalid";
+}
 // Unlike reply authority, moderation requires the actual comment media owner.
 // ordered_comments can mix placements; never infer this from the requested root.
 export async function moderationGrant(env: Env, account: SocialAccount) {
@@ -39,7 +44,8 @@ export async function readModerationComment(account: SocialAccount, grant: { tok
   const owner = media.owner as { id?: unknown } | undefined;
   if (media.id !== mediaId || owner?.id !== account.asset_id) throw new HttpError(403, "The comment's actual media is not verified as owned by this Instagram account.");
   const product = media.media_product_type;
-  if (typeof product !== "string" || !["FEED", "REELS", "STORY"].includes(product) || mediaRef.media_product_type === "LIVE") throw new HttpError(409, "Live or unverified media cannot be moderated.");
+  if (product === "LIVE" || mediaRef.media_product_type === "LIVE") throw new HttpError(409, "Live Instagram media cannot be moderated. No change was attempted.");
+  if (typeof product !== "string" || !["FEED", "REELS", "STORY"].includes(product)) throw new HttpError(409, `Instagram media classification is unverified or unsupported (media.media_product_type=${classification(product)}; comment.media.media_product_type=${classification(mediaRef.media_product_type)}). Actual media ownership was verified; no change was attempted.`);
   const from = comment.from as { id?: unknown; username?: unknown } | undefined;
   const author = typeof from?.username === "string" ? from.username : typeof comment.username === "string" ? comment.username : "";
   const userId = typeof comment.user === "string" ? comment.user : (comment.user as { id?: unknown } | undefined)?.id;
