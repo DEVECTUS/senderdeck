@@ -154,11 +154,11 @@ test("a signed-in visitor can deliberately open the provider chooser without mer
   const response = await worker.fetch(new Request("http://localhost/signin/switch", { headers: { accept: "text/html", "oai-authenticated-user-email": "owner@example.com" } }), baseEnv, context);
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /does not merge workspaces/);
+  assert.match(html, /Only an approved link shares access/);
   assert.match(html, /Continue with Google/);
   assert.match(html, /Continue with OpenAI/);
   assert.match(html, /href="\/auth\/openai\/start\?return_to=%2Faccounts"/);
-  assert.match(html, /OpenAI.*sign-in/);
+  assert.match(html, /Continue with OpenAI/);
 });
 
 test("offers one vendor-neutral sign-in for Codex and Claude", async () => {
@@ -171,10 +171,13 @@ test("offers one vendor-neutral sign-in for Codex and Claude", async () => {
 
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /Sign in once/);
-  assert.match(html, /Use Codex or Claude/);
+  assert.match(html, /id="signin-title">Sign in/);
+  assert.match(html, /Use username and password/);
   assert.match(html, /Continue with Google/);
   assert.match(html, /Continue with Microsoft/);
+  assert.match(html, /src="\/providers\/google.png"/);
+  assert.match(html, /src="\/providers\/microsoft.svg"/);
+  assert.match(html, /src="\/providers\/openai.svg"/);
   assert.doesNotMatch(html, /Sign in with ChatGPT/);
 });
 

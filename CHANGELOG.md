@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.26 · 25 October 2026
+
+- Add locally served Google, Microsoft, OpenAI, Facebook, Instagram, Meta and LinkedIn marks to provider choices and connected accounts.
+- Replace the text-heavy sign-in layout with a compact provider chooser and expandable password and help sections.
+- Shorten connection copy and move access explanations and sender aliases out of the default view while keeping errors and capability limits visible. Authentication and permissions are unchanged.
+
+
 ## 0.4.25 · 25 October 2026
 
 - Support explicitly authorised, hosting-controlled links from exact OpenAI subjects to active Google/Microsoft SenderDeck identities, without matching emails or moving stored records.

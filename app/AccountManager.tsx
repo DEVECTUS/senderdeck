@@ -1,5 +1,6 @@
 "use client";
 
+import ProviderIcon from "./ProviderIcon";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 type Provider = "google" | "microsoft";
@@ -133,8 +134,7 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
 
           <h2 id="connections-title">Connected email accounts</h2>
           <p className="connections-intro">
-            Accounts owned by <strong>{userEmail}</strong>. Connect up to {limit} mailboxes.
-            Gmail aliases share their owning connection.
+            {userEmail}
           </p>
         </div>
         <div className="connection-summary">
@@ -159,7 +159,7 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
           {accounts.map((account) => (
             <article className="account-card" id={`account-${account.id}`} key={account.id}>
               <div className={`provider-mark ${account.provider}`} aria-hidden="true">
-                {account.provider === "google" ? "G" : "M"}
+                <ProviderIcon provider={account.provider} size={26}/>
               </div>
               <div className="account-identity">
                 {editingId === account.id ? (
@@ -187,8 +187,8 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
                       {new Date(account.connectedAt).toLocaleDateString()}
                     </small>
                     {account.provider === "google" ? (
-                      <div className="sender-aliases">
-                        <small>Authorised send-as aliases</small>
+                      <details className="sender-aliases">
+                        <summary>Sender aliases</summary>
                         {account.senderDiscoveryError ? (
                           <p role="status">Could not verify aliases: {account.senderDiscoveryError}</p>
                         ) : account.senderIdentities?.some((identity) => !identity.isPrimary) ? (
@@ -198,7 +198,7 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
                             ))}
                           </ul>
                         ) : <p>No verified aliases found.</p>}
-                      </div>
+                      </details>
                     ) : null}
                   </>
                 )}
@@ -242,23 +242,23 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
           <p>
             {atLimit
               ? "Disconnect an account before adding another."
-              : "You will choose the exact Google or Microsoft identity during sign-in."}
+              : "Choose a mailbox to connect."}
           </p>
         </div>
         <div className="actions">
           <a
-            className={`primary${atLimit ? " disabled-link" : ""}`}
+            className={`provider-button${atLimit ? " disabled-link" : ""}`}
             href={atLimit ? undefined : "/oauth/google/start?label=Google account"}
             aria-disabled={atLimit}
           >
-            Connect Google
+            <ProviderIcon provider="google"/> Connect Google
           </a>
           <a
-            className={`secondary dark${atLimit ? " disabled-link" : ""}`}
+            className={`provider-button${atLimit ? " disabled-link" : ""}`}
             href={atLimit ? undefined : "/oauth/microsoft/start?label=Microsoft account"}
             aria-disabled={atLimit}
           >
-            Connect Microsoft
+            <ProviderIcon provider="microsoft"/> Connect Microsoft
           </a>
         </div>
       </div>

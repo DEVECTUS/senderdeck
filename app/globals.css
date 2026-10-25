@@ -965,6 +965,12 @@ footer > div:last-child { text-align: right; }
 .product-page .open-source h2 { font-size: 32px; }
 .signin-copy h1, .install-hero h1, .setup-wizard h1 { font-size: clamp(28px, 3.8vw, 42px); line-height: 1.15; letter-spacing: -.04em; }
 .signin-shell { min-height: auto; padding-block: 48px; }
+.provider-icon { display: inline-block; object-fit: contain; flex-shrink: 0; vertical-align: middle; }
+.provider-label { display: inline-flex; align-items: center; gap: 10px; }
+.provider-button { display: inline-flex; align-items: center; gap: 12px; min-height: 46px; padding: 12px 18px; border: 1px solid #d9e0e9; border-radius: 7px; background: #fff; color: #243449; font-size: 14px; font-weight: 550; }
+.provider-button:hover { background: #f7f9fc; border-color: #a9b9cc; }
+.provider-button:focus-visible { outline: 2px solid #3468cf; outline-offset: 3px; }
+.provider-mark.google, .provider-mark.microsoft { background: #fff; border: 1px solid #e1e7ef; }
 .meta-connect { max-width: 720px; padding-top: 32px; }
 .meta-connect h1 { font-size: clamp(24px, 3vw, 30px); margin: 18px 0 10px; }
 .meta-connect > header > p { font-size: 14px; }
@@ -1018,3 +1024,24 @@ footer > div:last-child { text-align: right; }
   .social-hero { padding-block: 24px; }
   .product-page .hero { grid-template-columns: 1fr; padding-block: 32px; }
 }
+
+/* Compact provider selection keeps account choices ahead of help text. */
+.signin-shell.signin-compact { display: block; max-width: 420px; margin: 0 auto; padding: 44px 0 64px; min-height: auto; }
+.signin-compact .signin-card { padding: 30px; border: 1px solid #e0e6ee; border-radius: 12px; box-shadow: 0 10px 32px rgba(20,35,55,.04); }
+.signin-compact h1 { font-size: 27px; letter-spacing: -.035em; line-height: 1.2; margin: 0 0 8px; }
+.signin-intro { margin: 0; font-size: 14px; }
+.signin-current { font-size: 12px; padding-top: 12px; overflow-wrap: anywhere; }
+.signin-current strong { font-weight: 500; }
+.signin-compact .signin-actions { margin: 24px 0 18px; gap: 10px; }
+.signin-compact .provider-button { width: 100%; min-height: 48px; }
+.signin-password, .signin-help { border-top: 1px solid #e7ebf1; padding-top: 15px; margin-top: 15px; font-size: 13px; color: #627186; }
+.signin-password summary, .signin-help summary { cursor: pointer; }
+.signin-password[open] summary, .signin-help[open] summary { margin-bottom: 14px; }
+.signin-help p { font-size: 12px; line-height: 1.6; }
+.signin-compact .reviewer-form { gap: 8px; }
+.meta-provider-marks { display: flex; gap: 12px; margin-top: 20px; }
+.meta-signin > button { display: inline-flex; align-items: center; gap: 10px; background: #fff; color: #243449; border: 1px solid #cfd9e5; }
+.overview-shortcuts strong > .provider-label { color: inherit; }
+@media(max-width: 600px) { .signin-shell.signin-compact { padding: 26px 0 40px; } .signin-compact .signin-card { padding: 24px; } }
+
+@media(max-width: 760px) { .overview-email-section .overview-table td:nth-child(3)::before { content: "Status"; } .overview-email-section .overview-table td:nth-child(3) { grid-column: 1 / -1; } .overview-email-section .overview-table td:nth-child(4)::before { content: none; } }

@@ -34,7 +34,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.25 supports explicitly approved OpenAI-to-provider sign-in links without moving account or conversation data, adds OpenAI provider selection and preserves revoked legacy credentials." },
+  publication: { release_notes: "Version 0.4.26 adds recognisable, locally served provider marks across sign-in and connection screens, a compact provider chooser and expandable password/help details. It reduces repeated copy without changing authentication, permissions or account data." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);
