@@ -34,7 +34,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.22 adds read-only advertising-account selection and verified ad-creative-to-media mapping behind live permission and exact owner confirmation gates. It does not request new scopes, alter campaigns or enable sending. Existing OAuth, bounded-read and reply approval checks remain enforced. Credentials remain outside the ZIP." },
+  publication: { release_notes: "Version 0.4.25 supports explicitly approved OpenAI-to-provider sign-in links without moving account or conversation data, adds OpenAI provider selection and preserves revoked legacy credentials." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

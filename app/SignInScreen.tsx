@@ -20,8 +20,8 @@ export default function SignInScreen({ returnTo, currentUser, passwordError }: {
           <p className="eyebrow">{"// One SenderDeck identity"}</p>
           <h1 id="signin-title">Sign in once.<br /><span>Use Codex or Claude.</span></h1>
           <p className="lede">
-            Sign in to your SenderDeck workspace with your username and password, or use Google
-            or Microsoft. Each connected mailbox remains a separate sender account.
+            Sign in to your SenderDeck workspace with your username and password, or use Google,
+            Microsoft or OpenAI. Each connected mailbox remains a separate sender account.
           </p>
         </div>
 
@@ -37,9 +37,12 @@ export default function SignInScreen({ returnTo, currentUser, passwordError }: {
             <button type="submit" className="primary">Sign in</button>
           </form>
           <p className="signin-note">New here? Sign in with Google or Microsoft once, then add a username and password in Settings → Sign-in details.</p>
-          {currentUser && <p className="signin-scope-note">Currently viewing {currentUser.email} through {currentUser.authSource === "openai" ? "OpenAI" : "SenderDeck"} sign-in. Choose the Google or Microsoft identity used for your brands. This switches the session; it does not merge workspaces or share account access.</p>}
+          {currentUser && <p className="signin-scope-note">Currently viewing {currentUser.email} through {currentUser.authSource === "openai" ? "OpenAI" : "SenderDeck"} sign-in. Choose the sign-in used for your brands. Switching sign-in does not merge workspaces. Access is shared only through a separately approved link.</p>}
           <p>Google or Microsoft sign-in uses only your basic identity. Connect email separately in Settings when you want to grant mailbox access.</p>
           <div className="signin-actions">
+            <a className="provider-secondary" href={`/auth/openai/start?return_to=${encodedReturnTo}`} target="_top">
+              Continue with OpenAI
+            </a>
             <a className="primary" href={`/auth/google/start?return_to=${encodedReturnTo}`}>
               Continue with Google
             </a>
@@ -48,8 +51,9 @@ export default function SignInScreen({ returnTo, currentUser, passwordError }: {
             </a>
           </div>
           <p className="signin-note">
-            Your Claude or OpenAI account identifies you only to that AI service. SenderDeck uses
-            the provider you choose here to protect your mailbox connections.
+            OpenAI uses this site’s authenticated identity. An explicitly approved sign-in link
+            opens the same SenderDeck account as your linked provider. Matching email addresses
+            alone never combine accounts.
           </p>
         </div>
       </section>

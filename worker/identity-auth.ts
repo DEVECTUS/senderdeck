@@ -44,6 +44,19 @@ export async function handleIdentityAuthRoute(
     return signOut(request, env);
   }
 
+  if (url.pathname === "/auth/openai/start") {
+    if (request.method !== "GET") return methodNotAllowed("GET");
+    // Hand identity authentication to Sites. Clear the local browser cookie so
+    // it cannot mask the provider the user explicitly chose. Other sessions,
+    // credentials and connected accounts are untouched.
+    const returnTo = safeReturnPath(url.searchParams.get("return_to") || "/accounts");
+    return new Response(null, { status: 303, headers: {
+      location: `${url.origin}/signin-with-chatgpt?return_to=${encodeURIComponent(returnTo)}`,
+      "cache-control": "no-store",
+      "set-cookie": `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
+    } });
+  }
+
   if (url.pathname === "/auth/reviewer") {
     if (request.method !== "POST") return methodNotAllowed("POST");
     return signInReviewer(request, env);

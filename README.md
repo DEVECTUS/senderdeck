@@ -334,3 +334,9 @@ Version 0.3.5 includes the currently inspected draft message ID in Gmail update
 requests, separately from the stable draft ID and conversation ID. Repeated edits
 use the newly returned message ID. Provider errors identify the failing HTTP
 method and endpoint without including credentials or request bodies.
+
+### Explicitly linked OpenAI sign-in
+
+A hosting owner can configure `OPENAI_SIGNIN_LINKS` as a private JSON object mapping an exact, independently verified OpenAI site subject ID to an existing active SenderDeck provider user ID, after the person explicitly authorises linking. Matching email addresses never create a link. Do not put private IDs in repository examples, browser storage or request bodies. Links have no public write endpoint.
+
+Use **Continue with OpenAI** to authenticate through Sites. That fresh platform identity resolves to the linked SenderDeck account and its existing workspace permissions. This does not migrate accounts, credentials, conversations or policies. Existing Google and password sign-ins keep the same account. Retired cookies and MCP credentials stay revoked; reconnect an AI client to obtain fresh credentials. A missing or retired destination fails closed. Removing the hosting link revokes the linked route without deleting stored data or retirement markers.

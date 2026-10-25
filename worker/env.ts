@@ -37,6 +37,8 @@ export interface Env {
   MICROSOFT_CLIENT_SECRET?: string;
   MICROSOFT_TENANT?: string;
   ALLOW_DEV_AUTH?: string;
+  /** Hosting-owner-approved exact OpenAI subject -> active provider user ID links. */
+  OPENAI_SIGNIN_LINKS?: string;
   /** Expiring, narrowly scoped hosting-operator retirement plan. Absent by default. */
   ACCOUNT_RETIREMENT_PLAN?: string;
   /** Expiring hosting-owner plan for creating one existing user's password login. */

@@ -1,6 +1,7 @@
 import type { Env } from "./env";
 import { sha256Base64Url } from "./crypto";
 import { isUserRetired } from "./retired-users";
+import { linkedOpenAiIdentity } from "./signin-links";
 
 const AUTH_USER_ID_HEADER = "oai-authenticated-user-id";
 const AUTH_EMAIL_HEADER = "oai-authenticated-user-email";
@@ -41,6 +42,13 @@ export async function authenticatedUser(
   const stableUserId = request.headers.get(AUTH_USER_ID_HEADER)?.trim();
   const email = request.headers.get(AUTH_EMAIL_HEADER)?.trim().toLowerCase();
   if (stableUserId || email) {
+    // Only the hosting-authenticated stable subject may use an explicit link.
+    // Old SenderDeck cookies and MCP tokens remain revoked after retirement.
+    if (stableUserId) {
+      const linked = await linkedOpenAiIdentity(env, stableUserId);
+      if (linked === null) return null;
+      if (linked) return { userId: linked.user_id, email: linked.email, source: "openai" };
+    }
     if (await isUserRetired(env, stableUserId || email!)) return null;
     return {
       userId: stableUserId || email!,

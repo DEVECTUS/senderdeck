@@ -156,6 +156,8 @@ test("a signed-in visitor can deliberately open the provider chooser without mer
   const html = await response.text();
   assert.match(html, /does not merge workspaces/);
   assert.match(html, /Continue with Google/);
+  assert.match(html, /Continue with OpenAI/);
+  assert.match(html, /href="\/auth\/openai\/start\?return_to=%2Faccounts"/);
   assert.match(html, /OpenAI.*sign-in/);
 });
 

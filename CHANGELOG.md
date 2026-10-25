@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.25 · 25 October 2026
+
+- Support explicitly authorised, hosting-controlled links from exact OpenAI subjects to active Google/Microsoft SenderDeck identities, without matching emails or moving stored records.
+- Add OpenAI to the sign-in chooser through Sites authentication. Clear only the selected browser cookie when switching to OpenAI.
+- Preserve revoked legacy sessions and MCP credentials. Missing or retired destinations disable the link, and removing a link restores the original retirement restriction.
+
+
 ## Unreleased
 
 - Separate Google and Microsoft identity sign-in from mailbox authorization. Sign-in no longer requests email access, forces Google's consent prompt, creates a mailbox connection or replaces existing mailbox credentials. Connect email separately in Settings.
