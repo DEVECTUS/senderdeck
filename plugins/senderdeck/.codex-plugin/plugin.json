@@ -1,6 +1,6 @@
 {
   "name": "senderdeck",
-  "version": "0.4.28",
+  "version": "0.4.29",
   "description": "Open-source email and brand conversation tools for Codex and Claude. Google and Microsoft mailboxes, customer workspaces and explicit reply approvals, with a gated Meta social module.",
   "author": {
     "name": "DEVECTUS"

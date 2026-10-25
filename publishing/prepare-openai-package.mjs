@@ -34,7 +34,7 @@ manifest.extensions = { "com.openai": {
     commerce: false,
     demo_recording_url: "https://senderdeck.devectus.com.au/demo/senderdeck-review-0.3.3.mp4",
   },
-  publication: { release_notes: "Version 0.4.28 distinguishes live media from unverified Instagram media classification and adds bounded classification diagnostics without reflecting raw provider data. Existing moderation eligibility, ownership, approval and readback requirements remain unchanged." },
+  publication: { release_notes: "Version 0.4.29 fixes rejection of Meta's documented AD media product classification for verified owned Instagram advertising comments. Exact approval, live-media rejection, current permissions, actual media ownership and hidden readback remain required. No deletion, provider scope expansion or sending activation." },
 } };
 await writeFile(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 console.log(output);

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.29 · 25 October 2026
+
+- Fix comment moderation rejecting verified owned advertising placements because the media-product allowlist omitted Meta's documented AD classification. Accept AD only from the directly fetched actual comment media after ownership verification.
+- Preserve live-media rejection, exact approval, current grant/permission checks, readback and uncertain-result handling. Add AD hide/unhide, wrong-placement/live and changed-classification/readback regression tests.
+
 ## 0.4.28 · 25 October 2026
 
 - Distinguish confirmed live Instagram media from missing or unsupported media classifications during comment inspection. Return only bounded classification codes for the actual media and comment-media reference; never expose raw provider payloads.

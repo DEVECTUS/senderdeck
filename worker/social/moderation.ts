@@ -45,7 +45,9 @@ export async function readModerationComment(account: SocialAccount, grant: { tok
   if (media.id !== mediaId || owner?.id !== account.asset_id) throw new HttpError(403, "The comment's actual media is not verified as owned by this Instagram account.");
   const product = media.media_product_type;
   if (product === "LIVE" || mediaRef.media_product_type === "LIVE") throw new HttpError(409, "Live Instagram media cannot be moderated. No change was attempted.");
-  if (typeof product !== "string" || !["FEED", "REELS", "STORY"].includes(product)) throw new HttpError(409, `Instagram media classification is unverified or unsupported (media.media_product_type=${classification(product)}; comment.media.media_product_type=${classification(mediaRef.media_product_type)}). Actual media ownership was verified; no change was attempted.`);
+  // AD is a documented published surface, not a live-media classification.
+  // Trust only this directly read, ownership-verified media, never an inbox root.
+  if (typeof product !== "string" || !["AD", "FEED", "REELS", "STORY"].includes(product)) throw new HttpError(409, `Instagram media classification is unverified or unsupported (media.media_product_type=${classification(product)}; comment.media.media_product_type=${classification(mediaRef.media_product_type)}). Actual media ownership was verified; no change was attempted.`);
   const from = comment.from as { id?: unknown; username?: unknown } | undefined;
   const author = typeof from?.username === "string" ? from.username : typeof comment.username === "string" ? comment.username : "";
   const userId = typeof comment.user === "string" ? comment.user : (comment.user as { id?: unknown } | undefined)?.id;

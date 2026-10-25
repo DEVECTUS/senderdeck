@@ -116,12 +116,36 @@ test("Instagram hiding uses only the approved comment, user grant and hide param
 test("moderation distinguishes missing, unsupported and live media without reflecting provider payloads",async t=>{
   const f=await moderationFixture(t,{product:null});
   await assert.rejects(f.inspect(),/media.media_product_type=missing; comment.media.media_product_type=missing/);
-  f.options.product="AD";await assert.rejects(f.inspect(),/media.media_product_type=AD/);
+  f.options.product="UNKNOWN_SURFACE";await assert.rejects(f.inspect(),/media.media_product_type=UNKNOWN_SURFACE/);
   f.options.product="LIVE";await assert.rejects(f.inspect(),/Live Instagram media/);
   f.options.product="REELS";f.options.referenceProduct="LIVE";await assert.rejects(f.inspect(),/Live Instagram media/);
   f.options.referenceProduct=undefined;f.options.product="secret-provider-payload";
   await assert.rejects(f.inspect(),e=>{assert.match(String(e),/media.media_product_type=invalid/);assert.doesNotMatch(String(e),/secret-provider-payload/);return true;});
   assert.equal(f.writes.length,0);
+});
+test("verified owned AD placement supports exact approved hide and unhide with missing reference classification",async t=>{
+  const f=await moderationFixture(t,{product:"AD"});const plan=await f.inspect();
+  assert.equal(plan.mediaProductType,"AD");assert.equal(plan.mediaId,"20001");assert.equal(f.writes.length,0);
+  const hide=await socialAction("social_comment_moderate",f.args(plan),f.env,"alice") as {verified:boolean;hidden:boolean};
+  assert.deepEqual([hide.verified,hide.hidden],[true,true]);
+  const restore=await f.inspect();assert.equal(restore.action,"unhide");
+  const unhide=await socialAction("social_comment_moderate",f.args(restore),f.env,"alice") as {verified:boolean;hidden:boolean};
+  assert.deepEqual([unhide.verified,unhide.hidden],[true,false]);
+  assert.deepEqual(f.writes,[{id:"10001",params:"hide=true"},{id:"10001",params:"hide=false"}]);
+});
+test("AD classification cannot bypass actual media ownership or a live comment-media reference",async t=>{
+  const f=await moderationFixture(t,{product:"AD",owner:"different-placement-owner"});
+  await assert.rejects(f.inspect(),/actual media/);f.options.owner=undefined;
+  f.options.referenceProduct="LIVE";await assert.rejects(f.inspect(),/Live Instagram media/);
+  assert.equal(f.writes.length,0);
+});
+test("AD moderation still blocks changed classification and requires successful hidden readback",async t=>{
+  const f=await moderationFixture(t,{product:"AD"});const plan=await f.inspect();
+  f.options.product="REELS";await assert.rejects(socialAction("social_comment_moderate",f.args(plan),f.env,"alice"),/changed/);assert.equal(f.writes.length,0);
+  f.options.product="AD";f.options.failReadback=true;
+  await assert.rejects(socialAction("social_comment_moderate",f.args(plan),f.env,"alice"),/result is unknown/);
+  assert.equal(f.sql.prepare("SELECT state FROM social_moderations WHERE id=?").get(String(plan.operationId))!.state,"result_unknown");
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_activity WHERE action='comment_moderation_verified'").get()!.n,0);
 });
 test("unhide is independently inspected and confirmed with false, never deletion",async t=>{
   const f=await moderationFixture(t,{hidden:true});const plan=await f.inspect();assert.equal(plan.action,"unhide");
