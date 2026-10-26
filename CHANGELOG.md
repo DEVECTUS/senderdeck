@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.31 - 2026-10-26
+
+- Add gated Embedded Signup v4 Coexistence onboarding for existing WhatsApp Business app numbers, with exact-phone and live simultaneous-app/API checks.
+- Add encrypted queued history import, phone-app outgoing echoes, contact-sync receipt tracking, lifecycle revocation and repair of never-requested sync steps.
+- Preserve separate draft approval; phone replies, native edits and unsupported identity events invalidate old reviews. Imported history cannot open the 24-hour API response window.
+- Append migration 0011; no phone registration, deregistration, migration or unattended send is performed. Live activation remains dependent on Meta eligibility, app permissions and a dedicated Embedded Signup configuration.
+
 ## 0.4.30 - 2026-10-26
 
 - Add WhatsApp Business connection for existing Cloud API numbers, signed inbound message handling and encrypted retained history.

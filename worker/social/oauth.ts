@@ -99,7 +99,7 @@ async function assetAssignment(env: Env, user: string, brandId: string, provider
   const visible = await env.DB.prepare("SELECT b.id,b.name FROM social_brands b JOIN social_members m ON m.customer_id=b.customer_id WHERE b.id=? AND m.user_id=?").bind(existing.brand_id,user).first<{id:string;name:string}>();
   return visible ? { state: "other_brand" as const, brandId:visible.id, brandName:visible.name } : { state: "other_workspace" as const };
 }
-export async function selectAsset(env: Env, user: string, brandId: string, grantId: string, provider: string, assetId: string, wabaId?: string) {
+export async function selectAsset(env: Env, user: string, brandId: string, grantId: string, provider: string, assetId: string, wabaId?: string, coexistenceReconnect = false) {
   const saved = await getGrant(env, user, brandId, grantId);
   // Re-discover the grant rather than trusting a caller-supplied Page, task or token.
   const grant = provider === "whatsapp" ? { ...saved, candidates: (await whatsappAssets(env, saved.userToken, strWaba(wabaId))).assets } : await discover(env, saved.userToken);
@@ -110,7 +110,7 @@ export async function selectAsset(env: Env, user: string, brandId: string, grant
   const tokenInfo = await inspectToken(env, asset.token);
   const account: SocialAccount = { id: existing?.id || id(), brand_id: brandId, provider: asset.provider, asset_id: assetId, parent_id: asset.parentId,
     provider_user_id: grant.providerUserId, name: asset.name, token: await encrypt(asset.token, env.TOKEN_ENCRYPTION_KEY), user_token: await encrypt(grant.userToken, env.TOKEN_ENCRYPTION_KEY),
-    expires_at: tokenInfo.expiresAt || grant.expiresAt, permissions: JSON.stringify(grant.permissions), status: "pending_validation", validation: JSON.stringify({ tasks: asset.tasks }),
+    expires_at: tokenInfo.expiresAt || grant.expiresAt, permissions: JSON.stringify(grant.permissions), status: "pending_validation", validation: JSON.stringify({ tasks: asset.tasks, ...(provider === "whatsapp" && coexistenceReconnect ? {coexistenceReconnect:true} : {}) }),
     validated_at: null, monitoring: JSON.stringify({ enabled: false, intervalMinutes: 10 }), last_reconciled_at: null, created_at: Date.now() };
   const live = await validateConnection(env, account);
   account.validation = JSON.stringify(live.validation); account.status = live.status; account.validated_at = Date.now();

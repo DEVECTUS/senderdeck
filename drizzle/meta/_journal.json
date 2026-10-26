@@ -78,6 +78,13 @@
       "when": 1792970171245,
       "tag": "0010_hesitant_hydra",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1792992291206,
+      "tag": "0011_chunky_black_tarantula",
+      "breakpoints": true
     }
   ]
 }

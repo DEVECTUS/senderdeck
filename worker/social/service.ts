@@ -217,7 +217,7 @@ export async function socialAction(name: string, a: Args, env: Env, user: string
   const { brand, account } = await accountFor(env, user, brandId, accountId, role);
   if (name === "social_webhook_subscribe") {
     if (a.confirmed !== true) throw new HttpError(400, "Confirm installing the read-event subscription for this exact Page.");
-    return subscribePageAccount(env, account, user);
+    return account.provider === "whatsapp" ? (await import("./whatsapp-coexistence")).subscribeWhatsApp(env,account,user) : subscribePageAccount(env, account, user);
   }
   if (name === "social_account_validate") return { ...safeAccount(await refreshAccount(env, account)), capabilities: capabilities(env, account) };
   if (name === "social_account_disconnect") {

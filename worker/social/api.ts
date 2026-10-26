@@ -1,3 +1,4 @@
+import { coexistenceSetup, startCoexistence, completeCoexistence, coexistenceStatus, resumeCoexistence } from "./whatsapp-coexistence";
 import { HttpError, requireUserId } from "../auth";
 import type { Env } from "../env";
 import { platformStatus } from "./meta";
@@ -48,6 +49,25 @@ export async function handleSocial(request: Request, env: Env, defer: (p: Promis
       return Response.json(await runHostedMaintenance(env,source === "github_schedule" || source === "github_dispatch" ? source : "external"));
     }
     const oauth = await oauthCallback(request, env); if (oauth) return oauth;
+    if (path === "/api/social/whatsapp/coexistence/setup" && request.method === "GET") {
+      await requireUserId(request, env);
+      return Response.json(coexistenceSetup(env), {headers:{"cache-control":"no-store"}});
+    }
+    if (path.startsWith("/api/social/whatsapp/coexistence/") && request.method === "POST") {
+      if (request.headers.get("origin") !== new URL(request.url).origin || !request.headers.get("content-type")?.startsWith("application/json")) throw new HttpError(403,"Same-origin JSON request required.");
+      const user = await requireUserId(request, env);
+      let args: Record<string,unknown>;
+      try { args=JSON.parse(await limitedBody(request,16384)); } catch { throw new HttpError(400,"Invalid onboarding request."); }
+      if (!args || typeof args !== "object" || Array.isArray(args)) throw new HttpError(400,"Invalid onboarding request.");
+      const brandId = typeof args.brandId === "string" ? args.brandId : "";
+      const result = path.endsWith("/start") ? await startCoexistence(env,user,brandId,args.phone,args.confirmed)
+        : path.endsWith("/complete") ? await completeCoexistence(env,user,args)
+        : path.endsWith("/resume") ? await resumeCoexistence(env,user,brandId,typeof args.accountId === "string"?args.accountId:"",args.confirmed)
+        : path.endsWith("/status") ? await coexistenceStatus(env,user,brandId,typeof args.accountId === "string"?args.accountId:"")
+        : null;
+      if(!result)throw new HttpError(404,"Unknown onboarding operation.");
+      return Response.json(result,{headers:{"cache-control":"no-store"}});
+    }
     if (path !== "/api/social" || request.method !== "POST") throw new HttpError(404, "Social route not found.");
     // Browser cookies cannot authorise cross-origin writes. MCP has a separate OAuth bearer flow.
     if (request.headers.get("origin") !== new URL(request.url).origin || !request.headers.get("content-type")?.startsWith("application/json")) throw new HttpError(403, "Same-origin JSON request required.");

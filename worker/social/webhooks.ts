@@ -51,7 +51,7 @@ export async function receiveMeta(request: Request, env: Env, defer: (p: Promise
     return new Response(url.searchParams.get("hub.challenge") || "", { headers: { "content-type": "text/plain", "cache-control": "no-store" } });
   }
   if (request.method !== "POST") throw new HttpError(405, "Method not allowed.");
-  const raw = await limitedBody(request);
+  const raw = await limitedBody(request, 8 * 1024 * 1024);
   const signature = request.headers.get("x-hub-signature-256") || "";
   if (!equalSecret(signature, `sha256=${await hmac(env.META_APP_SECRET, raw)}`)) throw new HttpError(403, "Webhook signature failed.");
   let payload: { object?: string; entry?: Array<{ id?: string; messaging?: Event[]; changes?: Event[] }> };
@@ -87,7 +87,14 @@ export async function processQueue(env: Env) {
     const event = await env.DB.prepare("UPDATE social_queue SET state='processing',attempts=attempts+1,claimed_at=? WHERE id=? AND state='pending' RETURNING *").bind(Date.now(), row.id).first<{id: string; account_id: string; encrypted: string; attempts: number}>();
     if (!event) continue;
     try {
-      const payload = json<Event>(await decrypt(event.encrypted, env.TOKEN_ENCRYPTION_KEY));
+      const decoded = json<Event & {whatsapp?:Record<string,unknown>}>(await decrypt(event.encrypted, env.TOKEN_ENCRYPTION_KEY));
+      if (decoded.whatsapp) {
+        await (await import("./whatsapp-events")).processWhatsAppEvent(env, event.account_id, decoded.whatsapp, event.id);
+        await env.DB.prepare("UPDATE social_queue SET state='done',encrypted='' WHERE id=?").bind(event.id).run();
+        await env.DB.prepare("UPDATE social_whatsapp_coexistence SET status='ready',updated_at=? WHERE account_id=? AND status!='offboarded' AND contacts_state='received' AND history_state IN ('received','declined') AND NOT EXISTS (SELECT 1 FROM social_queue WHERE account_id=? AND state IN ('pending','processing','failed'))").bind(Date.now(),event.account_id,event.account_id).run();
+        continue;
+      }
+      const payload = decoded;
       const text = String(payload.message?.text || payload.value?.message || payload.value?.text || "").toLowerCase();
       const account = await env.DB.prepare("SELECT a.*,b.profile FROM social_accounts a JOIN social_brands b ON b.id=a.brand_id WHERE a.id=?").bind(event.account_id).first<SocialAccount & {profile: string}>();
       if (account) {

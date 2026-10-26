@@ -14,7 +14,7 @@ SenderDeck connects AI clients to explicitly selected accounts so you can review
 | Customer and brand workspaces | Multiple brands, account associations, customer roles, tone/language/punctuation settings, verified facts and escalation rules | Available in Conversations |
 | Enquiries and approvals | Status, assigned owner, next action, minimal audit records, encrypted expiring social drafts, exact revision approval | Implemented; social sending disabled in the current deployment |
 | Facebook and Instagram | Hosted Meta OAuth, asset discovery/verification, messages, comment/reply trees, signed webhooks and reconciliation adapters | Activation pending platform approval, owner consent, live validation and hosted scheduling |
-| WhatsApp Business | Existing Cloud API number connection, signed inbound webhooks, encrypted retained history, text drafts and exact approval within 24 hours | Implemented locally; migration, Meta configuration and live acceptance required; templates/media sending unavailable |
+| WhatsApp Business | Cloud API connection and gated Business app Coexistence onboarding, signed webhooks, encrypted retained history, phone-app reply context and exact approved text replies within 24 hours | Deployed adapters; Coexistence requires migration 0011, provider eligibility, a dedicated Embedded Signup configuration and live acceptance; templates/media sending unavailable |
 | LinkedIn | Explicit capability blockers and programme/data-use requirements | No live community or inbox access; Page messaging requires separate partner access |
 | Other social capabilities | Instagram mentions, social attachment sending and provider-specific history extensions | Unavailable pending validation |
 

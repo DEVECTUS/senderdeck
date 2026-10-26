@@ -261,3 +261,12 @@ export const socialWhatsappMessages = sqliteTable("social_whatsapp_messages", {
   encrypted: text("encrypted").notNull(),
   expiresAt: integer("expires_at").notNull(),
 }, table => [uniqueIndex("social_whatsapp_message_unique").on(table.accountId, table.providerId), index("social_whatsapp_thread_idx").on(table.accountId, table.peer, table.sentAt)]);
+
+export const socialWhatsappCoexistence = sqliteTable("social_whatsapp_coexistence", {
+  accountId: text("account_id").primaryKey().references(() => socialAccounts.id, {onDelete:"cascade"}),
+  phone: text("phone").notNull(), status: text("status").notNull(),
+  contactsState: text("contacts_state").notNull(), historyState: text("history_state").notNull(),
+  contactsRequestId: text("contacts_request_id"), historyRequestId: text("history_request_id"),
+  historyProgress: integer("history_progress").notNull().default(0),
+  createdAt: integer("created_at").notNull(), syncDeadline: integer("sync_deadline").notNull(), updatedAt: integer("updated_at").notNull(),
+});

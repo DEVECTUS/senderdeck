@@ -1,3 +1,4 @@
+import {startCoexistence, completeCoexistence, requestInitialSync} from "../worker/social/whatsapp-coexistence";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync, readdirSync } from "node:fs";
@@ -1029,6 +1030,7 @@ async function whatsappFixture(t: TestContext) {
     const path = url.pathname.replace("/v26.0/", "");
     assert.equal(url.origin, "https://graph.facebook.com");
     if (path === "debug_token") return Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes:permissions}});
+    if (path === "12345") return Response.json({id:"12345",is_on_biz_app:true,platform_type:"CLOUD_API"});
     if (path === "67890/phone_numbers") return Response.json({data:[{id:"12345",verified_name:"Synthetic WhatsApp"}]});
     if (path === "67890/subscribed_apps") return Response.json({data:[{whatsapp_business_api_data:{id:"platform"}}]});
     if (path === "12345/messages" && init?.method === "POST") {
@@ -1124,4 +1126,139 @@ test("WhatsApp revoked messaging permission and app subscription prevent approva
   await assert.rejects(socialAction("social_reply_send",d.args,f.env,"alice"),/permissions/);assert.equal(f.sends(),0);
   t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>String(input).includes("subscribed_apps")?Response.json({data:[]}):original(input,init));
   await assert.rejects(socialAction("social_reply_send",d.args,f.env,"alice"),/not validated/);assert.equal(f.sends(),0);
+});
+
+async function coexistenceFixture(t:TestContext, options:{wrongPhone?:boolean;notCoexisting?:boolean;lostSyncResponse?:boolean}={}) {
+  const f=await whatsappFixture(t);f.env.WHATSAPP_COEXISTENCE_CONFIG_ID="coexistence-config";
+  const original=globalThis.fetch;const syncCalls:string[]=[];let exchanges=0;
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>{
+    const url=new URL(String(input)),path=url.pathname.replace("/v26.0/","");
+    assert.ok(!/\/(?:register|deregister)$/.test(path),"Coexistence must never register or deregister a phone");
+    if(path==="platform/subscriptions")return Response.json({data:[{object:"whatsapp_business_account",active:true,callback_url:"https://senderdeck.test/api/social/webhooks/meta",fields:["messages","account_update","history","smb_app_state_sync","smb_message_echoes"]}]});
+    if(path==="oauth/access_token"){exchanges++;assert.equal(init?.method,"POST");assert.ok(!url.search);return Response.json({access_token:"user-token"});}
+    if(path==="67890/phone_numbers")return Response.json({data:[{id:"12345",display_phone_number:options.wrongPhone?"+61400999000":"+61400999888",verified_name:"Synthetic Business"}]});
+    if(path==="12345")return Response.json({id:"12345",is_on_biz_app:!options.notCoexisting,platform_type:"CLOUD_API"});
+    if(path==="67890/subscribed_apps"&&init?.method==="POST")return Response.json({success:true});
+    if(path==="12345/smb_app_data"){
+      const type=new URLSearchParams(init?.body as URLSearchParams).get("sync_type")!;syncCalls.push(type);
+      if(options.lostSyncResponse&&type==="smb_app_state_sync")throw new Error("synthetic lost response");
+      return Response.json({messaging_product:"whatsapp",request_id:`sync-${type}`});
+    }
+    return original(input,init);
+  });
+  const start=()=>startCoexistence(f.env,"alice",f.brandId,"+61 400 999 888",true);
+  const complete=(state:string,user="alice",overrides:Record<string,unknown>={})=>completeCoexistence(f.env,user,{brandId:f.brandId,state,wabaId:"67890",code:"synthetic-single-use-code",event:"FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING",...overrides});
+  return {...f,start,complete,syncCalls,exchanges:()=>exchanges};
+}
+async function coexistenceEvent(f:{env:Env},field:string,value:Record<string,unknown>,wabaId="67890") {
+  const raw=JSON.stringify({object:"whatsapp_business_account",entry:[{id:wabaId,changes:[{field,value}]}]});const pending:Promise<unknown>[]=[];
+  await receiveMeta(new Request("https://senderdeck.test/api/social/webhooks/meta",{method:"POST",headers:{"x-hub-signature-256":`sha256=${await hmac(f.env.META_APP_SECRET!,raw)}`},body:raw}),f.env,p=>pending.push(p));
+  await Promise.all(pending);
+}
+const coexValue=(more:Record<string,unknown>)=>({messaging_product:"whatsapp",metadata:{phone_number_id:"12345"},...more});
+
+test("Coexistence refuses to begin while required app webhook fields are missing",async t=>{
+  const f=await coexistenceFixture(t);t.after(()=>f.sql.close());const original=globalThis.fetch;
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>String(input).includes("/platform/subscriptions")?Response.json({data:[{object:"whatsapp_business_account",active:true,callback_url:"https://senderdeck.test/api/social/webhooks/meta",fields:["messages"]}]}):original(input,init));
+  await assert.rejects(f.start(),/all five Coexistence webhook/);assert.equal(f.exchanges(),0);assert.equal(f.sql.prepare("SELECT count(*) n FROM social_oauth").get()!.n,0);
+});
+
+test("native edits remove stale saved wording and force native review before sending",async t=>{
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());markCoexistenceReady(f);await f.incoming();const draft=await f.draft();
+  await coexistenceEvent(f,"messages",coexValue({messages:[{id:"edited-message",from:"61400111222",timestamp:String(Math.floor(Date.now()/1000)),type:"edit",edit:{original_message_id:"wamid.incoming",message:{type:"text",text:{body:"Changed original"}}}}]}));
+  const history=await socialAction("social_thread_read",f.scope(),f.env,"alice") as History;
+  assert.ok(history.items.every(item=>item.text!=="Hello"));assert.equal(history.items.find(i=>i.id==="wamid.incoming")!.attachments,true);
+  await assert.rejects(socialAction("social_reply_send",draft.args,f.env,"alice"),/Conversation changed/);
+});
+
+test("an unsupported WhatsApp username event invalidates approval and requires native review",async t=>{
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());markCoexistenceReady(f);await f.incoming();const draft=await f.draft();
+  await coexistenceEvent(f,"messages",coexValue({messages:[{id:"bsuid-only",from_user_id:"US.synthetic-user",timestamp:String(Math.floor(Date.now()/1000)),type:"text",text:{body:"Cannot route by phone"}}]}));
+  const history=await socialAction("social_thread_read",f.scope(),f.env,"alice") as History;assert.ok(history.coverage.gaps.includes("unsupported_whatsapp_identity_requires_native_review"));
+  await assert.rejects(socialAction("social_reply_send",draft.args,f.env,"alice"),/Conversation changed/);assert.equal(f.sends(),0);
+});
+function markCoexistenceReady(f:{sql:DatabaseSync;account:{id:string}}) {
+  f.sql.prepare("INSERT INTO social_whatsapp_coexistence (account_id,phone,status,contacts_state,history_state,history_progress,created_at,sync_deadline,updated_at) VALUES (?,'61400999888','syncing','received','received',100,?,?,?)").run(f.account.id,Date.now()-120000,Date.now()+86400000,Date.now());
+}
+
+test("Coexistence validates exact phone and simultaneous app/API use, claims the reader-bound state once and never registers the phone",async t=>{
+  const f=await coexistenceFixture(t);t.after(()=>f.sql.close());
+  await assert.rejects(startCoexistence(f.env,"alice",f.brandId,"+61400999888",false),/Confirm/);
+  const start=await f.start();assert.equal(start.expectedPhone,"61400999888");
+  await assert.rejects(f.complete(start.state,"mallory"),/not found/);assert.equal(f.exchanges(),0);
+  await assert.rejects(f.complete(start.state,"alice",{event:"FINISH"}),/Only the Business app/);assert.equal(f.exchanges(),0);
+  const completed=await f.complete(start.state);assert.equal(completed.phoneAppPreserved,true);assert.equal(completed.accountId,f.account.id);
+  assert.deepEqual(f.syncCalls,["smb_app_state_sync","history"]);
+  const row=f.sql.prepare("SELECT * FROM social_whatsapp_coexistence").get()!;assert.equal(row.contacts_state,"requested");assert.equal(row.history_state,"requested");
+  await assert.rejects(f.complete(start.state),/expired|consumed/);assert.equal(f.exchanges(),1);
+  const account=(await accountFor(f.env,"alice",f.brandId,f.account.id)).account;await requestInitialSync(f.env,account);assert.equal(f.syncCalls.length,2);
+});
+
+test("Coexistence refuses another phone or a non-Coexistence registration before saving an account or requesting sync",async t=>{
+  const f=await coexistenceFixture(t,{wrongPhone:true});t.after(()=>f.sql.close());const start=await f.start();
+  await assert.rejects(f.complete(start.state),/exact phone/);assert.equal(f.syncCalls.length,0);assert.equal(f.sql.prepare("SELECT count(*) n FROM social_whatsapp_coexistence").get()!.n,0);
+});
+
+test("Coexistence will not fall back to migration when Business app verification is false",async t=>{
+  const f=await coexistenceFixture(t,{notCoexisting:true});t.after(()=>f.sql.close());const start=await f.start();
+  await assert.rejects(f.complete(start.state),/simultaneous Business app/);assert.equal(f.syncCalls.length,0);
+});
+
+test("Coexistence one-time sync does not retry an uncertain provider response",async t=>{
+  const f=await coexistenceFixture(t,{lostSyncResponse:true});t.after(()=>f.sql.close());const start=await f.start();const result=await f.complete(start.state);
+  assert.equal(result.coexistence!.contacts_state,"delivery_unknown");assert.equal(result.coexistence!.status,"needs_review");
+  await requestInitialSync(f.env,(await accountFor(f.env,"alice",f.brandId,f.account.id)).account);assert.equal(f.syncCalls.length,2);
+});
+
+test("phone-app echoes appear as outgoing context and invalidate a previously approved draft",async t=>{
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());markCoexistenceReady(f);await f.incoming();const draft=await f.draft();
+  await coexistenceEvent(f,"smb_message_echoes",coexValue({message_echoes:[{id:"native-reply",from:"61400999888",to:"61400111222",timestamp:String(Math.floor(Date.now()/1000)),type:"text",text:{body:"Answered on the phone"}}]}));
+  const history=await socialAction("social_thread_read",f.scope(),f.env,"alice") as History;
+  assert.equal(history.items.at(-1)!.from,"12345");assert.equal(history.items.at(-1)!.text,"Answered on the phone");
+  await assert.rejects(socialAction("social_reply_send",draft.args,f.env,"alice"),/Conversation changed/);assert.equal(f.sends(),0);
+});
+
+test("imported history and phone-app replies never open the 24-hour API response window",async t=>{
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());markCoexistenceReady(f);
+  await coexistenceEvent(f,"history",coexValue({history:[{metadata:{phase:2,chunk_order:1,progress:100},threads:[{id:"61400111222",messages:[{id:"old-incoming",from:"61400111222",timestamp:String(Math.floor(Date.now()/1000)),type:"text",text:{body:"Imported history"}}]}]}]}));
+  const history=await socialAction("social_thread_read",f.scope(),f.env,"alice") as History;assert.equal(history.lastInboundAt,null);assert.equal(history.coverage.complete,false);
+  const d=await f.draft();await assert.rejects(socialAction("social_reply_send",d.args,f.env,"alice"),/24-hour/);assert.equal(f.sends(),0);
+});
+
+test("Coexistence captures large history as bounded encrypted queue chunks and keeps contacts out of storage",async t=>{
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());markCoexistenceReady(f);
+  const messages=Array.from({length:120},(_,i)=>({id:`history-${i}`,from:"61400111222",timestamp:String(Math.floor((Date.now()-10000-i*1000)/1000)),type:"text",text:{body:"x".repeat(4000)}}));
+  await coexistenceEvent(f,"history",coexValue({history:[{metadata:{phase:2,chunk_order:1,progress:100},threads:[{id:"61400111222",messages}]}]}));
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_whatsapp_messages").get()!.n,120);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_queue WHERE state='done'").get()!.n,3);
+  await coexistenceEvent(f,"smb_app_state_sync",coexValue({state_sync:[{type:"contact",contact:{full_name:"PRIVATE ADDRESS BOOK NAME",phone_number:"61400123456"},action:"add"}]}));
+  const queues=f.sql.prepare("SELECT encrypted FROM social_queue").all();assert.ok(queues.every(q=>q.encrypted===""));
+  const state=JSON.stringify(f.sql.prepare("SELECT * FROM social_whatsapp_coexistence").get());assert.doesNotMatch(state,/PRIVATE ADDRESS BOOK NAME|61400123456/);
+});
+
+test("declined history sharing is respected; pending synchronization and processing gaps cannot be acknowledged away",async t=>{
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());markCoexistenceReady(f);await f.incoming();
+  f.sql.prepare("UPDATE social_whatsapp_coexistence SET contacts_state='requested',history_state='requested',history_progress=0").run();
+  const pending=await f.draft();assert.ok(pending.created.assessment.blockers.includes("incomplete_history"));
+  await coexistenceEvent(f,"smb_app_state_sync",coexValue({state_sync:[]}));
+  await coexistenceEvent(f,"history",coexValue({history:[{errors:[{code:2593109}]}]}));
+  assert.equal(f.sql.prepare("SELECT history_state FROM social_whatsapp_coexistence").get()!.history_state,"declined");
+  const reviewed=await f.draft();assert.deepEqual(reviewed.created.assessment.blockers,[]);
+});
+
+test("phone-app disconnection revokes the selected account and approvals without deregistering the phone",async t=>{
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());markCoexistenceReady(f);await f.incoming();const d=await f.draft();
+  await coexistenceEvent(f,"account_update",{event:"PARTNER_REMOVED",phone_number:"61400999888"},"different-waba");assert.equal(f.sql.prepare("SELECT status FROM social_accounts WHERE id=?").get(f.account.id)!.status,"connected");
+  await coexistenceEvent(f,"account_update",{event:"PARTNER_REMOVED",phone_number:"61400999888"});
+  assert.equal(f.sql.prepare("SELECT status FROM social_accounts WHERE id=?").get(f.account.id)!.status,"revoked");
+  await assert.rejects(socialAction("social_account_validate",{brandId:f.brandId,accountId:f.account.id},f.env,"alice"),/disconnected/);
+  await assert.rejects(socialAction("social_reply_send",d.args,f.env,"alice"));assert.equal(f.sends(),0);
+});
+
+test("Coexistence endpoints reject unauthenticated, cross-origin and wrong-brand requests",async()=>{
+  const f=await fixture();f.env.WHATSAPP_COEXISTENCE_CONFIG_ID="coexistence-config";
+  const body=JSON.stringify({brandId:f.brandId,phone:"+61400999888",confirmed:true});
+  const cross=await handleSocial(new Request("https://senderdeck.test/api/social/whatsapp/coexistence/start",{method:"POST",headers:{origin:"https://evil.test","content-type":"application/json","x-dev-user-email":"alice"},body}),f.env,()=>{});assert.equal(cross!.status,403);
+  const unauth=await handleSocial(new Request("https://senderdeck.test/api/social/whatsapp/coexistence/start",{method:"POST",headers:{origin:"https://senderdeck.test","content-type":"application/json"},body}),f.env,()=>{});assert.equal(unauth!.status,401);
+  const foreign=await handleSocial(new Request("https://senderdeck.test/api/social/whatsapp/coexistence/start",{method:"POST",headers:{origin:"https://senderdeck.test","content-type":"application/json","x-dev-user-email":"mallory"},body}),f.env,()=>{});assert.equal(foreign!.status,404);
 });

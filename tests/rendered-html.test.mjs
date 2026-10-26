@@ -385,3 +385,8 @@ test("requires authenticated identity for the account management API", async () 
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.match((await response.json()).error, /Authentication required/);
 });
+
+test("WhatsApp connection renders separate phone-app and existing Cloud API choices without credential inputs",async()=>{
+  const worker=await loadWorker();const response=await worker.fetch(new Request("http://localhost/connect/meta?provider=whatsapp",{headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com"}}),baseEnv,context);
+  assert.equal(response.status,200);const html=await response.text();assert.match(html,/Connect WhatsApp Business/);assert.match(html,/Keep the existing WhatsApp Business phone app/);assert.match(html,/Number already registered with Cloud API/);assert.doesNotMatch(html,/<input[^>]*type="password"|client_secret|access_token/);
+});

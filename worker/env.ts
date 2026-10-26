@@ -56,6 +56,7 @@ export interface Env {
   META_APP_SECRET?: string;
   META_LOGIN_CONFIG_ID?: string;
   WHATSAPP_LOGIN_CONFIG_ID?: string;
+  WHATSAPP_COEXISTENCE_CONFIG_ID?: string;
   META_WEBHOOK_VERIFY_TOKEN?: string;
   META_ACCESS_TIER?: string;
   SOCIAL_PUBLIC_ORIGIN?: string;

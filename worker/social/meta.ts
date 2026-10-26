@@ -48,7 +48,7 @@ export function platformStatus(env: Env) {
     meta: { configured: missing.length === 0, missing, accessTier: tier, customerAccess: tier === "advanced" ? "requires_per_account_validation" : "pending_app_review",
       webhookConfigured: Boolean(env.META_WEBHOOK_VERIFY_TOKEN && env.META_APP_SECRET), graphVersion: GRAPH_VERSION,
       blockers: [...(missing.length ? ["platform_app_not_configured"] : []), ...(tier !== "advanced" ? ["advanced_access_and_business_verification_required_for_external_customers"] : [])] },
-    whatsapp: { configured: Boolean(env.META_APP_ID && env.META_APP_SECRET && env.WHATSAPP_LOGIN_CONFIG_ID), history: "retained_signed_webhooks_only", templates: "unavailable", mediaSending: "unavailable" },
+    whatsapp: { configured: Boolean(env.META_APP_ID && env.META_APP_SECRET && env.WHATSAPP_LOGIN_CONFIG_ID), history: "retained_signed_webhooks_only", templates: "unavailable", mediaSending: "unavailable", coexistence: {configured:!!env.WHATSAPP_COEXISTENCE_CONFIG_ID,eligibility:"must_be_verified_in_meta",onboarding:"embedded_signup_v4",phoneRegistration:"never_performed_by_senderdeck"} },
     linkedin: { configured: Boolean(env.LINKEDIN_CLIENT_ID && env.LINKEDIN_CLIENT_SECRET), community: "pending_authorisation", pageMessaging: "unavailable",
       blockers: ["community_management_standard_access", "assistant_data_use_review", "member_data_retention_and_export_restrictions", "page_messaging_requires_separate_partner_access"] },
     sending: env.SOCIAL_SEND_ENABLED === "true" ? "requires_brand_and_account_validation" : "disabled",
