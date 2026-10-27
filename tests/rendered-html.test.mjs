@@ -138,17 +138,17 @@ test("sign-in and authenticated workspace pages are excluded from search indexin
   }
 });
 
-test("signed-in Overview and Connections expose grouped channel setup", async () => {
+test("signed-in Overview and Connections lead with a compact account table", async () => {
   const worker = await loadWorker();
   for (const path of ["/", "/accounts"]) {
     const response = await worker.fetch(new Request(`http://localhost${path}`, { headers: { accept: "text/html", "oai-authenticated-user-email": "owner@example.com" } }), baseEnv, context);
     assert.equal(response.status, 200);
     const html = await response.text();
-    if (path === "/accounts") assert.match(html, /Connected accounts/);
-    assert.match(html, /Add a connection/);
-    assert.match(html, /Meta channels/);
-    if (path === "/accounts") assert.match(html, /Search connected accounts/);
-    else assert.match(html, /Your next step/);
+    assert.match(html, /aria-label="Connected accounts"/);
+    assert.match(html, /Search connected accounts/);
+    assert.match(html, /<summary>Add connection<\/summary>/);
+    assert.ok(html.indexOf('aria-label="Connected accounts"') < html.indexOf('<summary>Add connection</summary>'));
+    assert.doesNotMatch(html, /channel-card|overview-stats|Your next step|CHOOSE YOUR CHANNEL/);
     assert.match(html, /aria-label="Main navigation"/);
     assert.match(html, /href="\/accounts"/);
     assert.match(html, /OpenAI sign-in/);
@@ -395,19 +395,19 @@ test("WhatsApp connection renders separate phone-app and existing Cloud API choi
 });
 
 
-test("Connections groups all three Meta channels with icons and individual setup links", async () => {
+test("optional channel setup is a collapsed compact table with icons and individual links", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(new Request("http://localhost/accounts", {headers: {accept:"text/html", "oai-authenticated-user-email":"owner@example.com"}}), baseEnv, context);
   assert.equal(response.status, 200);
   const html = await response.text();
-  const group = html.match(/<section class="channel-group channel-group-meta"[\s\S]*?<\/section>/)?.[0];
-  assert.ok(group);
+  assert.match(html, /<details class="connection-add"><summary>Add connection<\/summary>/);
+  const options = html.match(/<table class="connections-table connection-options"[\s\S]*?<\/table>/)?.[0];
+  assert.ok(options);
   for (const provider of ["facebook", "instagram", "whatsapp"]) {
-    assert.ok(group.includes(`src="/providers/${provider}.svg"`));
-    assert.ok(group.includes(`href="/connect/meta?provider=${provider}"`));
+    assert.ok(options.includes(`src="/providers/${provider}.svg"`));
+    assert.ok(options.includes(`href="/connect/meta?provider=${provider}"`));
   }
-  assert.doesNotMatch(group, /Google email|Microsoft email|LinkedIn/);
-  assert.match(html, /Checking connections/);
+  assert.doesNotMatch(html, /channel-card|Meta checks eligibility|Keep your Business phone app/);
   const icon = await readFile(new URL("../dist/client/providers/whatsapp.svg", import.meta.url), "utf8");
   assert.match(icon, /<svg/);
 });

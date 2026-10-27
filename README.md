@@ -42,7 +42,7 @@ Customers do not need to create developer apps or run local relays for the hoste
 
 ## Connections
 
-Open **Connections** to add email or brand channels and manage linked accounts. Facebook, Instagram and WhatsApp Business appear together under **Meta channels**, each with its own icon and setup link. Facebook and Instagram share Meta authorisation and account selection. WhatsApp keeps its Business app Coexistence and existing Cloud API number choices. The setup channel navigation retains the selected brand when switching; existing connections and sending controls are unchanged. A saved connection is not proof of provider approval or live delivery.
+Open **Connections** to see linked accounts in one table: account, channel, brand and status. Search or filter by channel; use **Manage** for account actions. **Add connection** below the table opens a small setup table. Facebook, Instagram and WhatsApp retain their own setup links and icons. Brand workspaces also list connections in a table, with validation, monitoring and disconnect controls under **Manage**. An expired grant or unavailable access is flagged separately from a connected account. Email live access is checked when used.
 
 ## Provider sign-in and connected mailboxes
 

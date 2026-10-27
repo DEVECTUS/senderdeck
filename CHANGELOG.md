@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.34 - 2026-10-28
+
+- Replace channel cards and summary panels with a compact table of actual email and brand connections, including channel icons, brand, connection/access status and Manage links.
+- Put optional connection setup below the table, collapsed by default. Brand connections use a table with existing management controls under Manage.
+- Report revoked, expired, limited and unavailable access distinctly; preserve source-loading errors, search and channel filtering.
+
 ## 0.4.33 - 2026-10-28
 
 - Bring Facebook, Instagram and WhatsApp together in a Meta channel group on Connections and within brand workspaces, with consistent provider icons and channel setup navigation.
