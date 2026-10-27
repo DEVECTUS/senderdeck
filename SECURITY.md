@@ -10,6 +10,8 @@ The latest release on the default branch is the primary maintenance target. Repo
 
 ## Boundaries worth reviewing
 
+For public-authority data requests, use the [proposed request-handling procedure](docs/governance/PUBLIC-AUTHORITY-REQUESTS.md) and [adoption checklist](docs/governance/ADOPTION-AND-EXERCISE.md). The draft is not an operating-policy attestation; real case records and legal advice belong in approved restricted storage, never this repository.
+
 Review account and customer isolation, OAuth state/session handling, token encryption, provider asset validation, raw webhook signatures, pagination/coverage claims, retention/deletion and exact draft approval. The MIT licence does not grant access to the hosted service, provider credentials or customer data.
 
 The social module remains gated pending provider and operational validation. A configuration flag or passing mock test is not proof of authorised live access. See [ARCHITECTURE.md](docs/ARCHITECTURE.md) and [SOCIAL-ACTIVATION.md](docs/SOCIAL-ACTIVATION.md) for implementation and activation limits.

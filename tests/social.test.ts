@@ -1163,6 +1163,37 @@ test("Coexistence refuses to begin while required app webhook fields are missing
   await assert.rejects(f.start(),/all five Coexistence webhook/);assert.equal(f.exchanges(),0);assert.equal(f.sql.prepare("SELECT count(*) n FROM social_oauth").get()!.n,0);
 });
 
+test("Coexistence rejects an inactive or foreign callback before creating login state",async t=>{
+  const f=await coexistenceFixture(t);t.after(()=>f.sql.close());const original=globalThis.fetch;
+  let active=false, callback="https://senderdeck.test/api/social/webhooks/meta";
+  t.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>String(input).includes("/platform/subscriptions")?Response.json({data:[{object:"whatsapp_business_account",active,callback_url:callback,fields:["messages","account_update","history","smb_app_state_sync","smb_message_echoes"]}]}):original(input,init));
+  await assert.rejects(f.start(),/all five Coexistence webhook/);
+  active=true;callback="https://other.example/api/social/webhooks/meta";
+  await assert.rejects(f.start(),/all five Coexistence webhook/);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_oauth").get()!.n,0);
+  assert.equal(f.exchanges(),0);assert.deepEqual(f.syncCalls,[]);assert.equal(f.sends(),0);
+});
+
+test("forged Coexistence sync, echo and offboarding events cannot alter enrolled state",async t=>{
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());markCoexistenceReady(f);
+  const changes=[
+    {field:"smb_app_state_sync",value:coexValue({state_sync:[]})},
+    {field:"history",value:coexValue({history:[{errors:[{code:2593109}]}]})},
+    {field:"smb_message_echoes",value:coexValue({message_echoes:[{id:"forged-echo",from:"61400999888",to:"61400111222",timestamp:String(Math.floor(Date.now()/1000)),type:"text",text:{body:"Forged phone reply"}}]})},
+    {field:"account_update",value:{event:"PARTNER_REMOVED",phone_number:"61400999888"}},
+  ];
+  const before=JSON.stringify(f.sql.prepare("SELECT * FROM social_whatsapp_coexistence").get());
+  const signed=JSON.stringify({object:"whatsapp_business_account",entry:[{id:"67890",changes}]});
+  const signature=await hmac(f.env.META_APP_SECRET!,signed);
+  const tampered=signed.replace("Forged phone reply","Tampered phone reply");
+  await assert.rejects(receiveMeta(new Request("https://senderdeck.test/api/social/webhooks/meta",{method:"POST",headers:{"x-hub-signature-256":`sha256=${signature}`},body:tampered}),f.env,()=>{throw Error("Forged event must not be deferred");}),/signature/);
+  assert.equal(JSON.stringify(f.sql.prepare("SELECT * FROM social_whatsapp_coexistence").get()),before);
+  assert.equal(f.sql.prepare("SELECT status FROM social_accounts WHERE id=?").get(f.account.id)!.status,"connected");
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_queue").get()!.n,0);
+  assert.equal(f.sql.prepare("SELECT count(*) n FROM social_whatsapp_messages").get()!.n,0);
+  assert.equal(f.sends(),0);
+});
+
 test("native edits remove stale saved wording and force native review before sending",async t=>{
   const f=await whatsappFixture(t);t.after(()=>f.sql.close());markCoexistenceReady(f);await f.incoming();const draft=await f.draft();
   await coexistenceEvent(f,"messages",coexValue({messages:[{id:"edited-message",from:"61400111222",timestamp:String(Math.floor(Date.now()/1000)),type:"edit",edit:{original_message_id:"wamid.incoming",message:{type:"text",text:{body:"Changed original"}}}}]}));

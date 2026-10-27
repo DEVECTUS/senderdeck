@@ -138,14 +138,18 @@ test("sign-in and authenticated workspace pages are excluded from search indexin
   }
 });
 
-test("signed-in home and Accounts lead with the account directory rather than marketing", async () => {
+test("signed-in overview separates channel setup from the full connection directory", async () => {
   const worker = await loadWorker();
   for (const path of ["/", "/accounts"]) {
     const response = await worker.fetch(new Request(`http://localhost${path}`, { headers: { accept: "text/html", "oai-authenticated-user-email": "owner@example.com" } }), baseEnv, context);
     assert.equal(response.status, 200);
     const html = await response.text();
-    assert.match(html, /Connected accounts/);
-    assert.match(html, /Search connected accounts/);
+    assert.match(html, /Add a connection/);
+    assert.match(html, /Set up WhatsApp/);
+    assert.match(html, /provider=whatsapp/);
+    assert.match(html, /Status unavailable|Checking connections/);
+    if (path === "/accounts") { assert.match(html, /Connected accounts/); assert.match(html, /Search connected accounts/); }
+    else { assert.match(html, /Your next step/); assert.doesNotMatch(html, /Search connected accounts/); }
     assert.match(html, /aria-label="Main navigation"/);
     assert.match(html, /href="\/accounts"/);
     assert.match(html, /OpenAI sign-in/);
@@ -156,6 +160,19 @@ test("signed-in home and Accounts lead with the account directory rather than ma
   const anonymous = await worker.fetch(new Request("http://localhost/accounts", { headers: { accept: "text/html" } }), baseEnv, context);
   assert.ok([302, 303, 307].includes(anonymous.status));
   assert.match(anonymous.headers.get("location"), /signin\?return_to=%2Faccounts/);
+});
+
+test("WhatsApp setup explains provider refusal without offering migration as recovery", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(new Request("http://localhost/connect/meta?provider=whatsapp", { headers: { accept: "text/html", "oai-authenticated-user-email": "owner@example.com" } }), baseEnv, context);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Connect your business number/);
+  assert.match(html, /can’t onboard customers right now/);
+  assert.match(html, /does not establish that your phone number is ineligible/);
+  assert.match(html, /not a workaround|not the Business phone app|Regular WhatsApp is a different app/);
+  assert.match(html, /href="\/social-setup#whatsapp"/);
+  assert.doesNotMatch(html, /<input[^>]*type="password"/);
 });
 
 test("a signed-in visitor can deliberately open the provider chooser without merging identities", async () => {
@@ -388,5 +405,5 @@ test("requires authenticated identity for the account management API", async () 
 
 test("WhatsApp connection renders separate phone-app and existing Cloud API choices without credential inputs",async()=>{
   const worker=await loadWorker();const response=await worker.fetch(new Request("http://localhost/connect/meta?provider=whatsapp",{headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com"}}),baseEnv,context);
-  assert.equal(response.status,200);const html=await response.text();assert.match(html,/Connect WhatsApp Business/);assert.match(html,/Keep the existing WhatsApp Business phone app/);assert.match(html,/Number already registered with Cloud API/);assert.doesNotMatch(html,/<input[^>]*type="password"|client_secret|access_token/);
+  assert.equal(response.status,200);const html=await response.text();assert.match(html,/Connect your business number/);assert.match(html,/Keep the existing WhatsApp Business phone app/);assert.match(html,/Number already registered with Cloud API/);assert.doesNotMatch(html,/<input[^>]*type="password"|client_secret|access_token/);
 });

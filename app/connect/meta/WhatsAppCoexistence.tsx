@@ -46,6 +46,7 @@ export default function WhatsAppCoexistence({brandId}:{brandId:string}){
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[brandId]);
   return <section className="social-card"><h2>Keep using WhatsApp Business on your phone</h2>
+    <p className="connection-note">This connects WhatsApp messaging. SenderDeck does not change your phone provider’s voice or SMS configuration. Meta may change WhatsApp features as described below.</p>
     <p>Connect the existing Business app number through Meta’s Coexistence flow. Confirm the connection in WhatsApp Business on your phone when Meta asks. SenderDeck will verify the exact number and simultaneous Business app / Cloud API registration.</p>
     <p>Meta may unlink companion devices and change features such as broadcasts and disappearing messages. Review <a href="https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/onboarding-business-app-users" target="_blank" rel="noreferrer">Meta’s feature changes</a> before approving. SenderDeck never registers, deregisters or migrates your phone number.</p>
     <p>Keep the Business app open during initial sync. Message history is retained under your brand’s retention period; contacts sync is acknowledged without importing your phone address book. Sharing history is your choice in Meta. Templates and media sending remain unavailable.</p>

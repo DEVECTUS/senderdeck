@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- Retry temporary hosted maintenance failures with bounded backoff and document recovery.
+- Add proposed authority-request procedures, blank records and adoption guidance; formal adoption and legal review remain pending.
+- Exclude local release workspaces and generated output from source checks, and align plugin manifests with package version 0.4.32.
+
+- Separate the workspace overview from the full Connections directory and add visible setup cards for Google, Microsoft, WhatsApp Business, Facebook, Instagram and LinkedIn requirements.
+- Explain WhatsApp Coexistence versus existing Cloud API, Meta portfolio onboarding refusals, history limits and delivery checks. Add WhatsApp to the public homepage and provider guide; preserve existing consent and send approvals.
+- Stack channel cards and simplify navigation on narrow screens. Saved-account counts do not imply provider approval or live access.
+
+## 0.4.32 - 2026-10-27
+
+- Show WhatsApp accounts in operator diagnostics and expose the existing account event-subscription repair action with exact messaging-account context. Preserve sending, phone registration and synchronization controls.
+
 ## 0.4.31 - 2026-10-26
 
 - Add gated Embedded Signup v4 Coexistence onboarding for existing WhatsApp Business app numbers, with exact-phone and live simultaneous-app/API checks.
@@ -45,6 +59,10 @@
 
 
 ## Unreleased
+
+- Retry temporary hosted maintenance failures with bounded backoff and document recovery.
+- Add proposed authority-request procedures, blank records and adoption guidance; formal adoption and legal review remain pending.
+- Exclude local release workspaces and generated output from source checks, and align plugin manifests with package version 0.4.32.
 
 - Separate Google and Microsoft identity sign-in from mailbox authorization. Sign-in no longer requests email access, forces Google's consent prompt, creates a mailbox connection or replaces existing mailbox credentials. Connect email separately in Settings.
 - Request Microsoft User.Read explicitly for Graph identity lookup and keep token exchange scoped to the selected flow. Provider branding and publisher verification remain separate approval requirements.

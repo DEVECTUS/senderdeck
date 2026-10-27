@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const user = await getSenderDeckUser();
-  if (user) return <main className="workspace-page"><WorkspaceNav source={user.authSource} email={user.email} active="overview" /><header className="workspace-heading"><div><p className="workspace-kicker">YOUR WORKSPACE</p><h1>Overview</h1><p>See your connections and choose where to work.</p></div><Link className="secondary dark" href="/conversations">Open conversations →</Link></header><AccountOverview authSource={user.authSource} /></main>;
+  if (user) return <main className="workspace-page"><WorkspaceNav source={user.authSource} email={user.email} active="overview" /><header className="workspace-heading"><div><p className="workspace-kicker">YOUR WORKSPACE</p><h1>Overview</h1><p>Connect a channel. Choose a brand. Review before sending.</p></div><Link className="secondary dark" href="/conversations">Open conversations →</Link></header><AccountOverview authSource={user.authSource} summary /></main>;
   return (
     <main className="product-page">
       <nav>
@@ -41,7 +41,7 @@ export default async function Home() {
           <p className="lede">
             An open-source workspace for email and brand conversations, connected to Codex
             or Claude. Use Gmail and Microsoft email today. Organise brands, enquiries and
-            reply approvals, with Facebook and Instagram activation subject to provider approval.
+            reply approvals, with WhatsApp Business, Facebook and Instagram activation subject to provider approval.
             Nothing sends until the exact message and account are explicitly confirmed.
           </p>
           <div className="hero-actions">
@@ -57,6 +57,7 @@ export default async function Home() {
         <div className="product-capability-grid">
           <article><span className="product-state available">Available</span><h3>Google &amp; Microsoft email</h3><p>Connect up to 10 mailboxes per user. Search and read messages, download attachments, choose an authorised Gmail alias and prepare or update provider-hosted drafts.</p><p>Inspect the sender, recipients, subject, files and current revision before a separate send confirmation.</p><Link href="/settings">Manage email accounts →</Link></article>
           <article><span className="product-state available">Available</span><h3>Brands &amp; enquiry workflows</h3><p>Organise customers, brands and account associations. Set language, tone, verified facts and escalation rules. Track enquiry ownership, next actions and activity with customer role controls.</p><p>Social drafts and history snapshots are encrypted and expire. Replies require approval of the exact revision.</p><Link href="/conversations">Explore Conversations →</Link></article>
+          <article><span className="product-state pending">Meta eligibility required</span><h3>WhatsApp Business</h3><p>Connect an existing WhatsApp Business phone app through Coexistence, or select an existing Cloud API number. Meta checks business and number eligibility during onboarding.</p><p>Once connected and validated, retained incoming messages support text drafts and approved replies within the 24-hour window. Templates and media sending are unavailable.</p><Link href="/connect/meta?provider=whatsapp">Set up WhatsApp Business →</Link></article>
           <article><span className="product-state pending">Activation pending</span><h3>Facebook &amp; Instagram</h3><p>Provider adapters cover Page messages, comment and reply trees, hosted OAuth and explicit asset selection. Signed webhooks and reconciliation support hosted monitoring.</p><p>Live access requires an approved platform app, owner consent, verified subscriptions and a working scheduler. Social sending is currently disabled.</p><Link href="/social-setup">See activation requirements →</Link></article>
           <article><span className="product-state pending">Approval pending</span><h3>LinkedIn &amp; coverage limits</h3><p>LinkedIn community access needs programme and data-use approval. Page messaging requires separate partner access. No LinkedIn inbox coverage is currently provided.</p><p>Instagram mentions, social attachment sending and unsupported history remain explicit gaps for native review.</p><Link href="/social-setup#linkedin">Review provider limits →</Link></article>
         </div>

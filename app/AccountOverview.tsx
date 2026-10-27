@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import ProviderIcon from "./ProviderIcon";
 import AccountHierarchy from "./AccountHierarchy";
+import ConnectionCatalog from "./ConnectionCatalog";
 
 import { loadAccountOverview, type EmailConnection, type SocialConnection, type OverviewWorkspace } from "./account-overview-data";
 
-export default function AccountOverview({ authSource }: { authSource?: string }) {
+export default function AccountOverview({ authSource, summary = false }: { authSource?: string; summary?: boolean }) {
   const [emails, setEmails] = useState<EmailConnection[]>([]), [accounts, setAccounts] = useState<SocialConnection[]>([]);
   const [workspace, setWorkspace] = useState<OverviewWorkspace | null>(null);
   const [errors, setErrors] = useState<string[]>([]), [loading, setLoading] = useState(true), [refresh, setRefresh] = useState(0);
@@ -30,14 +31,18 @@ export default function AccountOverview({ authSource }: { authSource?: string })
   const visibleEmails = filter === "social" ? [] : emails.filter(a => `${a.label} ${a.email} ${a.provider} ${a.senderIdentities?.map(i => i.email).join(" ") || ""}`.toLowerCase().includes(needle));
   const visibleSocial = filter === "email" ? [] : accounts.filter(a => `${a.name} ${a.provider} ${a.asset_id} ${a.brand.name} ${workspace?.customers.find(c => c.id === a.brand.customer_id)?.name || ""}`.toLowerCase().includes(needle));
   const total = emails.length + accounts.length;
+  const counts: Record<string, number | undefined> = {};
+  for (const provider of ["google", "microsoft"]) counts[provider] = emailAvailable ? emails.filter(a => a.provider === provider).length : undefined;
+  for (const provider of ["whatsapp", "facebook", "instagram"]) counts[provider] = socialComplete && workspace ? accounts.filter(a => a.provider === provider).length : undefined;
   return <section className="account-overview" aria-labelledby="overview-accounts-title">
 
     <div className="overview-stats" aria-label="Account summary">
       <div><span>Email accounts</span><strong>{loading || !emailAvailable ? "—" : emails.length}</strong><small>Google &amp; Microsoft</small></div>
-      <div><span>Social connections</span><strong>{loading || !socialComplete ? "—" : accounts.length}</strong><small>Across your brands</small></div>
+      <div><span>Brand connections</span><strong>{loading || !socialComplete ? "—" : accounts.length}</strong><small>WhatsApp &amp; social accounts</small></div>
       <div><span>Brands</span><strong>{loading ? "—" : workspace?.brands.length ?? "—"}</strong><small>Private workspaces</small></div>
     </div>
-    <div className="overview-panel">
+    <ConnectionCatalog counts={counts} loading={loading}/>
+    {summary ? <div className="overview-next"><h2 id="overview-accounts-title">Your next step</h2><p>Manage linked accounts and their access checks, or open a brand to review conversations and prepare replies.</p><div><a className="primary" href="/accounts">Manage connections →</a><a className="secondary dark" href="/conversations">Open conversations →</a><a href="/install">Connect Codex or Claude →</a></div>{errors.length > 0 && <p role="alert">{errors.join(" ")} Open Connections to review the loaded accounts.</p>}</div> : <div className="overview-panel">
       <div className="overview-panel-heading"><div><h2 id="overview-accounts-title">Connected accounts</h2></div><button type="button" className="overview-refresh" disabled={loading} onClick={() => setRefresh(n => n + 1)}>{loading ? "Loading…" : "Refresh"}</button></div>
       <div className="overview-controls"><div className="overview-filters" role="group" aria-label="Filter accounts">{[["all", "All accounts"], ["email", "Email"], ["social", "Social"]].map(([key, text]) => <button key={key} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)}>{text}</button>)}</div><label className="overview-search"><span className="sr-only">Search connected accounts</span><input type="search" placeholder="Search accounts or brands" value={query} onChange={e => setQuery(e.target.value)} /></label></div>
       {errors.length > 0 && <div className="overview-errors" role="alert"><strong>Some connections could not be loaded</strong>{errors.map((error, i) => <p key={i}>{error}</p>)}<p>Counts show loaded connections only.</p></div>}
@@ -50,8 +55,7 @@ export default function AccountOverview({ authSource }: { authSource?: string })
         {filter !== "email" && <AccountHierarchy workspace={workspace} accounts={accounts} query={query} failedBrandIds={failedBrandIds} />}
         <p className="overview-count">Showing {visibleEmails.length + visibleSocial.length} of {filter === "social" ? accounts.length : filter === "email" ? emails.length : total} loaded {filter === "all" ? "connections" : `${filter} connections`} for this sign-in.</p>
       </>}
-    </div>
-    <div className="overview-shortcuts"><a href="/settings#connections"><strong><span className="provider-label"><ProviderIcon provider="google" size={18}/><ProviderIcon provider="microsoft" size={18}/>Connect email</span><span>→</span></strong></a><a href="/connect/meta"><strong><span className="provider-label"><ProviderIcon provider="facebook" size={18}/><ProviderIcon provider="instagram" size={18}/>Connect social</span><span>→</span></strong></a><a href="/install"><strong>Set up your AI client <span>→</span></strong><span>Installation steps for Codex or Claude.</span></a></div>
+    </div>}
     {authSource === "openai" && <details className="overview-note"><summary>About OpenAI sign-in access</summary><p>Unlinked sign-ins can have separate workspaces. <a href="/signin/switch">Switch sign-in</a></p></details>}
     <p className="overview-note">Access details are under Manage. <a href="/social-setup">Provider requirements</a></p>
   </section>;
