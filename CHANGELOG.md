@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.35 - 2026-10-28
 
 - Add an operator-controlled WhatsApp test-reply scope limited to one app, brand, account, phone, messaging account and recipient for at most two hours. Preserve exact draft approval, brand opt-in, live validation, history/window checks and duplicate protection without declaring production access.
 
@@ -64,7 +64,7 @@
 - Preserve revoked legacy sessions and MCP credentials. Missing or retired destinations disable the link, and removing a link restores the original retirement restriction.
 
 
-## Unreleased
+## 0.4.35 - 2026-10-28
 
 - Separate Google and Microsoft identity sign-in from mailbox authorization. Sign-in no longer requests email access, forces Google's consent prompt, creates a mailbox connection or replaces existing mailbox credentials. Connect email separately in Settings.
 - Request Microsoft User.Read explicitly for Graph identity lookup and keep token exchange scoped to the selected flow. Provider branding and publisher verification remain separate approval requirements.
