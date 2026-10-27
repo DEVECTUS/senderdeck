@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.32 - 2026-10-27
+
+- Show WhatsApp accounts in operator diagnostics and expose the existing account event-subscription repair action with exact messaging-account context. Preserve sending, phone registration and synchronization controls.
+
 ## 0.4.31 - 2026-10-26
 
 - Add gated Embedded Signup v4 Coexistence onboarding for existing WhatsApp Business app numbers, with exact-phone and live simultaneous-app/API checks.
