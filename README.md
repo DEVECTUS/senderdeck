@@ -40,6 +40,10 @@ The Accounts page groups social connections under customer/organisation, then br
 
 Customers do not need to create developer apps or run local relays for the hosted product. The service operator must complete the provider setup. Installing the plugin or saving a monitoring preference does not activate social access.
 
+## Connections
+
+Open **Connections** to see linked accounts in one table: account, channel, brand and status. Search or filter by channel; use **Manage** for account actions. **Add connection** below the table opens a small setup table. Facebook, Instagram and WhatsApp retain their own setup links and icons. Brand workspaces also list connections in a table, with validation, monitoring and disconnect controls under **Manage**. An expired grant or unavailable access is flagged separately from a connected account. Email live access is checked when used.
+
 ## Provider sign-in and connected mailboxes
 
 Provider sign-in requests basic identity only: Google `openid email`; Microsoft `openid profile email User.Read`. It creates a SenderDeck session without connecting email or replacing saved mailbox credentials. Connect email separately in Settings to grant mailbox access. See [provider verification](publishing/PROVIDER-SIGN-IN-2026-10-24.md) for the remaining Google and Microsoft approval requirements.

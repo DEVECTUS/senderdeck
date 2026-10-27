@@ -138,18 +138,17 @@ test("sign-in and authenticated workspace pages are excluded from search indexin
   }
 });
 
-test("signed-in overview separates channel setup from the full connection directory", async () => {
+test("signed-in Overview and Connections lead with a compact account table", async () => {
   const worker = await loadWorker();
   for (const path of ["/", "/accounts"]) {
     const response = await worker.fetch(new Request(`http://localhost${path}`, { headers: { accept: "text/html", "oai-authenticated-user-email": "owner@example.com" } }), baseEnv, context);
     assert.equal(response.status, 200);
     const html = await response.text();
-    assert.match(html, /Add a connection/);
-    assert.match(html, /Set up WhatsApp/);
-    assert.match(html, /provider=whatsapp/);
-    assert.match(html, /Status unavailable|Checking connections/);
-    if (path === "/accounts") { assert.match(html, /Connected accounts/); assert.match(html, /Search connected accounts/); }
-    else { assert.match(html, /Your next step/); assert.doesNotMatch(html, /Search connected accounts/); }
+    assert.match(html, /aria-label="Connected accounts"/);
+    assert.match(html, /Search connected accounts/);
+    assert.match(html, /<summary>Add connection<\/summary>/);
+    assert.ok(html.indexOf('aria-label="Connected accounts"') < html.indexOf('<summary>Add connection</summary>'));
+    assert.doesNotMatch(html, /channel-card|overview-stats|Your next step|CHOOSE YOUR CHANNEL/);
     assert.match(html, /aria-label="Main navigation"/);
     assert.match(html, /href="\/accounts"/);
     assert.match(html, /OpenAI sign-in/);
@@ -160,19 +159,6 @@ test("signed-in overview separates channel setup from the full connection direct
   const anonymous = await worker.fetch(new Request("http://localhost/accounts", { headers: { accept: "text/html" } }), baseEnv, context);
   assert.ok([302, 303, 307].includes(anonymous.status));
   assert.match(anonymous.headers.get("location"), /signin\?return_to=%2Faccounts/);
-});
-
-test("WhatsApp setup explains provider refusal without offering migration as recovery", async () => {
-  const worker = await loadWorker();
-  const response = await worker.fetch(new Request("http://localhost/connect/meta?provider=whatsapp", { headers: { accept: "text/html", "oai-authenticated-user-email": "owner@example.com" } }), baseEnv, context);
-  assert.equal(response.status, 200);
-  const html = await response.text();
-  assert.match(html, /Connect your business number/);
-  assert.match(html, /can’t onboard customers right now/);
-  assert.match(html, /does not establish that your phone number is ineligible/);
-  assert.match(html, /not a workaround|not the Business phone app|Regular WhatsApp is a different app/);
-  assert.match(html, /href="\/social-setup#whatsapp"/);
-  assert.doesNotMatch(html, /<input[^>]*type="password"/);
 });
 
 test("a signed-in visitor can deliberately open the provider chooser without merging identities", async () => {
@@ -406,4 +392,60 @@ test("requires authenticated identity for the account management API", async () 
 test("WhatsApp connection renders separate phone-app and existing Cloud API choices without credential inputs",async()=>{
   const worker=await loadWorker();const response=await worker.fetch(new Request("http://localhost/connect/meta?provider=whatsapp",{headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com"}}),baseEnv,context);
   assert.equal(response.status,200);const html=await response.text();assert.match(html,/Connect your business number/);assert.match(html,/Keep the existing WhatsApp Business phone app/);assert.match(html,/Number already registered with Cloud API/);assert.doesNotMatch(html,/<input[^>]*type="password"|client_secret|access_token/);
+});
+
+
+test("optional channel setup is a collapsed compact table with icons and individual links", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(new Request("http://localhost/accounts", {headers: {accept:"text/html", "oai-authenticated-user-email":"owner@example.com"}}), baseEnv, context);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /<details class="connection-add"><summary>Add connection<\/summary>/);
+  const options = html.match(/<table class="connections-table connection-options"[\s\S]*?<\/table>/)?.[0];
+  assert.ok(options);
+  for (const provider of ["facebook", "instagram", "whatsapp"]) {
+    assert.ok(options.includes(`src="/providers/${provider}.svg"`));
+    assert.ok(options.includes(`href="/connect/meta?provider=${provider}"`));
+  }
+  assert.doesNotMatch(html, /channel-card|Meta checks eligibility|Keep your Business phone app/);
+  const icon = await readFile(new URL("../dist/client/providers/whatsapp.svg", import.meta.url), "utf8");
+  assert.match(icon, /<svg/);
+});
+
+test("Meta setup keeps channel navigation, provider-specific headings and existing WhatsApp choices", async () => {
+  const worker = await loadWorker();
+  for (const [provider, heading] of [["facebook","Connect Facebook"],["instagram","Connect Instagram"],["whatsapp","Connect your business number"]]) {
+    const path = `/connect/meta?provider=${provider}&brand=example-brand`;
+    const response = await worker.fetch(new Request(`http://localhost${path}`, {headers: {accept:"text/html", "oai-authenticated-user-email":"owner@example.com"}}), baseEnv, context);
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.ok(html.includes(`<h1>${heading}</h1>`));
+    assert.match(html, /aria-label="Meta channel setup"/);
+    for (const channel of ["facebook","instagram","whatsapp"]) assert.ok(html.includes(`href="/connect/meta?provider=${channel}&amp;brand=example-brand"`));
+    assert.match(html, new RegExp(`provider=${provider}[^>]*aria-current="page"`));
+    if (provider === "whatsapp") {
+      assert.match(html, /Keep the existing WhatsApp Business phone app/);
+      assert.match(html, /Number already registered with Cloud API/);
+      assert.match(html, /src="\/providers\/whatsapp.svg"/);
+    }
+    const anonymous = await worker.fetch(new Request(`http://localhost${path}`, {headers:{accept:"text/html"}}), baseEnv, context);
+    assert.ok([302,303,307].includes(anonymous.status));
+    const destination = new URL(anonymous.headers.get("location"), "http://localhost").searchParams.get("return_to");
+    const query = new URL(destination, "http://localhost").searchParams;
+    assert.equal(query.get("provider"), provider);
+    assert.equal(query.get("brand"), "example-brand");
+  }
+});
+
+test("WhatsApp setup explains provider refusal without offering migration as recovery", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(new Request("http://localhost/connect/meta?provider=whatsapp", { headers: { accept: "text/html", "oai-authenticated-user-email": "owner@example.com" } }), baseEnv, context);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Connect your business number/);
+  assert.match(html, /can’t onboard customers right now/);
+  assert.match(html, /does not establish that your phone number is ineligible/);
+  assert.match(html, /not a workaround|not the Business phone app|Regular WhatsApp is a different app/);
+  assert.match(html, /href="\/social-setup#whatsapp"/);
+  assert.doesNotMatch(html, /<input[^>]*type="password"/);
 });

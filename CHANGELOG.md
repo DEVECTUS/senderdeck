@@ -4,11 +4,19 @@
 
 - Retry temporary hosted maintenance failures with bounded backoff and document recovery.
 - Add proposed authority-request procedures, blank records and adoption guidance; formal adoption and legal review remain pending.
-- Exclude local release workspaces and generated output from source checks, and align plugin manifests with package version 0.4.32.
+- Exclude local release workspaces and generated output from source checks, and align plugin manifests with package version 0.4.34.
 
-- Separate the workspace overview from the full Connections directory and add visible setup cards for Google, Microsoft, WhatsApp Business, Facebook, Instagram and LinkedIn requirements.
-- Explain WhatsApp Coexistence versus existing Cloud API, Meta portfolio onboarding refusals, history limits and delivery checks. Add WhatsApp to the public homepage and provider guide; preserve existing consent and send approvals.
-- Stack channel cards and simplify navigation on narrow screens. Saved-account counts do not imply provider approval or live access.
+## 0.4.34 - 2026-10-28
+
+- Replace channel cards and summary panels with a compact table of actual email and brand connections, including channel icons, brand, connection/access status and Manage links.
+- Put optional connection setup below the table, collapsed by default. Brand connections use a table with existing management controls under Manage.
+- Report revoked, expired, limited and unavailable access distinctly; preserve source-loading errors, search and channel filtering.
+
+## 0.4.33 - 2026-10-28
+
+- Bring Facebook, Instagram and WhatsApp together in a Meta channel group on Connections and within brand workspaces, with consistent provider icons and channel setup navigation.
+- Keep Facebook/Instagram Meta authorisation and WhatsApp Coexistence/Cloud API onboarding intact. Preserve brand selection when switching channels and the selected setup URL when sign-in is required.
+- Separate Overview next steps from the connection directory and keep unknown connection counts distinct from zero.
 
 ## 0.4.32 - 2026-10-27
 
@@ -59,10 +67,6 @@
 
 
 ## Unreleased
-
-- Retry temporary hosted maintenance failures with bounded backoff and document recovery.
-- Add proposed authority-request procedures, blank records and adoption guidance; formal adoption and legal review remain pending.
-- Exclude local release workspaces and generated output from source checks, and align plugin manifests with package version 0.4.32.
 
 - Separate Google and Microsoft identity sign-in from mailbox authorization. Sign-in no longer requests email access, forces Google's consent prompt, creates a mailbox connection or replaces existing mailbox credentials. Connect email separately in Settings.
 - Request Microsoft User.Read explicitly for Graph identity lookup and keep token exchange scoped to the selected flow. Provider branding and publisher verification remain separate approval requirements.

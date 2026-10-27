@@ -1,18 +1,20 @@
 "use client";
 import { useEffect, useState } from "react";
+import MetaChannelNav from "./MetaChannelNav";
 import WhatsAppCoexistence from "./WhatsAppCoexistence";
 type Asset = {assetId:string;name:string;assignment:{state:string}};
 async function action<T>(name:string,args:Record<string,unknown>):Promise<T> {
   const response=await fetch("/api/social",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:name,args})});
   const result=await response.json();if(!response.ok)throw new Error(result.error||"Please try again.");return result;
 }
-export default function WhatsAppWizard(){
+export default function WhatsAppWizard({ initialBrandId = "" }: { initialBrandId?: string }){
   const [mode,setMode]=useState("coexistence");
-  const [brands,setBrands]=useState<Array<{id:string;name:string}>>([]),[brandId,setBrandId]=useState(""),[grantId,setGrantId]=useState("");
+  const [brands,setBrands]=useState<Array<{id:string;name:string}>>([]),[brandId,setBrandId]=useState(initialBrandId),[grantId,setGrantId]=useState("");
   const [wabaId,setWabaId]=useState(""),[assets,setAssets]=useState<Asset[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
   const run=async(fn:()=>Promise<void>)=>{setBusy(true);setError("");try{await fn();}catch(e){setError(e instanceof Error?e.message:"Please try again.");}finally{setBusy(false);}};
   useEffect(()=>{const query=new URLSearchParams(location.search);setBrandId(query.get("brand")||"");if(query.get("grant"))setMode("cloud");else if(query.get("mode")==="cloud")setMode("cloud");setGrantId(query.get("grant")||"");if(query.get("connection"))setError("Authorisation was cancelled, expired or failed. Please restart the connection.");void action<{brands:Array<{id:string;name:string}>}>("social_workspace_list",{}).then(r=>setBrands(r.brands)).catch(e=>setError(e.message));},[]);
   return <div className="setup-wizard meta-connect"><header><a href="/accounts">← Connections</a><p className="workspace-kicker">WHATSAPP BUSINESS</p><h1>Connect your business number</h1><p>Choose how you use WhatsApp today. Meta authorises the connection; SenderDeck then checks the number and message delivery.</p></header>
+    <MetaChannelNav active="whatsapp" brandId={brandId}/>
     <ol className="connection-steps" aria-label="WhatsApp connection steps"><li className={!brandId ? "current" : "complete"}><span>1</span>Choose brand and number type</li><li className={brandId && !grantId ? "current" : ""}><span>2</span>Authorise with Meta</li><li className={grantId ? "current" : ""}><span>3</span>Verify connection and delivery</li></ol>
     <aside className="setup-pending"><strong>Meta approval and number eligibility are separate checks</strong><p>A configured connection page does not mean Meta has approved onboarding. If Meta says your business portfolio “can’t onboard customers right now”, close its popup and ask the platform operator to check Verification and Required actions. This message does not establish that your phone number is ineligible. Sharing contact information does not complete the connection.</p><a href="/social-setup#whatsapp">WhatsApp requirements and troubleshooting →</a></aside>
     <details className="connection-details"><summary>Messages, history and reply limits</summary><p>Messages received through signed webhooks are encrypted and kept under the brand’s retention policy. Outside Meta’s optional initial Coexistence sync, older or missed messages cannot be fetched. Text replies use the existing draft, inspection and explicit approval workflow within the 24-hour reply window. Templates and media sending are unavailable.</p></details>
