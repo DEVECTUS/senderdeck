@@ -27,5 +27,52 @@ test("hosted updater authenticates only to the fixed endpoint and returns minima
 test("hosted updater rejects redirects and malformed completion without reflecting provider content",async()=>{
   await assert.rejects(runMaintenance("token",async()=>new Response("secret-response-body",{status:302,headers:{location:"https://untrusted.example/"}})),/^Error: The maintenance endpoint returned HTTP 302\.$/);
   await assert.rejects(runMaintenance("token",async()=>Response.json({processed:false})),/did not confirm/);
-  await assert.rejects(runMaintenance("token",async()=>{throw new Error("token and request headers must remain hidden");}),/^Error: The maintenance endpoint could not be reached\.$/);
+  await assert.rejects(runMaintenance("token",async()=>{throw new Error("token and request headers must remain hidden");},async()=>{}),/^Error: The maintenance endpoint could not be reached\.$/);
+});
+
+test("hosted updater retries temporary gateway failures with bounded backoff and fresh deadlines",async()=>{
+  const waits:number[]=[],signals:AbortSignal[]=[],sources:(string|null)[]=[];
+  let calls=0;
+  const result=await runMaintenance("synthetic-token",async(input,init)=>{
+    assert.equal(String(input),"https://senderdeck.devectus.com.au/api/social/maintenance");
+    assert.equal(init?.redirect,"manual");assert.equal(init?.method,"POST");
+    assert.equal(new Headers(init?.headers).get("authorization"),"Bearer synthetic-token");
+    sources.push(new Headers(init?.headers).get("x-senderdeck-maintenance-source"));
+    signals.push(init!.signal!);
+    calls++;
+    return calls<3?new Response("private upstream body",{status:calls===1?503:504}):Response.json({processed:true,reconciled:2,at:"2026-10-28T00:00:00Z",privateField:"hidden"});
+  },async ms=>{waits.push(ms);});
+  assert.deepEqual(waits,[5000,10000]);assert.equal(calls,3);
+  assert.equal(new Set(signals).size,3);assert.equal(new Set(sources).size,1);
+  assert.deepEqual(result,{processed:true,reconciled:2,at:"2026-10-28T00:00:00Z"});
+});
+
+test("hosted updater recovers from network errors and stops after three failed attempts",async()=>{
+  let calls=0;
+  await runMaintenance("token",async()=>{
+    if(++calls===1)throw new Error("private network details");
+    return Response.json({processed:true,reconciled:0,at:new Date().toISOString()});
+  },async()=>{});
+  assert.equal(calls,2);
+  for(const status of [502,503,504]){
+    calls=0;const waits:number[]=[];
+    await assert.rejects(runMaintenance("token",async()=>{calls++;return new Response("private body",{status});},async ms=>{waits.push(ms);}),new RegExp(`^Error: The maintenance endpoint returned HTTP ${status}\\.$`));
+    assert.equal(calls,3);assert.deepEqual(waits,[5000,10000]);
+  }
+  calls=0;
+  await assert.rejects(runMaintenance("token",async()=>{calls++;throw new Error("private details");},async()=>{}),/^Error: The maintenance endpoint could not be reached\.$/);
+  assert.equal(calls,3);
+});
+
+test("hosted updater never retries authentication, overlap, redirects or invalid completion",async()=>{
+  for(const response of [
+    new Response("private",{status:401}),new Response("private",{status:403}),
+    new Response("private",{status:409}),new Response("private",{status:500}),
+    new Response(null,{status:307,headers:{location:"https://untrusted.example/"}}),
+    new Response("not JSON"),Response.json({processed:false}),
+  ]){
+    let calls=0,waits=0;
+    await assert.rejects(runMaintenance("token",async()=>{calls++;return response;},async()=>{waits++;}),/The maintenance endpoint (returned HTTP \d+|did not confirm completion)\./);
+    assert.equal(calls,1);assert.equal(waits,0);
+  }
 });
