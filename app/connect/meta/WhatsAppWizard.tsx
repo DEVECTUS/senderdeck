@@ -1,18 +1,20 @@
 "use client";
 import { useEffect, useState } from "react";
 import WhatsAppCoexistence from "./WhatsAppCoexistence";
+import ProviderIcon from "../../ProviderIcon";
+import MetaChannelNav from "./MetaChannelNav";
 type Asset = {assetId:string;name:string;assignment:{state:string}};
 async function action<T>(name:string,args:Record<string,unknown>):Promise<T> {
   const response=await fetch("/api/social",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:name,args})});
   const result=await response.json();if(!response.ok)throw new Error(result.error||"Please try again.");return result;
 }
-export default function WhatsAppWizard(){
+export default function WhatsAppWizard({ initialBrandId = "" }: { initialBrandId?: string }){
   const [mode,setMode]=useState("coexistence");
-  const [brands,setBrands]=useState<Array<{id:string;name:string}>>([]),[brandId,setBrandId]=useState(""),[grantId,setGrantId]=useState("");
+  const [brands,setBrands]=useState<Array<{id:string;name:string}>>([]),[brandId,setBrandId]=useState(initialBrandId),[grantId,setGrantId]=useState("");
   const [wabaId,setWabaId]=useState(""),[assets,setAssets]=useState<Asset[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
   const run=async(fn:()=>Promise<void>)=>{setBusy(true);setError("");try{await fn();}catch(e){setError(e instanceof Error?e.message:"Please try again.");}finally{setBusy(false);}};
   useEffect(()=>{const query=new URLSearchParams(location.search);setBrandId(query.get("brand")||"");if(query.get("grant"))setMode("cloud");else if(query.get("mode")==="cloud")setMode("cloud");setGrantId(query.get("grant")||"");if(query.get("connection"))setError("Authorisation was cancelled, expired or failed. Please restart the connection.");void action<{brands:Array<{id:string;name:string}>}>("social_workspace_list",{}).then(r=>setBrands(r.brands)).catch(e=>setError(e.message));},[]);
-  return <div className="setup-wizard meta-connect"><header><a href="/accounts">← Accounts</a><h1>Connect WhatsApp Business</h1><p>Connect an existing Business app number with Coexistence, or select a number already registered with Cloud API.</p></header>
+  return <div className="setup-wizard meta-connect"><header><a href="/accounts">← Connections</a><div className="meta-provider-marks"><ProviderIcon provider="whatsapp" size={28}/></div><h1>Connect WhatsApp Business</h1><p>Connect an existing Business app number with Coexistence, or select a number already registered with Cloud API.</p></header><MetaChannelNav active="whatsapp" brandId={brandId}/>
     <p>Messages received through signed webhooks are encrypted and kept under the brand’s retention policy. Outside Meta’s optional initial Coexistence sync, older or missed messages cannot be fetched. Text replies use the existing draft, inspection and explicit approval workflow within the 24-hour reply window. Templates and media sending are unavailable.</p>
     {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
     {!grantId&&<label>Connection type<select value={mode} onChange={e=>setMode(e.target.value)}><option value="coexistence">Keep the existing WhatsApp Business phone app</option><option value="cloud">Number already registered with Cloud API</option></select></label>}

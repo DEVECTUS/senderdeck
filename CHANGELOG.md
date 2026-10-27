@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.33 - 2026-10-28
+
+- Bring Facebook, Instagram and WhatsApp together in a Meta channel group on Connections and within brand workspaces, with consistent provider icons and channel setup navigation.
+- Keep Facebook/Instagram Meta authorisation and WhatsApp Coexistence/Cloud API onboarding intact. Preserve brand selection when switching channels and the selected setup URL when sign-in is required.
+- Separate Overview next steps from the connection directory and keep unknown connection counts distinct from zero.
+
 ## 0.4.32 - 2026-10-27
 
 - Show WhatsApp accounts in operator diagnostics and expose the existing account event-subscription repair action with exact messaging-account context. Preserve sending, phone registration and synchronization controls.

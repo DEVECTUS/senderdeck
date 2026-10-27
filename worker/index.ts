@@ -103,6 +103,13 @@ const worker = {
       }, allowedWidths);
     }
 
+    // Keep the selected channel and brand through sign-in before framework rendering.
+    if (url.pathname === "/connect/meta" && !await authenticatedUser(request, env)) {
+      const destination = new URL("/signin", url.origin);
+      destination.searchParams.set("return_to", `${url.pathname}${url.search}`);
+      return Response.redirect(destination.toString(), 303);
+    }
+
     const rendered = await handler.fetch(await withAuthenticatedUserHeaders(request, env), env, ctx);
     if (url.pathname === "/operator/social" || url.pathname.startsWith("/operator/social/")) {
       const headers = new Headers(rendered.headers);

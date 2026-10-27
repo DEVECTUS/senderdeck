@@ -40,6 +40,10 @@ The Accounts page groups social connections under customer/organisation, then br
 
 Customers do not need to create developer apps or run local relays for the hosted product. The service operator must complete the provider setup. Installing the plugin or saving a monitoring preference does not activate social access.
 
+## Connections
+
+Open **Connections** to add email or brand channels and manage linked accounts. Facebook, Instagram and WhatsApp Business appear together under **Meta channels**, each with its own icon and setup link. Facebook and Instagram share Meta authorisation and account selection. WhatsApp keeps its Business app Coexistence and existing Cloud API number choices. The setup channel navigation retains the selected brand when switching; existing connections and sending controls are unchanged. A saved connection is not proof of provider approval or live delivery.
+
 ## Provider sign-in and connected mailboxes
 
 Provider sign-in requests basic identity only: Google `openid email`; Microsoft `openid profile email User.Read`. It creates a SenderDeck session without connecting email or replacing saved mailbox credentials. Connect email separately in Settings to grant mailbox access. See [provider verification](publishing/PROVIDER-SIGN-IN-2026-10-24.md) for the remaining Google and Microsoft approval requirements.

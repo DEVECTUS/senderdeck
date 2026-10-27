@@ -138,14 +138,17 @@ test("sign-in and authenticated workspace pages are excluded from search indexin
   }
 });
 
-test("signed-in home and Accounts lead with the account directory rather than marketing", async () => {
+test("signed-in Overview and Connections expose grouped channel setup", async () => {
   const worker = await loadWorker();
   for (const path of ["/", "/accounts"]) {
     const response = await worker.fetch(new Request(`http://localhost${path}`, { headers: { accept: "text/html", "oai-authenticated-user-email": "owner@example.com" } }), baseEnv, context);
     assert.equal(response.status, 200);
     const html = await response.text();
-    assert.match(html, /Connected accounts/);
-    assert.match(html, /Search connected accounts/);
+    if (path === "/accounts") assert.match(html, /Connected accounts/);
+    assert.match(html, /Add a connection/);
+    assert.match(html, /Meta channels/);
+    if (path === "/accounts") assert.match(html, /Search connected accounts/);
+    else assert.match(html, /Your next step/);
     assert.match(html, /aria-label="Main navigation"/);
     assert.match(html, /href="\/accounts"/);
     assert.match(html, /OpenAI sign-in/);
@@ -389,4 +392,47 @@ test("requires authenticated identity for the account management API", async () 
 test("WhatsApp connection renders separate phone-app and existing Cloud API choices without credential inputs",async()=>{
   const worker=await loadWorker();const response=await worker.fetch(new Request("http://localhost/connect/meta?provider=whatsapp",{headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com"}}),baseEnv,context);
   assert.equal(response.status,200);const html=await response.text();assert.match(html,/Connect WhatsApp Business/);assert.match(html,/Keep the existing WhatsApp Business phone app/);assert.match(html,/Number already registered with Cloud API/);assert.doesNotMatch(html,/<input[^>]*type="password"|client_secret|access_token/);
+});
+
+
+test("Connections groups all three Meta channels with icons and individual setup links", async () => {
+  const worker = await loadWorker();
+  const response = await worker.fetch(new Request("http://localhost/accounts", {headers: {accept:"text/html", "oai-authenticated-user-email":"owner@example.com"}}), baseEnv, context);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  const group = html.match(/<section class="channel-group channel-group-meta"[\s\S]*?<\/section>/)?.[0];
+  assert.ok(group);
+  for (const provider of ["facebook", "instagram", "whatsapp"]) {
+    assert.ok(group.includes(`src="/providers/${provider}.svg"`));
+    assert.ok(group.includes(`href="/connect/meta?provider=${provider}"`));
+  }
+  assert.doesNotMatch(group, /Google email|Microsoft email|LinkedIn/);
+  assert.match(html, /Checking connections/);
+  const icon = await readFile(new URL("../dist/client/providers/whatsapp.svg", import.meta.url), "utf8");
+  assert.match(icon, /<svg/);
+});
+
+test("Meta setup keeps channel navigation, provider-specific headings and existing WhatsApp choices", async () => {
+  const worker = await loadWorker();
+  for (const [provider, heading] of [["facebook","Connect Facebook"],["instagram","Connect Instagram"],["whatsapp","Connect WhatsApp Business"]]) {
+    const path = `/connect/meta?provider=${provider}&brand=example-brand`;
+    const response = await worker.fetch(new Request(`http://localhost${path}`, {headers: {accept:"text/html", "oai-authenticated-user-email":"owner@example.com"}}), baseEnv, context);
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.ok(html.includes(`<h1>${heading}</h1>`));
+    assert.match(html, /aria-label="Meta channel setup"/);
+    for (const channel of ["facebook","instagram","whatsapp"]) assert.ok(html.includes(`href="/connect/meta?provider=${channel}&amp;brand=example-brand"`));
+    assert.match(html, new RegExp(`provider=${provider}[^>]*aria-current="page"`));
+    if (provider === "whatsapp") {
+      assert.match(html, /Keep the existing WhatsApp Business phone app/);
+      assert.match(html, /Number already registered with Cloud API/);
+      assert.match(html, /src="\/providers\/whatsapp.svg"/);
+    }
+    const anonymous = await worker.fetch(new Request(`http://localhost${path}`, {headers:{accept:"text/html"}}), baseEnv, context);
+    assert.ok([302,303,307].includes(anonymous.status));
+    const destination = new URL(anonymous.headers.get("location"), "http://localhost").searchParams.get("return_to");
+    const query = new URL(destination, "http://localhost").searchParams;
+    assert.equal(query.get("provider"), provider);
+    assert.equal(query.get("brand"), "example-brand");
+  }
 });

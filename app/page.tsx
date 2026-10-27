@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const user = await getSenderDeckUser();
-  if (user) return <main className="workspace-page"><WorkspaceNav source={user.authSource} email={user.email} active="overview" /><header className="workspace-heading"><div><p className="workspace-kicker">YOUR WORKSPACE</p><h1>Overview</h1><p>See your connections and choose where to work.</p></div><Link className="secondary dark" href="/conversations">Open conversations →</Link></header><AccountOverview authSource={user.authSource} /></main>;
+  if (user) return <main className="workspace-page"><WorkspaceNav source={user.authSource} email={user.email} active="overview" /><header className="workspace-heading"><div><p className="workspace-kicker">YOUR WORKSPACE</p><h1>Overview</h1><p>See your connections and choose where to work.</p></div><Link className="secondary dark" href="/conversations">Open conversations →</Link></header><AccountOverview authSource={user.authSource} summary /></main>;
   return (
     <main className="product-page">
       <nav>
