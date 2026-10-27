@@ -61,6 +61,7 @@ export interface Env {
   META_ACCESS_TIER?: string;
   SOCIAL_PUBLIC_ORIGIN?: string;
   SOCIAL_SEND_ENABLED?: string;
+  WHATSAPP_TEST_SEND_SCOPE?: string;
   SOCIAL_SCHEDULER_ENABLED?: string;
   SOCIAL_MAINTENANCE_TOKEN?: string;
   SOCIAL_OPERATOR_USER_IDS?: string;

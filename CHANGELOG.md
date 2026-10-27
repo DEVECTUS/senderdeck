@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add an operator-controlled WhatsApp test-reply scope limited to one app, brand, account, phone, messaging account and recipient for at most two hours. Preserve exact draft approval, brand opt-in, live validation, history/window checks and duplicate protection without declaring production access.
+
 ## 0.4.34 - 2026-10-28
 
 - Replace channel cards and summary panels with a compact table of actual email and brand connections, including channel icons, brand, connection/access status and Manage links.

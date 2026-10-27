@@ -1,3 +1,4 @@
+import { whatsAppTestReplyAllowed } from "./whatsapp-test-sending";
 import { historyGap } from "./whatsapp";
 import { HttpError } from "../auth";
 import { decrypt, encrypt, randomBase64Url, sha256Base64Url } from "../crypto";
@@ -315,7 +316,8 @@ async function approvedSend(env: Env, user: string, brand: Brand, account: Socia
   if (a.confirmed !== true || a.confirmation !== `Send revision ${draft.revision}` || a.revision !== draft.revision || draft.approver !== user || !draft.approval_expires_at || draft.approval_expires_at <= now() || !draft.approval_hash || draft.approval_hash !== await sha256Base64Url(arg(a, "approvalToken"))) throw new HttpError(403, "Fresh explicit approval of this exact revision is required.");
   if (draft.state !== "draft") throw new HttpError(409, "This draft was already claimed, sent or superseded. Do not retry it.");
   if (draft.brand_revision !== brand.revision) throw new HttpError(409, "Brand rules changed. Prepare and approve a new draft.");
-  if (env.SOCIAL_SEND_ENABLED !== "true" || !profileOf(brand.profile).sendEnabled) throw new HttpError(409, "Social sending is disabled until provider and brand validation are complete.");
+  const testReply = thread.kind === "message" && whatsAppTestReplyAllowed(env, account, body.target);
+  if ((env.SOCIAL_SEND_ENABLED !== "true" && !testReply) || !profileOf(brand.profile).sendEnabled) throw new HttpError(409, "Social sending is disabled for this account or recipient until provider and brand validation are complete.");
   await refreshAccount(env, account);
   const caps = capabilities(env, account);
   if (!(thread.kind === "message" ? caps.sendMessages : caps.replyComments)) throw new HttpError(409, "The provider has not validated this sending capability.");
@@ -335,6 +337,7 @@ async function approvedSend(env: Env, user: string, brand: Brand, account: Socia
     const providerId = String(result.message_id || result.id || "accepted");
     await env.DB.prepare("UPDATE social_drafts SET state='sent',provider_result=? WHERE id=?").bind(providerId, draft.id).run();
     await audit(env, brand.id, user, "reply_sent", draft.id, draft.revision);
+    if (testReply) await audit(env, brand.id, user, "whatsapp_test_reply_sent", draft.id, draft.revision);
     return { sent: true, draftId: draft.id, revision: draft.revision, providerId };
   } catch {
     await env.DB.prepare("UPDATE social_drafts SET state='delivery_unknown' WHERE id=?").bind(draft.id).run();

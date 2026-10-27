@@ -1,3 +1,4 @@
+import { activeWhatsAppTestScope, whatsAppTestAccountAllowed, productionSocialSendingEnabled } from "./whatsapp-test-sending";
 import { validateWhatsApp, whatsappHistory, sendWhatsApp } from "./whatsapp";
 import { HttpError } from "../auth";
 import { decrypt, encrypt } from "../crypto";
@@ -48,10 +49,10 @@ export function platformStatus(env: Env) {
     meta: { configured: missing.length === 0, missing, accessTier: tier, customerAccess: tier === "advanced" ? "requires_per_account_validation" : "pending_app_review",
       webhookConfigured: Boolean(env.META_WEBHOOK_VERIFY_TOKEN && env.META_APP_SECRET), graphVersion: GRAPH_VERSION,
       blockers: [...(missing.length ? ["platform_app_not_configured"] : []), ...(tier !== "advanced" ? ["advanced_access_and_business_verification_required_for_external_customers"] : [])] },
-    whatsapp: { configured: Boolean(env.META_APP_ID && env.META_APP_SECRET && env.WHATSAPP_LOGIN_CONFIG_ID), history: "retained_signed_webhooks_only", templates: "unavailable", mediaSending: "unavailable", coexistence: {configured:!!env.WHATSAPP_COEXISTENCE_CONFIG_ID,eligibility:"must_be_verified_in_meta",onboarding:"embedded_signup_v4",phoneRegistration:"never_performed_by_senderdeck"} },
+    whatsapp: { configured: Boolean(env.META_APP_ID && env.META_APP_SECRET && env.WHATSAPP_LOGIN_CONFIG_ID), history: "retained_signed_webhooks_only", templates: "unavailable", mediaSending: "unavailable", testSending: { active: !!activeWhatsAppTestScope(env), productionAccessUnchanged: true }, coexistence: {configured:!!env.WHATSAPP_COEXISTENCE_CONFIG_ID,eligibility:"must_be_verified_in_meta",onboarding:"embedded_signup_v4",phoneRegistration:"never_performed_by_senderdeck"} },
     linkedin: { configured: Boolean(env.LINKEDIN_CLIENT_ID && env.LINKEDIN_CLIENT_SECRET), community: "pending_authorisation", pageMessaging: "unavailable",
       blockers: ["community_management_standard_access", "assistant_data_use_review", "member_data_retention_and_export_restrictions", "page_messaging_requires_separate_partner_access"] },
-    sending: env.SOCIAL_SEND_ENABLED === "true" ? "requires_brand_and_account_validation" : "disabled",
+    sending: env.SOCIAL_SEND_ENABLED === "true" ? "requires_brand_and_account_validation" : activeWhatsAppTestScope(env) ? "test_only_requires_brand_account_recipient_and_approval" : "disabled",
     scheduling: env.SOCIAL_SCHEDULER_ENABLED === "true" ? "configured_requires_recent_execution" : "pending_hosted_scheduler",
     monitoringActive: false,
   };
@@ -162,7 +163,8 @@ export function capabilities(env: Env, account: SocialAccount) {
   const has = (...required: string[]) => required.every(s => scopes.includes(s));
   if (account.provider === "whatsapp") {
     const messages = live && !!v.reads?.messages && has("whatsapp_business_messaging", "whatsapp_business_management");
-    return { messages: messages ? "available" : "unavailable", comments: "unavailable", mentions: "unavailable", messageBlockers: messages ? [] : ["whatsapp_validation_required"], sendMessages: messages && !!v.webhook && env.SOCIAL_SEND_ENABLED === "true" && env.META_ACCESS_TIER === "advanced", replyComments: false, webhook: !!v.webhook, generalCustomerAccess: env.META_ACCESS_TIER === "advanced", lastValidatedAt: account.validated_at, needsValidation: !live, pageMessaging: undefined };
+    const testOnly = !productionSocialSendingEnabled(env) && whatsAppTestAccountAllowed(env, account);
+    return { messages: messages ? "available" : "unavailable", comments: "unavailable", mentions: "unavailable", messageBlockers: messages ? [] : ["whatsapp_validation_required"], sendMessages: messages && !!v.webhook && (productionSocialSendingEnabled(env) || testOnly), sendRestriction: testOnly ? "configured_test_recipient_only" : null, replyComments: false, webhook: !!v.webhook, generalCustomerAccess: env.META_ACCESS_TIER === "advanced", lastValidatedAt: account.validated_at, needsValidation: !live, pageMessaging: undefined };
   }
   const fb = account.provider === "facebook";
   const meta = fb || account.provider === "instagram";

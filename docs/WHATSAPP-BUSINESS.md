@@ -28,6 +28,16 @@ Outbound text is stored encrypted and changes later history digests. Ambiguous d
 
 Templates, business-initiated outreach outside the response window, media sending/download, calls, groups and personal WhatsApp inboxes are unavailable. WhatsApp's [Business Messaging Policy](https://whatsappbusiness.com/policy/) requires approved templates outside the 24-hour window; this implementation blocks that case.
 
+## Restricted Meta test-number replies
+
+Production sending remains governed by SOCIAL_SEND_ENABLED and META_ACCESS_TIER=advanced. Do not declare Advanced Access merely to test. A hosting operator may instead configure WHATSAPP_TEST_SEND_SCOPE for a consented test session, with these exact JSON fields: appId, brandId, accountId, phoneNumberId, messagingAccountId, recipient (international digits without +), startsAt and expiresAt (integer epoch milliseconds). Wildcards, missing identities, malformed values, future starts and expired or longer-than-two-hour sessions deny test sending. This configuration is server-side only; tenant requests and brand profiles cannot set it.
+
+The operator must independently confirm the chosen sender is Meta's test number in API Setup and the exact recipient has been added and verified. The configuration authorises that explicit account; it is not an automated Meta sandbox detector. Keep global production sending off and the actual Meta tier unchanged. Only the isolated test brand's existing sendEnabled policy should be enabled for the test; the real brands remain disabled.
+
+The same draft/inspect/explicit revision approval and brand permission checks apply. Test mode cannot send comments, use a different account or recipient, skip live grant/subscription checks, ignore changed history, attachments, unapproved wording or the 24-hour inbound window, or retry uncertain delivery. Recipient and expiry are rechecked immediately before the provider call. Test sends also receive a whatsapp_test_reply_sent audit record. Public readiness reports test-only mode without exposing the configured identities or recipient; per-account capabilities report sendRestriction=configured_test_recipient_only. External-customer access remains pending while the app has development access.
+
+After testing, disable the test brand and remove the scope through hosting; expiry independently closes the allowance after at most two hours. Any hosting configuration change still requires the normal Publisher release process. No schema migration, token regeneration, app publication, number registration or Twilio change is needed.
+
 ## Live acceptance
 
 Use a test business number and consenting recipient. Verify OAuth, account/tenant isolation, actual signed inbound delivery, encrypted retention, visible history limitations and acknowledgement, exact approval and one reply. Confirm receipt separately. Verify blocked sends for changed history, expired windows, media, disabled switches and revoked grants/subscriptions. Test ambiguous delivery, retention cleanup and disconnect deletion before customer activation.
