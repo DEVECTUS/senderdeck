@@ -3,13 +3,19 @@
 ## Owner actions
 
 1. A verified hosting-allowlisted operator opens `/operator/social` and selects **Register Page callback**. The server reuses the existing app credentials, generates an encrypted verification token only when missing, and verifies Meta's registration and readback. A different existing callback is preserved and reported for review.
-2. In `/connect/meta`, connecting a selected Facebook Page automatically installs its event subscription using the existing grant. An operator who is also an administrator of that brand can retry through **Account diagnostics → Repair Page event subscription** in `/operator/social`. This adds `messages` and `feed`, preserves other existing fields, and reads the subscription back. It sends no messages and requests no additional OAuth permissions.
+2. In `/connect/meta`, connecting a selected Facebook Page automatically installs its event subscription using the existing grant. An operator who is also an administrator of that brand can retry through **Account diagnostics â†’ Repair Page event subscription** in `/operator/social`. This adds `messages` and `feed`, preserves other existing fields, and reads the subscription back. It sends no messages and requests no additional OAuth permissions.
 3. Instagram app webhook registration must be completed in Meta's dashboard. Meta's v26 Application Subscriptions and Page Subscribed Apps references explicitly exclude Instagram configuration through those APIs. The operator can select **Copy verification token**, then the owner pastes it into Meta with the canonical callback and selects `messages` and `comments`. The page never renders or logs the value; the operator clipboard receives only the verification token. The app secret and account access tokens remain server-side.
 4. Produce a fresh incoming test message and comment for each selected account using authorised test identities. Check each account's signed message and comment delivery timestamps. A dashboard test, subscription setting, successful callback challenge or one account's event does not prove delivery for the other account.
 
 ## Connection and maintenance
 
 Meta sign-in and asset selection do not depend on a maintenance heartbeat. Their database queries enforce expiry and current membership independently. Scheduled processing, cleanup and monitoring still require a real background runner. Customer connection screens show account access in plain language; `/operator/social` retains scheduler evidence and account diagnostics. A manual recovery run must never be described as recurring execution.
+
+### Maintenance runner recovery
+
+The GitHub runner makes at most three attempts for network failures, request timeouts and HTTP 502/503/504 responses, waiting five then ten seconds. Each attempt has a 60-second deadline including the completion body; the job allows five minutes including checkout. It keeps the same fixed HTTPS endpoint, bearer authentication and scheduled/manual source on every attempt and never follows redirects or logs response bodies.
+
+Authentication failures, overlapping-run responses (409), other HTTP errors and invalid completion data still fail the job immediately. Only a validated completion counts as success. The server lease prevents overlapping maintenance; a retry that encounters an active lease fails visibly rather than claiming completion. Persistent gateway/network failures still fail after three attempts. Inspect the failed Actions step and hosting health, restore service or configuration, then rerun the failed job. Confirm the completion result and operator heartbeat; a manual dispatch does not prove recurring execution. Retries cannot repair an ongoing hosting outage or GitHub scheduling delays.
 
 ## Cloud task writer contract
 
