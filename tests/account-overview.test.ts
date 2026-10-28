@@ -33,3 +33,20 @@ test("overview preserves successful connections and reports partial failures wit
   assert.equal(result.errors.length, 2); assert.match(result.errors.join(" "), /Unavailable brand/);
   assert.deepEqual(result.failedBrandIds, ["failed"]);
 });
+
+
+test("out-of-order brand responses retain their own identity and validation evidence",async()=>{
+  let release!: (response:Response)=>void;
+  const slow=new Promise<Response>(resolve=>{release=resolve;});
+  const request=(async(url:string,init:RequestInit)=>{
+    if(url==="/api/accounts")return Response.json({accounts:[]});
+    const {action,args}=JSON.parse(String(init.body));
+    if(action==="social_workspace_list")return Response.json({customers:[],brands:[{id:"old",name:"Old checks"},{id:"new",name:"New checks"}]});
+    if(args.brandId==="old")return slow;
+    release(Response.json({accounts:[{id:"old-page",name:"Same name",provider:"facebook",status:"connected",capabilities:{needsValidation:true,lastValidatedAt:1,messageBlockers:["live_history_validation_required"]}}]}));
+    return Response.json({accounts:[{id:"new-page",name:"Same name",provider:"facebook",status:"connected",capabilities:{needsValidation:false,lastValidatedAt:2,messages:"available",comments:"available"}}]});
+  }) as typeof fetch;
+  const result=await loadAccountOverview(new AbortController().signal,request);
+  assert.equal(result.accounts.find(a=>a.id==="old-page")?.brand.id,"old");assert.equal(result.accounts.find(a=>a.id==="new-page")?.brand.id,"new");
+  assert.equal(result.accounts.find(a=>a.id==="old-page")?.capabilities.needsValidation,true);assert.equal(result.accounts.find(a=>a.id==="new-page")?.capabilities.needsValidation,false);
+});

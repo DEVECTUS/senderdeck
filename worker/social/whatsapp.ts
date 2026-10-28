@@ -1,3 +1,4 @@
+import { whatsAppTestReplyAllowed, productionSocialSendingEnabled } from "./whatsapp-test-sending";
 import { HttpError } from "../auth";
 import { decrypt, encrypt } from "../crypto";
 import type { Env } from "../env";
@@ -62,6 +63,8 @@ export async function sendWhatsApp(env: Env, account: SocialAccount, thread: Thr
   const history = await whatsappHistory(env, account, thread);
   if (thread.target !== history.target || !history.lastInboundAt || history.lastInboundAt > Date.now() || Date.now() - history.lastInboundAt >= 86400000) throw new HttpError(409, "WhatsApp's 24-hour response window is closed. Template sending is not supported.");
   const token = await decrypt(account.token!, env.TOKEN_ENCRYPTION_KEY);
+  // Recheck expiry and the exact recipient immediately before the provider write.
+  if (!productionSocialSendingEnabled(env) && !whatsAppTestReplyAllowed(env, account, thread.target)) throw new HttpError(409, "WhatsApp sending is disabled for this account or recipient.");
   const result = await graph(token, `${numeric(account.asset_id)}/messages`, { messaging_product: "whatsapp", recipient_type: "individual", to: numeric(thread.target), type: "text", text: JSON.stringify({ body: text, preview_url: false }) }, "POST");
   const messageId = (result.messages as Array<{id?:string}>)?.[0]?.id;
   if (!messageId) throw new HttpError(502, "WhatsApp did not confirm a message ID.");

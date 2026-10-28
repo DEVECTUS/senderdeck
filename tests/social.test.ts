@@ -1,3 +1,5 @@
+import { activeWhatsAppTestScope } from "../worker/social/whatsapp-test-sending";
+import { sendWhatsApp } from "../worker/social/whatsapp";
 import {startCoexistence, completeCoexistence, requestInitialSync} from "../worker/social/whatsapp-coexistence";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -1292,4 +1294,112 @@ test("Coexistence endpoints reject unauthenticated, cross-origin and wrong-brand
   const cross=await handleSocial(new Request("https://senderdeck.test/api/social/whatsapp/coexistence/start",{method:"POST",headers:{origin:"https://evil.test","content-type":"application/json","x-dev-user-email":"alice"},body}),f.env,()=>{});assert.equal(cross!.status,403);
   const unauth=await handleSocial(new Request("https://senderdeck.test/api/social/whatsapp/coexistence/start",{method:"POST",headers:{origin:"https://senderdeck.test","content-type":"application/json"},body}),f.env,()=>{});assert.equal(unauth!.status,401);
   const foreign=await handleSocial(new Request("https://senderdeck.test/api/social/whatsapp/coexistence/start",{method:"POST",headers:{origin:"https://senderdeck.test","content-type":"application/json","x-dev-user-email":"mallory"},body}),f.env,()=>{});assert.equal(foreign!.status,404);
+});
+
+
+function enableScopedWhatsAppTest(f: Awaited<ReturnType<typeof whatsappFixture>>) {
+  f.env.META_ACCESS_TIER="development";f.env.SOCIAL_SEND_ENABLED="false";
+  const scope={appId:f.env.META_APP_ID!,brandId:f.brandId,accountId:f.account.id,phoneNumberId:"12345",messagingAccountId:"67890",recipient:"61400111222",startsAt:Date.now()-1000,expiresAt:Date.now()+3600000};
+  f.env.WHATSAPP_TEST_SEND_SCOPE=JSON.stringify(scope);return scope;
+}
+test("scoped WhatsApp test sends in development with global sending off, exact approval and one claim",async t=>{
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());enableScopedWhatsAppTest(f);await f.incoming();const d=await f.draft();
+  await assert.rejects(socialAction("social_reply_send",{...d.args,confirmed:false},f.env,"alice"),/explicit approval/);
+  await assert.rejects(socialAction("social_reply_send",{...d.args,revision:"wrong"},f.env,"alice"),/explicit approval/);
+  await assert.rejects(socialAction("social_reply_send",d.args,f.env,"mallory"),/not found/);
+  await socialAction("social_account_validate",{brandId:f.brandId,accountId:f.account.id},f.env,"alice");
+  const live=(await accountFor(f.env,"alice",f.brandId,f.account.id)).account;
+  const caps=capabilities(f.env,live);assert.equal(caps.sendMessages,true);assert.equal(caps.generalCustomerAccess,false);assert.equal(caps.sendRestriction,"configured_test_recipient_only");
+  const result=await socialAction("social_reply_send",d.args,f.env,"alice") as {sent:boolean};assert.equal(result.sent,true);assert.equal(f.sends(),1);
+  assert.equal(f.env.META_ACCESS_TIER,"development");assert.equal(f.env.SOCIAL_SEND_ENABLED,"false");
+  await assert.rejects(socialAction("social_reply_send",d.args,f.env,"alice"),/already|approval|superseded/);assert.equal(f.sends(),1);
+  assert.equal((f.sql.prepare("SELECT count(*) n FROM social_activity WHERE action='whatsapp_test_reply_sent'").get() as {n:number}).n,1);
+});
+test("WhatsApp test allowance fails closed for every mismatched identity, recipient or time boundary",async t=>{
+  const cases:Record<string,unknown>[]=[{appId:"other-app"},{brandId:"other-brand"},{accountId:"other-account"},{phoneNumberId:"999"},{messagingAccountId:"999"},{recipient:"61400999888"},{recipient:"*"},{recipient:"+61400111222"},{startsAt:Date.now()+3600000},{expiresAt:Date.now()-1},{expiresAt:Date.now()+3*3600000},{expiresAt:"tomorrow"}];
+  for(const change of cases)await t.test(Object.keys(change)[0]+JSON.stringify(change),async sub=>{
+    const f=await whatsappFixture(sub);sub.after(()=>f.sql.close());const scope=enableScopedWhatsAppTest(f);await f.incoming();const d=await f.draft();f.env.WHATSAPP_TEST_SEND_SCOPE=JSON.stringify({...scope,...change});
+    await assert.rejects(socialAction("social_reply_send",d.args,f.env,"alice"),/disabled/);assert.equal(f.sends(),0);
+  });
+});
+test("test mode retains history, media, wording, brand and approval expiry safeguards",async t=>{
+  for(const scenario of ["history","media","wording","brand","expiry","closed-window","missing-acknowledgement"])await t.test(scenario,async sub=>{
+    const f=await whatsappFixture(sub);sub.after(()=>f.sql.close());enableScopedWhatsAppTest(f);
+    await f.incoming("wamid.test",scenario==="closed-window"?Date.now()-86400001:Date.now()-60000,"Hello",scenario==="media"?{type:"image"}:{});
+    if(scenario==="wording"||scenario==="brand"){
+      const row=f.sql.prepare("SELECT profile FROM social_brands WHERE id=?").get(f.brandId) as {profile:string};const profile=JSON.parse(row.profile);
+      if(scenario==="wording")profile.approvedReplies=[];else profile.sendEnabled=false;
+      f.sql.prepare("UPDATE social_brands SET profile=? WHERE id=?").run(JSON.stringify(profile),f.brandId);
+    }
+    const d=await f.draft(scenario!=="missing-acknowledgement");
+    if(scenario==="history")await f.incoming("wamid.changed",Date.now()-20000,"Changed after inspection");
+    if(scenario==="expiry")f.sql.prepare("UPDATE social_drafts SET approval_expires_at=? WHERE id=?").run(Date.now()-1,d.created.draftId);
+    await assert.rejects(socialAction("social_reply_send",d.args,f.env,"alice"));assert.equal(f.sends(),0);
+  });
+});
+test("test scope does not enable Facebook or disclose its configured identities publicly",async t=>{
+  const f=await fixture();t.after(()=>f.sql.close());f.env.META_ACCESS_TIER="development";f.env.SOCIAL_SEND_ENABLED="false";
+  const scope={appId:"platform",brandId:f.brandId,accountId:f.account.id,phoneNumberId:"12345",messagingAccountId:"67890",recipient:"61400111222",startsAt:Date.now()-1000,expiresAt:Date.now()+3600000};f.env.WHATSAPP_TEST_SEND_SCOPE=JSON.stringify(scope);
+  assert.equal(capabilities(f.env,f.account).sendMessages,false);assert.equal(capabilities(f.env,{...f.account,provider:"instagram"}).sendMessages,false);
+  const status=platformStatus(f.env);assert.equal(status.meta.accessTier,"development");assert.equal(status.meta.customerAccess,"pending_app_review");assert.equal(status.whatsapp.testSending.active,true);
+  const publicJson=JSON.stringify(status);for(const secret of [scope.brandId,scope.accountId,scope.recipient,scope.phoneNumberId,scope.messagingAccountId])assert.ok(!publicJson.includes(secret));
+  for(const value of [undefined,"", "broken", "[]", "null",JSON.stringify({...scope,accountId:"*"})]){f.env.WHATSAPP_TEST_SEND_SCOPE=value;assert.equal(activeWhatsAppTestScope(f.env),null);}
+});
+test("WhatsApp checks the test recipient and expiry again immediately before a provider send",async t=>{
+  const f=await whatsappFixture(t);t.after(()=>f.sql.close());const scope=enableScopedWhatsAppTest(f);await f.incoming();const selected=f.scope();
+  const account=(await accountFor(f.env,"alice",f.brandId,f.account.id)).account;const thread=f.sql.prepare("SELECT * FROM social_threads WHERE id=?").get(selected.threadId) as unknown as Thread;
+  for(const change of [{recipient:"61400999888"},{expiresAt:Date.now()-1}]){f.env.WHATSAPP_TEST_SEND_SCOPE=JSON.stringify({...scope,...change});await assert.rejects(sendWhatsApp(f.env,account,thread,"Hello there."),/disabled/);}
+  assert.equal(f.sends(),0);
+});
+
+test("test allowance cannot replace revoked permissions or a missing webhook subscription",async t=>{
+  for(const revoked of ["permissions","subscription"])await t.test(revoked,async sub=>{
+    const f=await whatsappFixture(sub);sub.after(()=>f.sql.close());enableScopedWhatsAppTest(f);await f.incoming();const d=await f.draft();const original=globalThis.fetch;
+    sub.mock.method(globalThis,"fetch",async(input:RequestInfo|URL,init?:RequestInit)=>{
+      const url=String(input);
+      if(revoked==="permissions"&&url.includes("/debug_token"))return Response.json({data:{app_id:"platform",is_valid:true,user_id:"meta-user",scopes:[]}});
+      if(revoked==="subscription"&&url.includes("67890/subscribed_apps"))return Response.json({data:[]});
+      return original(input,init);
+    });
+    await assert.rejects(socialAction("social_reply_send",d.args,f.env,"alice"));assert.equal(f.sends(),0);
+  });
+});
+
+
+test("validation freshness expires at exactly one hour without changing saved access or bypassing send gates",async t=>{
+  const f=await fixture();t.after(()=>f.sql.close());const checkedAt=1793146790746;
+  t.mock.method(Date,"now",()=>checkedAt);
+  for(const provider of ["facebook","instagram","whatsapp"] as const){
+    const account={...f.account,provider,expires_at:checkedAt+86400000,permissions:JSON.stringify([...scopes,"whatsapp_business_management","whatsapp_business_messaging"])};
+    const before=JSON.stringify(account);
+    const fresh=capabilities(f.env,{...account,validated_at:checkedAt-3599999});
+    assert.equal(fresh.validationState,"current");assert.equal(fresh.needsValidation,false);assert.equal(fresh.messages,"available");
+    for(const age of [3600000,3600001,99*60000]){
+      const stale=capabilities(f.env,{...account,validated_at:checkedAt-age});
+      assert.equal(stale.validationState,"stale");assert.equal(stale.needsValidation,true);assert.equal(stale.messages,"unavailable");assert.equal(stale.comments,"unavailable");assert.equal(stale.sendMessages,false);assert.equal(stale.replyComments,false);
+      assert.equal(stale.validationFreshUntil,checkedAt-age+3600000);
+      if(provider!=="whatsapp")assert.deepEqual(stale.messageBlockers,["live_history_validation_required"]);
+    }
+    const future=capabilities(f.env,{...account,validated_at:checkedAt+1});assert.equal(future.validationState,"invalid_timestamp");assert.equal(future.messages,"unavailable");assert.equal(future.sendMessages,false);
+    assert.equal(capabilities(f.env,{...account,validated_at:checkedAt,expires_at:checkedAt}).validationState,"token_expired");
+    assert.equal(capabilities(f.env,{...account,validated_at:null}).validationState,"missing");
+    assert.equal(JSON.stringify(account),before);
+  }
+});
+
+test("validating one brand preserves every other account credential, permission and validation timestamp",async t=>{
+  const f=await fixture();t.after(()=>f.sql.close());const remote=provider(t);
+  const other=await socialAction("social_brand_create",{customerId:f.sql.prepare("SELECT customer_id FROM social_brands WHERE id=?").get(f.brandId)!.customer_id,name:"Other brand"},f.env,"alice") as {brandId:string};
+  for(const kind of ["facebook","instagram"]){
+    f.sql.prepare("INSERT INTO social_accounts (id,brand_id,provider,asset_id,parent_id,provider_user_id,name,token,user_token,expires_at,permissions,status,validation,validated_at,monitoring,created_at) SELECT ?,?,?,?,'other-page',provider_user_id,?,token,user_token,expires_at,permissions,status,validation,validated_at-6000000,monitoring,created_at FROM social_accounts WHERE id=?")
+      .run(`other-${kind}`,other.brandId,kind,`other-${kind}-asset`,`Other ${kind}`,f.account.id);
+  }
+  const rows=()=>JSON.stringify(f.sql.prepare("SELECT * FROM social_accounts WHERE brand_id=? ORDER BY id").all(other.brandId));
+  const before=rows();const tokens=f.sql.prepare("SELECT token,user_token,provider_user_id FROM social_accounts WHERE id=?").get(f.account.id);
+  await socialAction("social_account_validate",f.scope,f.env,"alice");
+  assert.equal(rows(),before);assert.deepEqual(f.sql.prepare("SELECT token,user_token,provider_user_id FROM social_accounts WHERE id=?").get(f.account.id),tokens);
+  await assert.rejects(socialAction("social_account_validate",{brandId:other.brandId,accountId:f.account.id},f.env,"alice"),/not found/);assert.equal(rows(),before);
+  t.mock.method(globalThis,"fetch",async()=>Response.json({error:{code:190}},{status:401}));
+  await assert.rejects(socialAction("social_account_validate",f.scope,f.env,"alice"));
+  assert.equal(rows(),before);assert.equal(f.sql.prepare("SELECT status FROM social_accounts WHERE id=?").get(f.account.id)!.status,"revoked");assert.equal(remote.sends(),0);
 });

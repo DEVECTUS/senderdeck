@@ -4,7 +4,17 @@
 
 - Retry temporary hosted maintenance failures with bounded backoff and document recovery.
 - Add proposed authority-request procedures, blank records and adoption guidance; formal adoption and legal review remain pending.
-- Exclude local release workspaces and generated output from source checks, and align plugin manifests with package version 0.4.34.
+- Exclude local release workspaces and generated output from source checks, and align plugin manifests with package version 0.4.36.
+
+## 0.4.36 - 2026-10-28
+
+- Ignore late account-list responses from another brand or an older refresh, preserving the selected brand’s compact table.
+
+- Distinguish stale account validation from revoked or denied access in compact Connections tables, expose freshness evidence and keep account recheck links scoped to the selected brand. Preserve the one-hour capability and exact send-approval gates.
+
+## 0.4.35 - 2026-10-28
+
+- Add an operator-controlled WhatsApp test-reply scope limited to one app, brand, account, phone, messaging account and recipient for at most two hours. Preserve exact draft approval, brand opt-in, live validation, history/window checks and duplicate protection without declaring production access.
 
 ## 0.4.34 - 2026-10-28
 
@@ -66,7 +76,7 @@
 - Preserve revoked legacy sessions and MCP credentials. Missing or retired destinations disable the link, and removing a link restores the original retirement restriction.
 
 
-## Unreleased
+## 0.4.35 - 2026-10-28
 
 - Separate Google and Microsoft identity sign-in from mailbox authorization. Sign-in no longer requests email access, forces Google's consent prompt, creates a mailbox connection or replaces existing mailbox credentials. Connect email separately in Settings.
 - Request Microsoft User.Read explicitly for Graph identity lookup and keep token exchange scoped to the selected flow. Provider branding and publisher verification remain separate approval requirements.
