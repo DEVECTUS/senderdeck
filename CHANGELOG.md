@@ -2,6 +2,8 @@
 
 ## 0.4.36 - 2026-10-28
 
+- Ignore late account-list responses from another brand or an older refresh, preserving the selected brand’s compact table.
+
 - Distinguish stale account validation from revoked or denied access in compact Connections tables, expose freshness evidence and keep account recheck links scoped to the selected brand. Preserve the one-hour capability and exact send-approval gates.
 
 ## 0.4.35 - 2026-10-28
