@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.36 - 2026-10-28
+
+- Distinguish stale account validation from revoked or denied access in compact Connections tables, expose freshness evidence and keep account recheck links scoped to the selected brand. Preserve the one-hour capability and exact send-approval gates.
+
 ## 0.4.35 - 2026-10-28
 
 - Add an operator-controlled WhatsApp test-reply scope limited to one app, brand, account, phone, messaging account and recipient for at most two hours. Preserve exact draft approval, brand opt-in, live validation, history/window checks and duplicate protection without declaring production access.

@@ -159,12 +159,21 @@ export async function discover(env: Env, token: string): Promise<MetaGrant> {
 export function capabilities(env: Env, account: SocialAccount) {
   const scopes = json<string[]>(account.permissions);
   const v = json<{ reads?: Record<string, boolean>; tasks?: string[]; webhook?: boolean;historyProbeVersion?:number }>(account.validation);
-  const live = v.historyProbeVersion===2 && account.status === "connected" && !!account.validated_at && Date.now() - account.validated_at < 3600000 && (!account.expires_at || account.expires_at > Date.now());
+  const checkedAt = Date.now();
+  const validationState = account.expires_at && account.expires_at <= checkedAt ? "token_expired"
+    : account.status === "revoked" ? "revoked"
+    : account.status === "validation_failed" ? "failed"
+    : !account.validated_at ? "missing"
+    : account.validated_at > checkedAt ? "invalid_timestamp"
+    : v.historyProbeVersion !== 2 ? "outdated"
+    : checkedAt - account.validated_at >= 3600000 ? "stale" : "current";
+  const validationFreshUntil = account.validated_at && account.validated_at <= checkedAt ? account.validated_at + 3600000 : null;
+  const live = validationState === "current" && account.status === "connected";
   const has = (...required: string[]) => required.every(s => scopes.includes(s));
   if (account.provider === "whatsapp") {
     const messages = live && !!v.reads?.messages && has("whatsapp_business_messaging", "whatsapp_business_management");
     const testOnly = !productionSocialSendingEnabled(env) && whatsAppTestAccountAllowed(env, account);
-    return { messages: messages ? "available" : "unavailable", comments: "unavailable", mentions: "unavailable", messageBlockers: messages ? [] : ["whatsapp_validation_required"], sendMessages: messages && !!v.webhook && (productionSocialSendingEnabled(env) || testOnly), sendRestriction: testOnly ? "configured_test_recipient_only" : null, replyComments: false, webhook: !!v.webhook, generalCustomerAccess: env.META_ACCESS_TIER === "advanced", lastValidatedAt: account.validated_at, needsValidation: !live, pageMessaging: undefined };
+    return { messages: messages ? "available" : "unavailable", comments: "unavailable", mentions: "unavailable", messageBlockers: messages ? [] : ["whatsapp_validation_required"], sendMessages: messages && !!v.webhook && (productionSocialSendingEnabled(env) || testOnly), sendRestriction: testOnly ? "configured_test_recipient_only" : null, replyComments: false, webhook: !!v.webhook, generalCustomerAccess: env.META_ACCESS_TIER === "advanced", lastValidatedAt: account.validated_at, needsValidation: !live, validationState, validationFreshUntil, pageMessaging: undefined };
   }
   const fb = account.provider === "facebook";
   const meta = fb || account.provider === "instagram";
@@ -179,7 +188,7 @@ export function capabilities(env: Env, account: SocialAccount) {
     messageBlockers,
     mentions: "pending_live_validation", sendMessages: sendGate && messages, replyComments: sendGate && comments && commentTask && (!fb || has("pages_manage_engagement")),
     webhook: !!v.webhook, generalCustomerAccess: env.META_ACCESS_TIER === "advanced", lastValidatedAt: account.validated_at,
-    needsValidation: !live, pageMessaging: account.provider === "linkedin" ? "unavailable_requires_partner_access" : undefined };
+    needsValidation: !live, validationState, validationFreshUntil, pageMessaging: account.provider === "linkedin" ? "unavailable_requires_partner_access" : undefined };
 }
 export async function validateConnection(env: Env, account: SocialAccount) {
   if (account.provider === "whatsapp") return validateWhatsApp(env, account);

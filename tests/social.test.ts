@@ -1333,3 +1333,42 @@ test("test allowance cannot replace revoked permissions or a missing webhook sub
     await assert.rejects(socialAction("social_reply_send",d.args,f.env,"alice"));assert.equal(f.sends(),0);
   });
 });
+
+
+test("validation freshness expires at exactly one hour without changing saved access or bypassing send gates",async t=>{
+  const f=await fixture();t.after(()=>f.sql.close());const checkedAt=1793146790746;
+  t.mock.method(Date,"now",()=>checkedAt);
+  for(const provider of ["facebook","instagram","whatsapp"] as const){
+    const account={...f.account,provider,expires_at:checkedAt+86400000,permissions:JSON.stringify([...scopes,"whatsapp_business_management","whatsapp_business_messaging"])};
+    const before=JSON.stringify(account);
+    const fresh=capabilities(f.env,{...account,validated_at:checkedAt-3599999});
+    assert.equal(fresh.validationState,"current");assert.equal(fresh.needsValidation,false);assert.equal(fresh.messages,"available");
+    for(const age of [3600000,3600001,99*60000]){
+      const stale=capabilities(f.env,{...account,validated_at:checkedAt-age});
+      assert.equal(stale.validationState,"stale");assert.equal(stale.needsValidation,true);assert.equal(stale.messages,"unavailable");assert.equal(stale.comments,"unavailable");assert.equal(stale.sendMessages,false);assert.equal(stale.replyComments,false);
+      assert.equal(stale.validationFreshUntil,checkedAt-age+3600000);
+      if(provider!=="whatsapp")assert.deepEqual(stale.messageBlockers,["live_history_validation_required"]);
+    }
+    const future=capabilities(f.env,{...account,validated_at:checkedAt+1});assert.equal(future.validationState,"invalid_timestamp");assert.equal(future.messages,"unavailable");assert.equal(future.sendMessages,false);
+    assert.equal(capabilities(f.env,{...account,validated_at:checkedAt,expires_at:checkedAt}).validationState,"token_expired");
+    assert.equal(capabilities(f.env,{...account,validated_at:null}).validationState,"missing");
+    assert.equal(JSON.stringify(account),before);
+  }
+});
+
+test("validating one brand preserves every other account credential, permission and validation timestamp",async t=>{
+  const f=await fixture();t.after(()=>f.sql.close());const remote=provider(t);
+  const other=await socialAction("social_brand_create",{customerId:f.sql.prepare("SELECT customer_id FROM social_brands WHERE id=?").get(f.brandId)!.customer_id,name:"Other brand"},f.env,"alice") as {brandId:string};
+  for(const kind of ["facebook","instagram"]){
+    f.sql.prepare("INSERT INTO social_accounts (id,brand_id,provider,asset_id,parent_id,provider_user_id,name,token,user_token,expires_at,permissions,status,validation,validated_at,monitoring,created_at) SELECT ?,?,?,?,'other-page',provider_user_id,?,token,user_token,expires_at,permissions,status,validation,validated_at-6000000,monitoring,created_at FROM social_accounts WHERE id=?")
+      .run(`other-${kind}`,other.brandId,kind,`other-${kind}-asset`,`Other ${kind}`,f.account.id);
+  }
+  const rows=()=>JSON.stringify(f.sql.prepare("SELECT * FROM social_accounts WHERE brand_id=? ORDER BY id").all(other.brandId));
+  const before=rows();const tokens=f.sql.prepare("SELECT token,user_token,provider_user_id FROM social_accounts WHERE id=?").get(f.account.id);
+  await socialAction("social_account_validate",f.scope,f.env,"alice");
+  assert.equal(rows(),before);assert.deepEqual(f.sql.prepare("SELECT token,user_token,provider_user_id FROM social_accounts WHERE id=?").get(f.account.id),tokens);
+  await assert.rejects(socialAction("social_account_validate",{brandId:other.brandId,accountId:f.account.id},f.env,"alice"),/not found/);assert.equal(rows(),before);
+  t.mock.method(globalThis,"fetch",async()=>Response.json({error:{code:190}},{status:401}));
+  await assert.rejects(socialAction("social_account_validate",f.scope,f.env,"alice"));
+  assert.equal(rows(),before);assert.equal(f.sql.prepare("SELECT status FROM social_accounts WHERE id=?").get(f.account.id)!.status,"revoked");assert.equal(remote.sends(),0);
+});

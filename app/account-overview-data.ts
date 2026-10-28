@@ -1,6 +1,6 @@
 export type EmailConnection = { id: string; provider: string; email: string; label: string; senderIdentities?: { email: string; isPrimary: boolean }[]; senderDiscoveryError?: string };
 export type OverviewBrand = { id: string; name: string; customer_id: string };
-export type SocialConnection = { id: string; provider: string; name: string; asset_id: string; status: string; capabilities: { messages?: string; comments?: string }; brand: OverviewBrand };
+export type SocialConnection = { id: string; provider: string; name: string; asset_id: string; status: string; expires_at?: number | null; capabilities: { messages?: string; comments?: string; needsValidation?: boolean; lastValidatedAt?: number | null; validationState?: string; validationFreshUntil?: number | null; messageBlockers?: string[] }; brand: OverviewBrand };
 export type OverviewWorkspace = { customers: { id: string; name: string }[]; brands: OverviewBrand[] };
 
 // Read through the existing authenticated APIs; never infer or widen account scope.

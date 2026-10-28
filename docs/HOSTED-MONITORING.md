@@ -11,6 +11,14 @@
 
 Meta sign-in and asset selection do not depend on a maintenance heartbeat. Their database queries enforce expiry and current membership independently. Scheduled processing, cleanup and monitoring still require a real background runner. Customer connection screens show account access in plain language; `/operator/social` retains scheduler evidence and account diagnostics. A manual recovery run must never be described as recurring execution.
 
+### Account validation and connection status
+
+Successful live read checks remain current for one hour. At exactly 60 minutes, the account can remain connected while its read capabilities require validation again. Connections and the brand account table show **Needs validation**, with the last check time in the status tooltip. This warning does not mean another brand replaced its credentials or that Meta revoked access. Use **Recheck access**, then the exact account's **Manage → Recheck access** control. Owners/admins may validate only accounts in brands they administer; failed requests remain visible for diagnosis.
+
+**Reconnect** identifies revoked or expired authorisation; **Validation failed**, **Limited access** and **Access unavailable** identify different validation or capability results. A missing permission or failed history probe requires reviewing the exact account's diagnostics. Do not reconnect merely to clear an old check. Webhook delivery, provider permissions, sending enablement and exact reply approval remain separate checks; a current read check does not prove any of those.
+
+Refreshing Connections reloads saved results; it does not validate every account. Hosted maintenance revalidates only monitoring-enabled, due accounts when scheduling is enabled. Disabled monitoring does not refresh validation automatically. Keep current checks and observed webhook delivery separate from background scheduling health.
+
 ## Cloud task writer contract
 
 The existing OAuth-authenticated `social_reconcile` MCP tool is the supported scoped writer. Do not use the public callback, Sites service-bypass token, operator cookies or global maintenance secret as a substitute for the brand owner's authenticated connector.
