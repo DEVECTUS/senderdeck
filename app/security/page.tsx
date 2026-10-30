@@ -31,6 +31,7 @@ export default function SecurityPage() {
           <li><strong>Attachment controls:</strong> configurable type and size limits block high-risk or oversized attachments.</li>
           <li><strong>Minimal email retention:</strong> email message bodies and attachment contents are processed transiently for requested operations.</li>
           <li><strong>Social isolation:</strong> backend membership and role checks scope every brand, account and draft. Linking a mailbox does not share its credentials with team members.</li>
+          <li><strong>Organic publishing:</strong> brand-scoped standing authority, exact destinations, encrypted uploads, independent receipts and uncertain-outcome locks are separate from reply approval. Provider permissions remain mandatory.</li>
           <li><strong>Social approvals:</strong> immutable revisions, expiring approval tokens, fresh history checks and atomic claims reject stale and duplicate sends. Uncertain delivery requires native review.</li>
           <li><strong>Verified webhooks:</strong> Meta signatures are checked over the original body before encrypted events enter a durable deduplicated queue.</li>
         </ul>

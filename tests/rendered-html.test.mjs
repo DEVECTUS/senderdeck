@@ -297,8 +297,8 @@ test("exposes a healthy stateless MCP contract", async () => {
   );
   const listed = await list.json();
   const names = listed.result.tools.map((tool) => tool.name);
-  assert.equal(names.length, 40);
-  assert.equal(names.filter(name => name.startsWith("social_")).length, 26);
+  assert.equal(names.length, 65);
+  assert.equal(names.filter(name => name.startsWith("social_")).length, 51);
   assert.ok(names.includes("social_comment_inspect"));
   assert.ok(names.includes("social_comment_moderate"));
   assert.ok(names.includes("social_reply_send"));
@@ -448,4 +448,10 @@ test("WhatsApp setup explains provider refusal without offering migration as rec
   assert.match(html, /not a workaround|not the Business phone app|Regular WhatsApp is a different app/);
   assert.match(html, /href="\/social-setup#whatsapp"/);
   assert.doesNotMatch(html, /<input[^>]*type="password"/);
+});
+
+
+test("publishing workspace renders separate authority and scoped brand controls",async()=>{
+ const worker=await loadWorker();const response=await worker.fetch(new Request("http://localhost/publishing",{headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com"}}),baseEnv,context);
+ assert.equal(response.status,200);const html=await response.text();assert.match(html,/<h1[^>]*>Publishing<\/h1>/);assert.match(html,/One daily topic for your selected brand/);assert.match(html,/Choose a brand/);assert.match(html,/href="\/publishing"/);
 });

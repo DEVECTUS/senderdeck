@@ -1,3 +1,4 @@
+import { publishingTools } from "./publishing-tools";
 const string = { type: "string" };
 const boolean = { type: "boolean" };
 const scope = { brandId: { ...string, description: "Brand ID returned by social_workspace_list." }, accountId: { ...string, description: "Account ID returned by social_account_list for that brand." } };
@@ -9,6 +10,7 @@ function tool(name: string, description: string, properties: Record<string, unkn
     annotations: { title: name.replaceAll("_", " "), readOnlyHint: readOnly, openWorldHint: ["social_comment_inspect", "social_comment_moderate", "social_reply_send", "social_account_connect", "social_inbox", "social_thread_read", "social_reconcile", "social_account_validate", "social_asset_select"].includes(name), destructiveHint: destructive } };
 }
 export const socialTools = [
+  ...publishingTools,
   tool("social_comment_inspect", "Inspect one exact Instagram comment for hide or unhide. Owner/admin only. Checks live user grant, moderation permissions/tasks and the comment's actual media owner, independently of reply authority. Returns full text, author, actual media, current hidden state and a five-minute actor/scope/action/text-bound approval. Does not change provider content. Inspection/token is not human approval. Live media and owner comments are unsupported. No scope changes or deletion.", {...scope,commentId:string,action:{type:"string",enum:["hide","unhide"]}}, [...Object.keys(scope),"commentId","action"], false),
   tool("social_comment_moderate", "Apply one inspected hide/unhide operation only with explicit human approval for that exact account, full comment text, comment ID and action. Pass the returned operationId, revision, approvalToken, confirmed true and exact requiredConfirmation as confirmation. Rechecks ownership, permissions, membership and unchanged comment. Single-use atomic approval; verifies GET hidden readback and audits outcome. Unknown results must be inspected before any retry. Independent of reply sending; no deletes, new scopes or sending activation.", {...scope,operationId:string,revision:string,approvalToken:string,confirmed:boolean,confirmation:string}, [...Object.keys(scope),"operationId","revision","approvalToken","confirmed","confirmation"], false, true),
   tool("social_workspace_list", "List only customers and brands the authenticated user belongs to, their policies, and honest provider readiness. Pending access does not mean an inbox was checked.", {}, []),

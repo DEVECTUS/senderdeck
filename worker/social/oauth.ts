@@ -54,7 +54,9 @@ async function getGrant(env: Env, user: string, brandId: string, grantId: string
   await brandFor(env, user, brandId, admins);
   const row = await env.DB.prepare("SELECT encrypted FROM social_grants WHERE id = ? AND brand_id = ? AND user_id = ? AND expires_at > ?").bind(grantId, brandId, user, Date.now()).first<{ encrypted: string }>();
   if (!row) throw new HttpError(404, "Asset selection expired or was not found.");
-  return json<MetaGrant>(await decrypt(row.encrypted, env.TOKEN_ENCRYPTION_KEY));
+  const grant=json<MetaGrant & {kind?:string}>(await decrypt(row.encrypted, env.TOKEN_ENCRYPTION_KEY));
+  if(grant.kind)throw new HttpError(403,"This grant belongs to another connection purpose.");
+  return grant;
 }
 export async function grantAssets(env: Env, user: string, brandId: string, grantId: string, kind = "social", cursor?: string, wabaId?: string) {
   const grant = await getGrant(env, user, brandId, grantId);

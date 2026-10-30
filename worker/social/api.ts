@@ -1,3 +1,6 @@
+import {metaPublishingCallback} from "./publishing-meta";
+import { servePublishingMedia } from "./publishing-media";
+import { linkedInPublishingCallback } from "./publishing-linkedin";
 import { coexistenceSetup, startCoexistence, completeCoexistence, coexistenceStatus, resumeCoexistence } from "./whatsapp-coexistence";
 import { HttpError, requireUserId } from "../auth";
 import type { Env } from "../env";
@@ -13,6 +16,7 @@ export async function handleSocial(request: Request, env: Env, defer: (p: Promis
   const path = new URL(request.url).pathname;
   if (!path.startsWith("/api/social") && !path.startsWith("/oauth/social/")) return null;
   try {
+    const publishingMedia=await servePublishingMedia(request,env);if(publishingMedia)return publishingMedia;
     if (path === "/api/social/operator/secrets" && request.method === "POST") return Response.json(await saveMetaSecrets(request, env), {headers:{"cache-control":"no-store"}});
     if (path === "/api/social/operator/setup" && request.method === "GET") {
       const csrfToken = await operatorCsrf(request, env);
@@ -48,6 +52,8 @@ export async function handleSocial(request: Request, env: Env, defer: (p: Promis
       const source=request.headers.get("x-senderdeck-maintenance-source");
       return Response.json(await runHostedMaintenance(env,source === "github_schedule" || source === "github_dispatch" ? source : "external"));
     }
+    const metaPublishing=await metaPublishingCallback(request,env);if(metaPublishing)return metaPublishing;
+    const linkedIn=await linkedInPublishingCallback(request,env);if(linkedIn)return linkedIn;
     const oauth = await oauthCallback(request, env); if (oauth) return oauth;
     if (path === "/api/social/whatsapp/coexistence/setup" && request.method === "GET") {
       await requireUserId(request, env);
@@ -78,6 +84,7 @@ export async function handleSocial(request: Request, env: Env, defer: (p: Promis
     const result = await socialAction(body.action, body.args, env, user);
     return Response.json(result, {headers: {"cache-control": "no-store"}});
   } catch (error) {
+    if(["/oauth/social/linkedin/callback","/oauth/social/publishing/meta/callback"].includes(path))return socialRedirect(env,"/publishing?connection=failed");
     if (["/oauth/social/meta/callback", "/oauth/social/whatsapp/callback"].includes(path)) return socialRedirect(env,`/connect/meta?connection=${error instanceof HttpError&&error.status===401?"restart_required":"failed"}${path.includes("/whatsapp/") ? "&provider=whatsapp" : ""}`);
     return Response.json({error: error instanceof HttpError ? error.message : "The social operation could not be completed."}, {status: error instanceof HttpError ? error.status : 500, headers: {"cache-control": "no-store"}});
   }

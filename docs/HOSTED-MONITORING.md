@@ -67,3 +67,7 @@ The deployed application uses OpenAI Sites hosting, Cloudflare Workers and D1, a
 - [Page Subscribed Apps](https://developers.facebook.com/docs/graph-api/reference/page/subscribed_apps)
 
 Both references were checked on 21 October 2026. The Page and application endpoints do not configure Instagram subscriptions; use the owner dashboard flow described above.
+
+## Organic content is a separate workflow
+
+Maintenance and inbox reconciliation do not publish daily content. See [Social publishing](SOCIAL-PUBLISHING.md) for the separately scoped standing policy, exact provider gates, actual daily task invocation and destination receipts. The new media expiry cleanup uses this existing maintenance runner and does not install another scheduler.

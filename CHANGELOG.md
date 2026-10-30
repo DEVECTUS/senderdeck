@@ -6,6 +6,12 @@
 - Add proposed authority-request procedures, blank records and adoption guidance; formal adoption and legal review remain pending.
 - Exclude local release workspaces and generated output from source checks, and align plugin manifests with package version 0.4.36.
 
+## 0.4.37 - 2026-10-30
+
+- Add scoped routine organic publishing for Instagram/Facebook feeds and Stories and LinkedIn company feeds, with separate capability checks, encrypted media, immutable receipts, duplicate locks and read-only reconciliation.
+- Add the Publishing workspace, owner policy tools and separately authorized LinkedIn organization connection; keep customer replies and WhatsApp test scope unchanged.
+- Require actual provider grants and explicit hosting activation. No live test posts, provider consent or scheduler installation is part of this release.
+
 ## 0.4.36 - 2026-10-28
 
 - Ignore late account-list responses from another brand or an older refresh, preserving the selected brand’s compact table.

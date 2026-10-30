@@ -1,3 +1,4 @@
+import { publishingAction } from "./publishing";
 import { whatsAppTestReplyAllowed } from "./whatsapp-test-sending";
 import { historyGap } from "./whatsapp";
 import { HttpError } from "../auth";
@@ -117,6 +118,7 @@ export async function readThread(env: Env, user: string, account: SocialAccount,
 }
 export async function socialAction(name: string, a: Args, env: Env, user: string): Promise<unknown> {
   env = await resolveMetaSecrets(env);
+  if (name.startsWith("social_publish_")) return publishingAction(name,a,env,user);
   if (name === "social_comment_inspect" || name === "social_comment_moderate") return moderationAction(name, a, env, user);
   if (name === "social_workspace_list") {
     const customers = (await env.DB.prepare("SELECT c.*, m.role FROM social_customers c JOIN social_members m ON m.customer_id=c.id WHERE m.user_id=? ORDER BY c.name").bind(user).all()).results;
@@ -220,6 +222,7 @@ export async function socialAction(name: string, a: Args, env: Env, user: string
     if (a.confirmed !== true) throw new HttpError(400, "Confirm installing the read-event subscription for this exact Page.");
     return account.provider === "whatsapp" ? (await import("./whatsapp-coexistence")).subscribeWhatsApp(env,account,user) : subscribePageAccount(env, account, user);
   }
+  if (name === "social_account_validate" && account.provider === "linkedin") throw new HttpError(409,"Use publishing validation for this organization. LinkedIn inbox access remains unavailable.");
   if (name === "social_account_validate") return { ...safeAccount(await refreshAccount(env, account)), capabilities: capabilities(env, account) };
   if (name === "social_account_disconnect") {
     if (a.confirmed !== true) throw new HttpError(400, "Confirm disconnecting this selected account and deleting its social content.");

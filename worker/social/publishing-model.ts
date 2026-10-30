@@ -1,0 +1,29 @@
+import { HttpError } from "../auth";
+import type { Env } from "../env";
+import { sha256Base64Url } from "../crypto";
+import { str, type SocialAccount } from "./model";
+
+export const channels = ["instagram_feed", "facebook_feed", "linkedin_feed", "instagram_story", "facebook_story"] as const;
+export type PublishChannel = typeof channels[number];
+export interface Destination { channel: PublishChannel; accountId: string | null; assetId: string }
+export interface PublishingPolicy { timezone: "Australia/Sydney"; startDate: string; destinations: Destination[]; approvalBasis: string; routineOnly: true; paidPromotion: false }
+export interface PublishTarget extends Destination { caption: string; altText: string; mediaId: string }
+export interface PublishManifest { contentKey: string; topicDate: string; title: string; targets: PublishTarget[]; imported?: boolean }
+export interface PublishItem { id: string; brand_id: string; content_key: string; topic_date: string; revision: number; digest: string; encrypted: string; disposition: string; policy_revision: number; user_id: string; created_at: number; updated_at: number; expires_at: number }
+export interface Delivery { id: string; item_id: string; account_id: string | null; channel: PublishChannel; revision: number; state: string; stage: string; provider_id: string | null; prepared_id: string | null; receipt: string | null; error: string | null; started_at: number | null; updated_at: number }
+export interface Media { id: string; brand_id: string; user_id: string; mime: string; bytes: number; sha256: string; source_sha256: string | null; width: number | null; height: number | null; state: string; created_at: number; expires_at: number }
+export interface ProviderReceipt { providerId: string | null; url: string | null; publishedAt: string | null; verifiedAt: string; expiresAt: string | null; expiryState: "unknown" | "active" | "expired" | "not_applicable"; verification: "provider_readback" | "native_operator_record"; method: string; mediaSha256: string | null; altText: "verified" | "submitted" | "not_supported" | "unknown"; sourceFeedReceipt?: string | null; evidence?: string; assetId?: string; channel?: PublishChannel }
+export function channel(value: unknown): PublishChannel { if (!channels.includes(value as PublishChannel)) throw new HttpError(400, "Choose an explicit supported feed or Story destination."); return value as PublishChannel; }
+export function providerFor(value: PublishChannel) { return value.split("_")[0]; }
+export function isStory(value: PublishChannel) { return value.endsWith("_story"); }
+export function date(value: unknown) { const s=str(value,"topicDate",10); if(!/^\d{4}-\d{2}-\d{2}$/.test(s)||!Number.isFinite(Date.parse(s+"T00:00:00Z"))||new Date(s+"T00:00:00Z").toISOString().slice(0,10)!==s)throw new HttpError(400,"Use a valid Sydney calendar date.");return s; }
+export function sydneyTime(at=Date.now()) { const parts=new Intl.DateTimeFormat("en-AU",{timeZone:"Australia/Sydney",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",hourCycle:"h23"}).formatToParts(at);const get=(key:string)=>parts.find(p=>p.type===key)!.value;return {date:`${get("year")}-${get("month")}-${get("day")}`,hour:Number(get("hour"))}; }
+export function releaseDate(topicDate:string) { const today=sydneyTime();if(topicDate!==today.date)throw new HttpError(409,topicDate<today.date?"Past dates are not backfilled. Keep the historical receipt and use today's item.":"This topic is not due on today's Sydney date.");if(today.hour<9)throw new HttpError(409,"Routine daily publication is not due before 9 am Sydney."); }
+export function fields(a:Record<string,unknown>, allowed:string[]) { if(Object.keys(a).some(k=>!allowed.includes(k)))throw new HttpError(400,"Unsupported publishing field. Paid promotion, arbitrary URLs and permission changes are not accepted."); }
+export function array(value:unknown, name:string, max=5): Record<string,unknown>[] { if(!Array.isArray(value)||!value.length||value.length>max||value.some(v=>!v||typeof v!=="object"||Array.isArray(v)))throw new HttpError(400,`Invalid ${name}.`);return value; }
+export function destination(value:Record<string,unknown>):Destination { return {channel:channel(value.channel),accountId:value.accountId===null?null:str(value.accountId,"accountId",100),assetId:str(value.assetId,"assetId",100)}; }
+export function verifyDestination(account:SocialAccount,target:Destination) { if(account.id!==target.accountId||account.asset_id!==target.assetId||account.provider!==providerFor(target.channel))throw new HttpError(409,"The saved destination does not match the exact brand account, provider and asset."); }
+export async function fingerprint(account:SocialAccount) { return sha256Base64Url(JSON.stringify([account.id,account.brand_id,account.provider,account.asset_id,account.parent_id,account.provider_user_id,account.token,account.user_token,account.permissions,account.expires_at,account.status])); }
+export function requirePublishing(env:Env) { if(env.SOCIAL_PUBLISH_ENABLED!=="true")throw new HttpError(409,"Organic publishing is disabled in hosting. This is separate from reply sending."); }
+export function safeUrl(value:unknown, channelName:PublishChannel):string|null { if(typeof value!=="string"||!value)return null;try{const u=new URL(value);const hosts=channelName.startsWith("instagram")?["instagram.com","www.instagram.com","business.facebook.com"]:channelName.startsWith("facebook")?["facebook.com","www.facebook.com","business.facebook.com"]:["linkedin.com","www.linkedin.com"];if(u.protocol!=="https:"||u.username||u.password||!hosts.includes(u.hostname)||[...u.searchParams.keys()].some(k=>/token|secret|auth|password/i.test(k)))return null;return u.href;}catch{return null;} }
+export class PublishingProviderError extends HttpError { constructor(public definitelyRejected:boolean,public code:string,public providerStatus:number|null=null){super(definitelyRejected?409:502,code);} }

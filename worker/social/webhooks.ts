@@ -125,6 +125,9 @@ export async function maintenance(env: Env) {
   }
   await env.DB.batch([
     env.DB.prepare("DELETE FROM social_whatsapp_messages WHERE expires_at<?").bind(at),
+    env.DB.prepare("DELETE FROM social_publish_media WHERE expires_at<?").bind(at),
+    env.DB.prepare("DELETE FROM social_publish_checks WHERE expires_at<?").bind(at),
+    env.DB.prepare("DELETE FROM social_publish_items WHERE expires_at<? AND NOT EXISTS (SELECT 1 FROM social_publish_deliveries d WHERE d.item_id=social_publish_items.id AND d.state IN ('publishing','unknown'))").bind(at),
     env.DB.prepare("DELETE FROM social_oauth WHERE expires_at<?").bind(at),
     env.DB.prepare("DELETE FROM social_grants WHERE expires_at<?").bind(at),
     env.DB.prepare("DELETE FROM social_snapshots WHERE expires_at<?").bind(at),

@@ -55,12 +55,17 @@ export interface Env {
   META_APP_ID?: string;
   META_APP_SECRET?: string;
   META_LOGIN_CONFIG_ID?: string;
+  META_PUBLISH_LOGIN_CONFIG_ID?: string;
   WHATSAPP_LOGIN_CONFIG_ID?: string;
   WHATSAPP_COEXISTENCE_CONFIG_ID?: string;
   META_WEBHOOK_VERIFY_TOKEN?: string;
   META_ACCESS_TIER?: string;
   SOCIAL_PUBLIC_ORIGIN?: string;
   SOCIAL_SEND_ENABLED?: string;
+  /** Independent, default-off organic publishing gate; never enables replies. */
+  SOCIAL_PUBLISH_ENABLED?: string;
+  LINKEDIN_COMMUNITY_APPROVED?: string;
+  LINKEDIN_API_VERSION?: string;
   WHATSAPP_TEST_SEND_SCOPE?: string;
   SOCIAL_SCHEDULER_ENABLED?: string;
   SOCIAL_MAINTENANCE_TOKEN?: string;

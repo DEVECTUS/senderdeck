@@ -270,3 +270,40 @@ export const socialWhatsappCoexistence = sqliteTable("social_whatsapp_coexistenc
   historyProgress: integer("history_progress").notNull().default(0),
   createdAt: integer("created_at").notNull(), syncDeadline: integer("sync_deadline").notNull(), updatedAt: integer("updated_at").notNull(),
 });
+
+
+// Public-post publishing is independent of customer replies and their approvals.
+export const socialPublishPolicies = sqliteTable("social_publish_policies", {
+  brandId: text("brand_id").primaryKey().references(() => socialBrands.id, {onDelete:"cascade"}),
+  revision: integer("revision").notNull(), enabled: integer("enabled").notNull(),
+  encrypted: text("encrypted").notNull(), actor: text("actor").notNull(), updatedAt: integer("updated_at").notNull(),
+});
+export const socialPublishMedia = sqliteTable("social_publish_media", {
+  id: text("id").primaryKey(), brandId: text("brand_id").notNull().references(() => socialBrands.id, {onDelete:"cascade"}),
+  userId: text("user_id").notNull(), mime: text("mime").notNull(), bytes: integer("bytes").notNull(), sha256: text("sha256").notNull(),
+  sourceSha256: text("source_sha256"), width: integer("width"), height: integer("height"), state: text("state").notNull(),
+  createdAt: integer("created_at").notNull(), expiresAt: integer("expires_at").notNull(),
+}, t => [index("social_publish_media_expiry_idx").on(t.expiresAt)]);
+export const socialPublishMediaChunks = sqliteTable("social_publish_media_chunks", {
+  id: text("id").primaryKey(), mediaId: text("media_id").notNull().references(() => socialPublishMedia.id, {onDelete:"cascade"}),
+  ordinal: integer("ordinal").notNull(), encrypted: text("encrypted").notNull(),
+}, t => [uniqueIndex("social_publish_chunk_unique").on(t.mediaId,t.ordinal)]);
+export const socialPublishItems = sqliteTable("social_publish_items", {
+  id: text("id").primaryKey(), brandId: text("brand_id").notNull().references(() => socialBrands.id, {onDelete:"cascade"}),
+  contentKey: text("content_key").notNull(), topicDate: text("topic_date").notNull(), revision: integer("revision").notNull(),
+  digest: text("digest").notNull(), writeToken: text("write_token"), encrypted: text("encrypted").notNull(), disposition: text("disposition").notNull(),
+  policyRevision: integer("policy_revision").notNull(), userId: text("user_id").notNull(),
+  createdAt: integer("created_at").notNull(), updatedAt: integer("updated_at").notNull(), expiresAt: integer("expires_at").notNull(),
+}, t => [uniqueIndex("social_publish_daily_topic_unique").on(t.brandId,t.topicDate),uniqueIndex("social_publish_content_key_unique").on(t.brandId,t.contentKey), index("social_publish_item_expiry_idx").on(t.expiresAt)]);
+export const socialPublishDeliveries = sqliteTable("social_publish_deliveries", {
+  id: text("id").primaryKey(), itemId: text("item_id").notNull().references(() => socialPublishItems.id, {onDelete:"cascade"}),
+  accountId: text("account_id").references(() => socialAccounts.id, {onDelete:"set null"}), channel: text("channel").notNull(),
+  revision: integer("revision").notNull(), state: text("state").notNull(), stage: text("stage").notNull(),
+  providerId: text("provider_id"), receiptKey: text("receipt_key"), preparedId: text("prepared_id"), receipt: text("receipt"), error: text("error"),
+  startedAt: integer("started_at"), updatedAt: integer("updated_at").notNull(),
+}, t => [uniqueIndex("social_publish_destination_unique").on(t.itemId,t.channel), index("social_publish_delivery_account_idx").on(t.accountId,t.channel), uniqueIndex("social_publish_provider_receipt_unique").on(t.accountId,t.channel,t.receiptKey)]);
+export const socialPublishChecks = sqliteTable("social_publish_checks", {
+  id: text("id").primaryKey(), accountId: text("account_id").notNull().references(() => socialAccounts.id, {onDelete:"cascade"}),
+  channel: text("channel").notNull(), fingerprint: text("fingerprint").notNull(), evidence: text("evidence").notNull(),
+  checkedAt: integer("checked_at").notNull(), expiresAt: integer("expires_at").notNull(),
+}, t => [uniqueIndex("social_publish_check_unique").on(t.accountId,t.channel)]);
