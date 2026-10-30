@@ -76,3 +76,17 @@ test("hosted updater never retries authentication, overlap, redirects or invalid
     assert.equal(calls,1);assert.equal(waits,0);
   }
 });
+
+test("hosted updater never retries after its deadline leaves completion uncertain",async()=>{
+  const originalTimeout = AbortSignal.timeout;
+  let calls = 0, waits = 0;
+  AbortSignal.timeout = () => AbortSignal.abort();
+  try {
+    await assert.rejects(runMaintenance("token",async(_input,init)=>{
+      calls++;
+      init!.signal!.throwIfAborted();
+      throw new Error("unreachable");
+    },async()=>{waits++;}),/^Error: The maintenance endpoint did not confirm completion\.$/);
+    assert.equal(calls,1);assert.equal(waits,0);
+  } finally { AbortSignal.timeout = originalTimeout; }
+});

@@ -6,9 +6,12 @@ const ENDPOINT = "https://senderdeck.devectus.com.au/api/social/maintenance";
 export async function runMaintenance(token, fetcher = fetch, wait = delay) {
   if (!token) throw new Error("The maintenance secret is not configured.");
   const source = process.env.GITHUB_EVENT_NAME === "schedule" ? "github_schedule" : "github_dispatch";
+  const deadline = Date.now() + 240000;
   for (let attempt = 0; ; attempt++) {
     // Use one deadline for both response headers and the completion body.
-    const signal = AbortSignal.timeout(60000);
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw new Error("The maintenance endpoint did not confirm completion.");
+    const signal = AbortSignal.timeout(remaining);
     let response;
     let result;
     try {
@@ -17,7 +20,8 @@ export async function runMaintenance(token, fetcher = fetch, wait = delay) {
       else await response.body?.cancel().catch(() => {});
     } catch {
       // An unreadable completion is uncertain; never report it as success.
-      if (response?.ok && !signal.aborted) throw new Error("The maintenance endpoint did not confirm completion.");
+      // A deadline can leave hosted work running under its lease; do not retry it.
+      if (signal.aborted || response?.ok) throw new Error("The maintenance endpoint did not confirm completion.");
       if (attempt === 2) throw new Error("The maintenance endpoint could not be reached.");
       await wait(5000 * (attempt + 1));
       continue;
