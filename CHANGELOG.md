@@ -6,6 +6,12 @@
 - Add proposed authority-request procedures, blank records and adoption guidance; formal adoption and legal review remain pending.
 - Exclude local release workspaces and generated output from source checks, and align plugin manifests with package version 0.4.36.
 
+## 0.4.38 - 2026-10-31
+
+- Retry verified maintenance lease contention with bounded waits, preserving failure and uncertain-completion reporting.
+- Add an owner-session Windows backup trigger for the hosted GitHub maintenance workflow. Count backup cadence only after consecutive completed runs; retain cloud scheduling and the twenty-minute freshness threshold.
+- Prepare WhatsApp-specific reviewer instructions without granting reviewer access or renewing test sending.
+
 ## 0.4.37 - 2026-10-30
 
 - Add scoped routine organic publishing for Instagram/Facebook feeds and Stories and LinkedIn company feeds, with separate capability checks, encrypted media, immutable receipts, duplicate locks and read-only reconciliation.

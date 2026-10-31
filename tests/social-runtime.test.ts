@@ -90,3 +90,15 @@ test("hosted updater never retries after its deadline leaves completion uncertai
     assert.equal(calls,1);assert.equal(waits,0);
   } finally { AbortSignal.timeout = originalTimeout; }
 });
+
+test("hosted updater waits for confirmed lease contention and requires its own completion",async()=>{
+  let calls=0;const waits:number[]=[];
+  const result=await runMaintenance("synthetic-token",async()=>{
+    calls++;
+    return calls<3?new Response(null,{status:409,headers:{"x-senderdeck-maintenance-state":"busy"}}):Response.json({processed:true,reconciled:0,at:"2026-10-31T00:00:00Z"});
+  },async ms=>{waits.push(ms);});
+  assert.equal(calls,3);assert.deepEqual(waits,[30000,60000]);assert.equal(result.processed,true);
+  calls=0;
+  await assert.rejects(runMaintenance("synthetic-token",async()=>{calls++;return new Response(null,{status:409,headers:{"x-senderdeck-maintenance-state":"busy"}});},async()=>{}),/returned HTTP 409/);
+  assert.equal(calls,3);
+});

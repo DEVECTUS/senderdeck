@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '7-57/10 * * * *'
   workflow_dispatch:
+    inputs:
+      unattended:
+        description: Invoked by the installed maintenance backup scheduler
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,4 +29,5 @@ jobs:
       - name: Run authenticated hosted maintenance
         env:
           SOCIAL_MAINTENANCE_TOKEN: ${{ secrets.SOCIAL_MAINTENANCE_TOKEN }}
+          MAINTENANCE_UNATTENDED: ${{ inputs.unattended }}
         run: node scripts/run-social-maintenance.mjs

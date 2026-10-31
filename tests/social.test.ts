@@ -390,6 +390,31 @@ test("scheduler endpoint rejects anonymous callers and malformed browser request
   const f=await fixture();const denied=await handleSocial(new Request("https://senderdeck.test/api/social/maintenance",{method:"POST"}),f.env,()=>{});assert.equal(denied?.status,401);
   const malformed=await handleSocial(new Request("https://senderdeck.test/api/social",{method:"POST",headers:{origin:"https://senderdeck.test","content-type":"application/json","x-dev-user-email":"alice"},body:"null"}),f.env,()=>{});assert.equal(malformed?.status,400);
 });
+
+test("maintenance contention is explicitly retryable without changing completion evidence",async()=>{
+  const f=await fixture();const env={...f.env,SOCIAL_MAINTENANCE_TOKEN:"synthetic-maintenance"};
+  const request=(source="github_scheduled_dispatch")=>new Request("https://senderdeck.test/api/social/maintenance",{method:"POST",headers:{authorization:"Bearer synthetic-maintenance","x-senderdeck-maintenance-source":source}});
+  f.sql.prepare("INSERT INTO social_runtime VALUES ('maintenance_lease',?)").run(Date.now()+60000);
+  const busy=await handleSocial(request(),env,()=>{});
+  assert.equal(busy!.status,409);assert.equal(busy!.headers.get("x-senderdeck-maintenance-state"),"busy");assert.equal(busy!.headers.get("retry-after"),"30");
+  assert.equal((await maintenanceStatus(env)).backgroundScheduling,"unverified");
+  f.sql.prepare("DELETE FROM social_runtime WHERE key='maintenance_lease'").run();
+  const complete=await handleSocial(request(),env,()=>{});assert.equal(complete!.status,200);
+  assert.equal((await complete!.json() as {source:string}).source,"github_scheduled_dispatch");
+  assert.equal((await maintenanceStatus(env)).backgroundScheduling,"unverified");
+  await handleSocial(request(),env,()=>{});
+  assert.equal((await maintenanceStatus(env)).backgroundScheduling,"unverified");
+  f.sql.prepare("UPDATE social_runtime SET value=? WHERE key='maintenance_backup'").run(Date.now()-600000);
+  await handleSocial(request(),env,()=>{});
+  assert.equal((await maintenanceStatus(env)).backgroundScheduling,"recent");
+  for (const age of [-60000,60000,1200000]) {
+    f.sql.prepare("DELETE FROM social_runtime WHERE key='maintenance_scheduled'").run();
+    f.sql.prepare("UPDATE social_runtime SET value=? WHERE key='maintenance_backup'").run(Date.now()-age);
+    await handleSocial(request(),env,()=>{});
+    assert.equal((await maintenanceStatus(env)).backgroundScheduling,"unverified");
+  }
+  const disabled=await handleSocial(request(),{...env,SOCIAL_SCHEDULER_ENABLED:"false"},()=>{});assert.equal(disabled!.status,401);assert.equal(disabled!.headers.get("x-senderdeck-maintenance-state"),null);
+});
 test("failed queue processing retries are bounded and visible without retaining plaintext",async()=>{
   const f=await fixture();f.sql.prepare("INSERT INTO social_queue (id,account_id,encrypted,state,attempts,created_at,expires_at) VALUES ('bad',?,'broken-ciphertext','pending',4,?,?)").run(f.account.id,Date.now(),Date.now()+60000);
   await processQueue(f.env);const row=f.sql.prepare("SELECT state,attempts,error FROM social_queue WHERE id='bad'").get()!;assert.equal(row.state,"failed");assert.equal(row.attempts,5);assert.equal(row.error,"processing_failed");

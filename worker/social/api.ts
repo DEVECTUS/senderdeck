@@ -50,7 +50,7 @@ export async function handleSocial(request: Request, env: Env, defer: (p: Promis
       if (request.method !== "POST") throw new HttpError(405, "Method not allowed.");
       if (!env.SOCIAL_MAINTENANCE_TOKEN || env.SOCIAL_SCHEDULER_ENABLED !== "true" || !equalSecret(request.headers.get("authorization") || "", `Bearer ${env.SOCIAL_MAINTENANCE_TOKEN}`)) throw new HttpError(401, "Scheduler authentication required.");
       const source=request.headers.get("x-senderdeck-maintenance-source");
-      return Response.json(await runHostedMaintenance(env,source === "github_schedule" || source === "github_dispatch" ? source : "external"));
+      return Response.json(await runHostedMaintenance(env,source === "github_schedule" || source === "github_dispatch" || source === "github_scheduled_dispatch" ? source : "external"));
     }
     const metaPublishing=await metaPublishingCallback(request,env);if(metaPublishing)return metaPublishing;
     const linkedIn=await linkedInPublishingCallback(request,env);if(linkedIn)return linkedIn;
@@ -84,6 +84,11 @@ export async function handleSocial(request: Request, env: Env, defer: (p: Promis
     const result = await socialAction(body.action, body.args, env, user);
     return Response.json(result, {headers: {"cache-control": "no-store"}});
   } catch (error) {
+    // Only a verified lease collision is retryable. Configuration/authentication
+    // failures must never masquerade as successful maintenance or busy work.
+    if (path === "/api/social/maintenance" && error instanceof HttpError && error.status === 409 && error.message === "Hosted maintenance is already running. Refresh readiness shortly.") {
+      return Response.json({error:"Hosted maintenance is already running."}, {status:409,headers:{"cache-control":"no-store","retry-after":"30","x-senderdeck-maintenance-state":"busy"}});
+    }
     if(["/oauth/social/linkedin/callback","/oauth/social/publishing/meta/callback"].includes(path))return socialRedirect(env,"/publishing?connection=failed");
     if (["/oauth/social/meta/callback", "/oauth/social/whatsapp/callback"].includes(path)) return socialRedirect(env,`/connect/meta?connection=${error instanceof HttpError&&error.status===401?"restart_required":"failed"}${path.includes("/whatsapp/") ? "&provider=whatsapp" : ""}`);
     return Response.json({error: error instanceof HttpError ? error.message : "The social operation could not be completed."}, {status: error instanceof HttpError ? error.status : 500, headers: {"cache-control": "no-store"}});

@@ -5,7 +5,7 @@ const ENDPOINT = "https://senderdeck.devectus.com.au/api/social/maintenance";
 /** @param {string | undefined} token @param {typeof fetch} [fetcher] @param {(ms: number) => Promise<unknown>} [wait] */
 export async function runMaintenance(token, fetcher = fetch, wait = delay) {
   if (!token) throw new Error("The maintenance secret is not configured.");
-  const source = process.env.GITHUB_EVENT_NAME === "schedule" ? "github_schedule" : "github_dispatch";
+  const source = process.env.GITHUB_EVENT_NAME === "schedule" ? "github_schedule" : process.env.GITHUB_EVENT_NAME === "workflow_dispatch" && process.env.MAINTENANCE_UNATTENDED === "true" ? "github_scheduled_dispatch" : "github_dispatch";
   const deadline = Date.now() + 240000;
   for (let attempt = 0; ; attempt++) {
     // Use one deadline for both response headers and the completion body.
@@ -27,6 +27,12 @@ export async function runMaintenance(token, fetcher = fetch, wait = delay) {
       continue;
     }
     if (!response.ok) {
+      // Lease contention is safe to retry: the server has not started this run.
+      // An unmarked 409 still fails closed (configuration or unknown conflict).
+      if (response.status === 409 && response.headers.get("x-senderdeck-maintenance-state") === "busy" && attempt < 2) {
+        await wait(30000 * (attempt + 1));
+        continue;
+      }
       if ([502, 503, 504].includes(response.status) && attempt < 2) {
         await wait(5000 * (attempt + 1));
         continue;

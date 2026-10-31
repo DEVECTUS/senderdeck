@@ -157,13 +157,21 @@ export async function maintenance(env: Env) {
   await env.DB.prepare("INSERT INTO social_runtime (key,value) VALUES ('maintenance',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(Date.now()).run();
   return { processed: true, reconciled, at: new Date(at).toISOString() };
 }
-export async function runHostedMaintenance(env: Env, source: "operator"|"github_schedule"|"github_dispatch"|"native_cron"|"external") {
+export async function runHostedMaintenance(env: Env, source: "operator"|"github_schedule"|"github_dispatch"|"github_scheduled_dispatch"|"native_cron"|"external") {
   if (env.SOCIAL_SCHEDULER_ENABLED !== "true") throw new HttpError(409, "Hosted maintenance is not configured.");
   const lease=Date.now()+300000;
   const claim=await env.DB.prepare("INSERT INTO social_runtime (key,value) VALUES ('maintenance_lease',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE social_runtime.value<? RETURNING value").bind(lease,Date.now()).first();
   if (!claim) throw new HttpError(409, "Hosted maintenance is already running. Refresh readiness shortly.");
   try {
     const result=await maintenance(env);
+    // The dispatch input is caller-supplied provenance, not proof of a clock.
+    // Require consecutive completed runs at the backup's expected cadence.
+    if (source === "github_scheduled_dispatch") {
+      const completedAt=Date.now();
+      const previous=await env.DB.prepare("SELECT value FROM social_runtime WHERE key='maintenance_backup'").first<{value:number}>();
+      await env.DB.prepare("INSERT INTO social_runtime (key,value) VALUES ('maintenance_backup',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(completedAt).run();
+      if (previous && completedAt-previous.value>=300000 && completedAt-previous.value<=900000) await env.DB.prepare("INSERT INTO social_runtime (key,value) VALUES ('maintenance_scheduled',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(completedAt).run();
+    }
     if (source === "github_schedule" || source === "native_cron") await env.DB.prepare("INSERT INTO social_runtime (key,value) VALUES ('maintenance_scheduled',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(Date.now()).run();
     return {...result,source};
   } finally {
