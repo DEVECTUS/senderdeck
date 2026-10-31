@@ -420,6 +420,21 @@ test("failed queue processing retries are bounded and visible without retaining 
   await processQueue(f.env);const row=f.sql.prepare("SELECT state,attempts,error FROM social_queue WHERE id='bad'").get()!;assert.equal(row.state,"failed");assert.equal(row.attempts,5);assert.equal(row.error,"processing_failed");
   const activity=await socialAction("social_activity_list",{brandId:f.brandId},f.env,"alice") as {processing:unknown[]};assert.equal(activity.processing.length,1);
 });
+
+test("dedicated cloud scheduler key cannot use legacy route or choose caller provenance",async()=>{
+  const f=await fixture();const env={...f.env,SOCIAL_MAINTENANCE_TOKEN:"legacy-key",SOCIAL_CLOUD_MAINTENANCE_TOKEN:"cloud-key"};
+  const request=(key:string,path="/api/social/maintenance/cloud",method="POST")=>new Request(`https://senderdeck.test${path}`,{method,headers:{authorization:`Bearer ${key}`,"x-senderdeck-maintenance-source":"operator"}});
+  for(const key of ["", "legacy-key", "wrong-key"])assert.equal((await handleSocial(request(key),env,()=>{}))!.status,401);
+  assert.equal((await handleSocial(request("cloud-key","/api/social/maintenance"),env,()=>{}))!.status,401);
+  assert.equal((await handleSocial(request("cloud-key","/api/social/maintenance/cloud","GET"),env,()=>{}))!.status,405);
+  assert.equal((await handleSocial(request("cloud-key"),{...env,SOCIAL_SCHEDULER_ENABLED:"false"},()=>{}))!.status,401);
+  f.sql.prepare("INSERT INTO social_runtime VALUES ('maintenance_lease',?)").run(Date.now()+60000);
+  const busy=await handleSocial(request("cloud-key"),env,()=>{});assert.equal(busy!.status,409);assert.equal(busy!.headers.get("x-senderdeck-maintenance-state"),"busy");
+  assert.equal(f.sql.prepare("SELECT value FROM social_runtime WHERE key='maintenance_cloud'").get(),undefined);
+  f.sql.prepare("DELETE FROM social_runtime WHERE key='maintenance_lease'").run();
+  const result=await handleSocial(request("cloud-key"),env,()=>{});assert.equal(result!.status,200);assert.equal((await result!.json() as {source:string}).source,"cloud_cron");
+  assert.equal((await maintenanceStatus(env)).backgroundScheduling,"recent");assert.ok(f.sql.prepare("SELECT value FROM social_runtime WHERE key='maintenance_cloud'").get());
+});
 test("LinkedIn API identities cannot be linked and identity linking requires customer confirmation",async()=>{
   const f=await fixture();await assert.rejects(socialAction("social_identity_link",{brandId:f.brandId,identities:[{accountId:f.account.id,identity:"person"},{accountId:f.account.id,identity:"other"}],confirmed:false},f.env,"alice"),/confirmation/);
   f.sql.prepare("UPDATE social_accounts SET provider='linkedin' WHERE id=?").run(f.account.id);

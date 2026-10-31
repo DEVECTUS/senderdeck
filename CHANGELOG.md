@@ -6,6 +6,11 @@
 - Add proposed authority-request procedures, blank records and adoption guidance; formal adoption and legal review remain pending.
 - Exclude local release workspaces and generated output from source checks, and align plugin manifests with package version 0.4.36.
 
+## 0.4.39 - 2026-10-31
+
+- Add a dedicated cloud maintenance endpoint and independently scoped timer key, with completion evidence separate from GitHub and PC scheduling.
+- Provide a private Cloudflare Cron Worker that calls only that endpoint every ten minutes. Deployment requires the owner's confirmed DEVECTUS Cloudflare account; no customer sending or provider permissions change.
+
 ## 0.4.38 - 2026-10-31
 
 - Retry verified maintenance lease contention with bounded waits, preserving failure and uncertain-completion reporting.

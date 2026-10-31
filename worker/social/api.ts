@@ -46,6 +46,12 @@ export async function handleSocial(request: Request, env: Env, defer: (p: Promis
     }
     if (path === "/api/social/webhooks/meta") return await receiveMeta(request, env, defer);
     if (["/api/social/meta/deauthorize", "/api/social/meta/delete"].includes(path)) return await metaDeletion(request, env);
+    if (path === "/api/social/maintenance/cloud") {
+      if (request.method !== "POST") throw new HttpError(405, "Method not allowed.");
+      if (!env.SOCIAL_CLOUD_MAINTENANCE_TOKEN || env.SOCIAL_SCHEDULER_ENABLED !== "true" || !equalSecret(request.headers.get("authorization") || "", `Bearer ${env.SOCIAL_CLOUD_MAINTENANCE_TOKEN}`)) throw new HttpError(401, "Scheduler authentication required.");
+      // Dedicated key and route: caller-controlled headers cannot select source.
+      return Response.json(await runHostedMaintenance(env,"cloud_cron"));
+    }
     if (path === "/api/social/maintenance") {
       if (request.method !== "POST") throw new HttpError(405, "Method not allowed.");
       if (!env.SOCIAL_MAINTENANCE_TOKEN || env.SOCIAL_SCHEDULER_ENABLED !== "true" || !equalSecret(request.headers.get("authorization") || "", `Bearer ${env.SOCIAL_MAINTENANCE_TOKEN}`)) throw new HttpError(401, "Scheduler authentication required.");
@@ -86,7 +92,7 @@ export async function handleSocial(request: Request, env: Env, defer: (p: Promis
   } catch (error) {
     // Only a verified lease collision is retryable. Configuration/authentication
     // failures must never masquerade as successful maintenance or busy work.
-    if (path === "/api/social/maintenance" && error instanceof HttpError && error.status === 409 && error.message === "Hosted maintenance is already running. Refresh readiness shortly.") {
+    if ((path === "/api/social/maintenance" || path === "/api/social/maintenance/cloud") && error instanceof HttpError && error.status === 409 && error.message === "Hosted maintenance is already running. Refresh readiness shortly.") {
       return Response.json({error:"Hosted maintenance is already running."}, {status:409,headers:{"cache-control":"no-store","retry-after":"30","x-senderdeck-maintenance-state":"busy"}});
     }
     if(["/oauth/social/linkedin/callback","/oauth/social/publishing/meta/callback"].includes(path))return socialRedirect(env,"/publishing?connection=failed");

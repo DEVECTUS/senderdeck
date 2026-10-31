@@ -1,0 +1,15 @@
+# Cloud maintenance release handoff
+
+Direct owner request31October2026: move maintenance into reliable cloud execution independent of the owner's PC. Owner confirmed use of the existing DEVECTUS Cloudflare account; switching/authenticating that account is pending user action. This document is implementation preparation, not a deployment receipt.
+
+Base: live saved77, source9c8fd82826afa97c702568b366d92a67d0d680b7, runtime revision30. Version0.4.39 reserved by Publisher. Package, lockfile, both plugin manifests and marketplace catalog remain aligned.
+
+Changes: a dedicated POST-only `/api/social/maintenance/cloud` authenticates with new `SOCIAL_CLOUD_MAINTENANCE_TOKEN`, never the existing GitHub token, and fixes source to `cloud_cron` server-side. Authenticated completed work writes `maintenance_cloud` and `maintenance_scheduled`; authentication failures, lease contention and failed work do not create a success receipt. Existing global scheduler enable flag, leases, retention, twenty-minute freshness and sending controls remain intact. No database migration.
+
+The separate private Worker in `infra/maintenance-timer` has one fixed outbound URL, one dedicated `MAINTENANCE_TOKEN` secret and a ten-minute managed Cron. No public Worker URL, preview URL, storage binding, customer account credential, message send capability or AI task. It validates completion, refuses redirects, retries only marked lease contention, and surfaces uncertain completion without resending. Configuration/account selection and deployment instructions are in its README.
+
+Deployment through Publisher only: confirm exact DEVECTUS account after user authorization; check the exact Worker name for an existing deployment; do not alter unrelated Workers/accounts or activate paid billing. Generate the paired dedicated key in memory and configure both sides through protected secret inputs. Keep existing runtime entries and public audience unchanged. Stage the timer without enabled cron until both the key and app route are ready, then enable its recorded cron. Never export an old masked hosting secret. Public `/health` should show0.4.39 after the application deployment.
+
+Acceptance: actual Cloudflare schedule readback plus a genuine unattended execution and supported DB readback of `maintenance_cloud`/`maintenance_scheduled`. Source code, a deployment receipt or clock configuration alone is insufficient. After that verification disable only Windows task **SenderDeck Maintenance Backup**, retaining logs and GitHub fallback. Record exact cloud account/Worker version/cron, last completion and task-disable receipt separately in `work/` so verified build inputs stay fixed. No perfect-uptime guarantee; freshness must still fail closed on sustained cloud outages.
+
+Rollback: pause only the dedicated timer's cron, preserve audit logs, and redeploy saved77 through Publisher if needed. Remove only the new paired timer key when retiring it. Keep existing GitHub secret and schedule. Re-enable the Windows task only as a labelled temporary device-dependent fallback if needed. No message sending, WhatsApp registration, review submission or Twilio voice/SMS changes.
