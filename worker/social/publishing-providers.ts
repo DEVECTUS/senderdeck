@@ -7,7 +7,10 @@ import { isStory, providerFor, safeUrl, PublishingProviderError, sydneyTime, typ
 import { mediaBytes, providerMediaUrl } from "./publishing-media";
 
 type ObjectData=Record<string,unknown>;
-export const LINKEDIN_SCOPES=["r_organization_admin","r_organization_social","w_organization_social"];
+// Community Management provides rw_organization_admin. The read-only variant
+// belongs to other products, but remains valid for an existing role-check grant.
+export const LINKEDIN_SCOPES=["rw_organization_admin","r_organization_social","w_organization_social"];
+function missingLinkedinScopes(scopes:string[]) {return LINKEDIN_SCOPES.filter(scope=>!scopes.includes(scope)&&!(scope==="rw_organization_admin"&&scopes.includes("r_organization_admin")));}
 export interface PublishGrant {token:string;account:SocialAccount;channel:PublishChannel;business:boolean;person?:string}
 export function requiredPublishScopes(channel:PublishChannel) {return channel.startsWith("facebook")?["pages_manage_posts","pages_read_engagement","pages_show_list"]:channel.startsWith("instagram")?["instagram_basic","instagram_content_publish","pages_read_engagement","pages_show_list"]:LINKEDIN_SCOPES;}
 export function localPublishBlockers(env:Env,account:SocialAccount,channel:PublishChannel) {
@@ -16,7 +19,7 @@ export function localPublishBlockers(env:Env,account:SocialAccount,channel:Publi
   if(!account.token||["revoked","expired","pending_authorization"].includes(account.status))blockers.push("connected_publishing_grant_required");
   if(account.expires_at&&account.expires_at<=Date.now())blockers.push("publishing_grant_expired");
   const scopes=JSON.parse(account.permissions) as string[];
-  blockers.push(...requiredPublishScopes(channel).filter(s=>!scopes.includes(s)).map(s=>`missing_scope:${s}`));
+  blockers.push(...(account.provider==="linkedin"?missingLinkedinScopes(scopes):requiredPublishScopes(channel).filter(s=>!scopes.includes(s))).map(s=>`missing_scope:${s}`));
   if(account.provider==="linkedin"&&(!env.LINKEDIN_CLIENT_ID||!env.LINKEDIN_CLIENT_SECRET||env.LINKEDIN_COMMUNITY_APPROVED!=="true"))blockers.push("linkedin_approved_app_configuration_required");
   return blockers;
 }
@@ -38,7 +41,7 @@ export async function linkedinTokenInfo(env:Env,token:string) {
   const data=await linkedinAuth(env,"introspectToken",{token});
   if(data.active!==true||data.client_id!==env.LINKEDIN_CLIENT_ID||data.auth_type!=="3L"||typeof data.expires_at!=="number"||data.expires_at*1000<=Date.now())throw new HttpError(409,"The LinkedIn member grant is invalid, expired or belongs to another app.");
   const permissions=typeof data.scope==="string"?data.scope.split(/[,\s]+/).filter(Boolean):[];
-  if(LINKEDIN_SCOPES.some(s=>!permissions.includes(s)))throw new HttpError(409,"The LinkedIn grant lacks approved organization publishing, readback or role-check permission.");
+  if(missingLinkedinScopes(permissions).length)throw new HttpError(409,"The LinkedIn grant lacks approved organization publishing, readback or role-check permission.");
   return {permissions,expiresAt:data.expires_at*1000};
 }
 export async function linkedinApi(env:Env,token:string,path:string,body?:ObjectData) {
