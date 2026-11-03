@@ -40,7 +40,8 @@ export default function Publishing(){
   {message&&<p className="social-alert" role="status">{message}</p>}
   {brandId&&<>
    <div className="publishing-section-head"><div><h2>Daily topics and receipts</h2><p>{items.length} topics · {publishedCount} fully published</p></div><label className="publishing-filter">Show<select aria-label="Show topics" value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All topics</option><option value="published">Published</option><option value="attention">Not fully published</option></select></label></div>
-   <div className="publishing-table-wrap"><table className="publishing-table" aria-label="Daily topics and destination receipts">
+   <p className="publishing-scroll-hint">Scroll across to see all five destinations.</p>
+   <div className="publishing-table-wrap" role="region" aria-label="Scrollable publishing receipts" tabIndex={0}><table className="publishing-table" aria-label="Daily topics and destination receipts">
     <thead><tr><th scope="col">Date</th><th scope="col">Topic</th>{destinations.map(ch=><th scope="col" key={ch}><span className="publishing-channel"><ProviderIcon provider={ch.split("_")[0]} size={16}/>{channelLabel(ch)}</span></th>)}<th scope="col"><span className="publishing-sr-only">Topic actions</span></th></tr></thead>
     <tbody>{!visibleItems.length?<tr><td colSpan={8} className="publishing-empty">{items.length?"No topics match this filter.":"No daily topics loaded."}</td></tr>:visibleItems.map(item=>{
      const detail=selected?.itemId===item.itemId?item.deliveries.find(d=>d.channel===selected.channel):null;
