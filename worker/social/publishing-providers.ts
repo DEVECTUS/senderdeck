@@ -11,7 +11,7 @@ type ObjectData=Record<string,unknown>;
 // belongs to other products, but remains valid for an existing role-check grant.
 export const LINKEDIN_SCOPES=["rw_organization_admin","r_organization_social","w_organization_social"];
 function missingLinkedinScopes(scopes:string[]) {return LINKEDIN_SCOPES.filter(scope=>!scopes.includes(scope)&&!(scope==="rw_organization_admin"&&scopes.includes("r_organization_admin")));}
-export interface PublishGrant {token:string;account:SocialAccount;channel:PublishChannel;business:boolean;person?:string}
+export interface PublishGrant {token:string;account:SocialAccount;channel:PublishChannel;person?:string}
 export function requiredPublishScopes(channel:PublishChannel) {return channel.startsWith("facebook")?["pages_manage_posts","pages_read_engagement","pages_show_list"]:channel.startsWith("instagram")?["instagram_basic","instagram_content_publish","pages_read_engagement","pages_show_list"]:LINKEDIN_SCOPES;}
 export function localPublishBlockers(env:Env,account:SocialAccount,channel:PublishChannel) {
   const blockers:string[]=[];
@@ -60,7 +60,7 @@ export async function publishingGrant(env:Env,account:SocialAccount,channel:Publ
   if(account.provider==="linkedin"){
     const token=await decrypt(account.token!,env.TOKEN_ENCRYPTION_KEY);await linkedinTokenInfo(env,token);const roles=await linkedinOrganizations(env,token);const organization=`urn:li:organization:${account.asset_id}`;
     if(!roles.some(row=>(row.organization||row.organizationTarget)===organization&&row.roleAssignee===account.provider_user_id))throw new HttpError(403,"The connected LinkedIn member no longer has the required role for this exact organization.");
-    const {data}=await linkedinApi(env,token,`/organizations/${account.asset_id}`);if(String(data.id)!==account.asset_id)throw new HttpError(403,"LinkedIn organization identity did not match.");return {token,account,channel,business:true,person:account.provider_user_id!};
+    const {data}=await linkedinApi(env,token,`/organizations/${account.asset_id}`);if(String(data.id)!==account.asset_id)throw new HttpError(403,"LinkedIn organization identity did not match.");return {token,account,channel,person:account.provider_user_id!};
   }
   if(!account.user_token||!account.provider_user_id||!env.META_APP_ID||!env.META_APP_SECRET)throw new HttpError(409,"A current app-bound Meta user grant is required for publishing.");
   const userToken=await decrypt(account.user_token,env.TOKEN_ENCRYPTION_KEY);const grant=await discover(env,userToken);if(grant.providerUserId!==account.provider_user_id)throw new HttpError(403,"The Meta granting identity no longer matches this account.");
@@ -68,10 +68,12 @@ export async function publishingGrant(env:Env,account:SocialAccount,channel:Publ
   const asset=grant.candidates.find(a=>a.provider===account.provider&&a.assetId===account.asset_id&&a.parentId===(account.parent_id||account.asset_id));if(!asset)throw new HttpError(403,"The publishing destination is not in this exact grant.");
   if(!asset.tasks.some(task=>["CREATE_CONTENT","MANAGE"].includes(task)))throw new HttpError(409,"The current Page grant does not verify content-creation tasks.");
   const token=account.provider==="instagram"?userToken:await decrypt(account.token!,env.TOKEN_ENCRYPTION_KEY);const tokenInfo=await inspectToken(env,token);if(tokenInfo.providerUserId!==account.provider_user_id)throw new HttpError(403,"The saved publishing credential belongs to a different granting identity.");
-  const info=await graph(token,account.asset_id,{fields:account.provider==="instagram"?"id,username,account_type":"id,name"});if(info.id!==account.asset_id)throw new HttpError(403,"The provider destination identity did not match.");
-  const business=account.provider==="facebook"||info.account_type==="BUSINESS";
-  if(channel==="instagram_story"&&!business)throw new HttpError(409,"Instagram Story publishing requires a verified Business account, separately from feed publishing.");
-  return {token,account,channel,business};
+  const info=await graph(token,account.asset_id,{fields:account.provider==="instagram"?"id,username":"id,name"});if(info.id!==account.asset_id)throw new HttpError(403,"The provider destination identity did not match.");
+  // Facebook Login's IG User object does not expose account_type. The exact
+  // Page-linked professional account, grant and tasks are verified above.
+  // Meta enforces Story eligibility on creation of the unpublished STORIES
+  // container; a rejected or unfinished container must never be published.
+  return {token,account,channel};
 }
 export function validatePublishingImage(media:Media,channel:PublishChannel) {
   if(media.state!=="ready"||!media.width||!media.height||media.bytes>4*1024*1024)throw new HttpError(409,"Use a completed image upload up to 4 MiB.");

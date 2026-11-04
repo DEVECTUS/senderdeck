@@ -28,7 +28,7 @@ export async function fixture(t:TestContext){
   if(path==="oauth/access_token")return Response.json({access_token:"user-token"});
   if(path==="debug_token")return Response.json({data:{is_valid:true,app_id:"platform",user_id:"meta-user",scopes:permissions,expires_at:Math.floor(Date.now()/1000)+86400}});
   if(path==="me/accounts")return Response.json({data:[{id:"101",name:"Synthetic Page",access_token:"facebook-token",tasks:["CREATE_CONTENT","MANAGE"],instagram_business_account:{id:"202"}}]});
-  if(path==="101")return Response.json({id:"101",name:"Synthetic Page"});if(path==="202")return Response.json({id:"202",username:"synthetic",account_type:"BUSINESS"});
+  if(path==="101")return Response.json({id:"101",name:"Synthetic Page"});if(path==="202"){assert.ok(!u.searchParams.get("fields")?.split(",").includes("account_type"),"Facebook Login IG User does not support account_type");return Response.json({id:"202",username:"synthetic"});}
   if(path.startsWith("/rest/organizationAcls"))return Response.json({elements:[{organization:"urn:li:organization:303",roleAssignee:"urn:li:person:synthetic",role:"ADMINISTRATOR",state:"APPROVED"}]});
   if(path==="/rest/organizations/303")return Response.json({id:303,localizedName:"Synthetic company"});
   if(method==="POST"&&path==="/rest/images") {writes.push({path,params:JSON.parse(String(init?.body))});return Response.json({value:{uploadUrl:"https://www.linkedin.com/dms-uploads/synthetic",image:"urn:li:image:synthetic",uploadUrlExpiresAt:Date.now()+60000}});}
