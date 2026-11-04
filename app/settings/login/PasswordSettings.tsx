@@ -1,4 +1,5 @@
 "use client";
+import DataLoading from "../../DataLoading";
 import { useEffect, useState } from "react";
 
 export default function PasswordSettings({ email }: { email: string }) {
@@ -14,6 +15,7 @@ export default function PasswordSettings({ email }: { email: string }) {
     <p>Before adding a password, sign in with Google or Microsoft within the last 15 minutes. Changing an existing password requires your current SenderDeck password and signs out other browser sessions.</p>
     <a href="/signin/switch?return_to=%2Fsettings%2Flogin">Sign in again to this account</a>
     {message && <p role="status" aria-live="polite">{message}</p>}
+    {!status&&!message&&<DataLoading label="Loading sign-in settings…"/>}
     {status && <form className="reviewer-form" onSubmit={async event => {
       event.preventDefault(); const form = event.currentTarget; const fields = new FormData(form);
       if (fields.get("password") !== fields.get("confirmPassword")) { setMessage("The new passwords do not match."); return; }

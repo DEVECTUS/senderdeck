@@ -1,6 +1,7 @@
 "use client";
 
 import ProviderIcon from "./ProviderIcon";
+import DataLoading from "./DataLoading";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 type Provider = "google" | "microsoft";
@@ -32,6 +33,7 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const loadAccounts = useCallback(async () => {
+    setLoading(true);
     try {
       const response = await fetch("/api/accounts", { cache: "no-store" });
       const data = (await response.json()) as AccountResponse;
@@ -128,7 +130,7 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
   }
 
   return (
-    <section className="connections" id="connections" aria-labelledby="connections-title">
+    <section className="connections" id="connections" aria-labelledby="connections-title" aria-busy={loading}>
       <div className="connections-heading">
         <div>
 
@@ -138,8 +140,8 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
           </p>
         </div>
         <div className="connection-summary">
-          <span className="account-count">{accounts.length} / {limit} connected</span>
-          <button className="refresh-button" type="button" onClick={() => void loadAccounts()}>
+          <span className="account-count">{loading?"Loading…":`${accounts.length} / ${limit} connected`}</span>
+          <button className="refresh-button" type="button" disabled={loading} onClick={() => void loadAccounts()}>
             Refresh list
           </button>
         </div>
@@ -152,9 +154,8 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
         </div>
       ) : null}
 
-      {loading ? (
-        <p className="manager-status" role="status">Loading connected accounts…</p>
-      ) : accounts.length ? (
+      {loading&&<DataLoading label={accounts.length?"Refreshing email accounts…":"Loading connected email accounts…"} compact={accounts.length>0}/>}
+      {accounts.length ? (
         <div className="account-list">
           {accounts.map((account) => (
             <article className="account-card" id={`account-${account.id}`} key={account.id}>
@@ -229,12 +230,12 @@ export default function AccountManager({ userEmail }: { userEmail: string }) {
             </article>
           ))}
         </div>
-      ) : (
+      ) : !loading&&!error ? (
         <div className="empty-accounts">
           <h3>No email accounts connected yet</h3>
           <p>Choose a provider below to connect your first account.</p>
         </div>
-      )}
+      ) : null}
 
       <div className="connect-another">
         <div>

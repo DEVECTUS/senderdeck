@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import DataLoading from "./DataLoading";
 import ConnectionCatalog from "./ConnectionCatalog";
 import ConnectionTable, { channelNames } from "./ConnectionTable";
 import { loadAccountOverview, type EmailConnection, type SocialConnection, type OverviewWorkspace } from "./account-overview-data";
@@ -26,7 +27,8 @@ export default function AccountOverview(_props: { authSource?: string; summary?:
   const counts: Record<string, number | undefined> = {};
   for (const channel of ["google", "microsoft"]) counts[channel] = emailAvailable ? emails.filter(account => account.provider === channel).length : undefined;
   for (const channel of ["facebook", "instagram", "whatsapp"]) counts[channel] = socialComplete && workspace ? accounts.filter(account => account.provider === channel).length : undefined;
-  return <section className="connections-list" aria-label="Your connections">
+  const hasRows=emails.length+accounts.length>0;
+  return <section className="connections-list" aria-label="Your connections" aria-busy={loading}>
     <div className="connections-toolbar">
       <label><span className="sr-only">Search connected accounts</span><input type="search" placeholder="Search accounts or brands" value={query} onChange={event => setQuery(event.target.value)}/></label>
       <label><span className="sr-only">Channel</span><select value={provider} onChange={event => setProvider(event.target.value)}><option value="all">All channels</option>{Object.entries(channelNames).map(([key, name]) => <option key={key} value={key}>{name}</option>)}</select></label>
@@ -34,7 +36,8 @@ export default function AccountOverview(_props: { authSource?: string; summary?:
       <button type="button" disabled={loading} onClick={() => setRefresh(value => value + 1)}>Refresh</button>
     </div>
     {errors.length > 0 && <p className="connections-error" role="alert">{errors.join(" ")}</p>}
-    <ConnectionTable emails={emails} accounts={accounts} workspace={workspace} query={query} provider={provider} loading={loading} failedBrandIds={failedBrandIds}/>
+    {loading&&<DataLoading label={hasRows?"Refreshing connections…":"Loading connections…"} compact={hasRows}/>}
+    {(!loading||hasRows)&&<ConnectionTable emails={emails} accounts={accounts} workspace={workspace} query={query} provider={provider} loading={loading} failedBrandIds={failedBrandIds}/>}
     <ConnectionCatalog counts={counts} loading={loading}/>
   </section>;
 }

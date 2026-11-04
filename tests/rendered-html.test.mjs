@@ -25,8 +25,8 @@ test("renders the gated social workspace and links the existing email experience
   const response = await worker.fetch(new Request("http://localhost/conversations", {headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com"}}), baseEnv, context);
   assert.equal(response.status,200);
   const html = await response.text();
-  assert.match(html,/<h1[^>]*>Conversations<\/h1>/); assert.match(html,/Social activation pending/); assert.match(html,/No social account is connected automatically/); assert.match(html,/href="\/settings"/);
-  assert.match(html,/placeholder="Your brand name"/); assert.doesNotMatch(html,/name="preset"/);
+  assert.match(html,/<h1[^>]*>Conversations<\/h1>/); assert.match(html,/Social activation pending/); assert.match(html,/href="\/settings"/);
+  assert.match(html,/Loading your workspace/); assert.doesNotMatch(html,/placeholder="Your brand name"/); assert.doesNotMatch(html,/name="preset"/);
 });
 test("social setup reports provider gates and never claims LinkedIn coverage", async () => {
   const worker = await loadWorker();
@@ -144,10 +144,12 @@ test("signed-in Overview and Connections lead with a compact account table", asy
     const response = await worker.fetch(new Request(`http://localhost${path}`, { headers: { accept: "text/html", "oai-authenticated-user-email": "owner@example.com" } }), baseEnv, context);
     assert.equal(response.status, 200);
     const html = await response.text();
-    assert.match(html, /aria-label="Connected accounts"/);
+    assert.match(html, /Loading connections/);
+    assert.match(html, /role="status"/);
+    assert.doesNotMatch(html, /No connections loaded|No matching connections/);
     assert.match(html, /Search connected accounts/);
     assert.match(html, /<summary>Add connection<\/summary>/);
-    assert.ok(html.indexOf('aria-label="Connected accounts"') < html.indexOf('<summary>Add connection</summary>'));
+    assert.ok(html.indexOf("Loading connections") < html.indexOf('<summary>Add connection</summary>'));
     assert.doesNotMatch(html, /channel-card|overview-stats|Your next step|CHOOSE YOUR CHANNEL/);
     assert.match(html, /aria-label="Main navigation"/);
     assert.match(html, /href="\/accounts"/);
@@ -453,5 +455,5 @@ test("WhatsApp setup explains provider refusal without offering migration as rec
 
 test("publishing workspace renders separate authority and scoped brand controls",async()=>{
  const worker=await loadWorker();const response=await worker.fetch(new Request("http://localhost/publishing",{headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com"}}),baseEnv,context);
- assert.equal(response.status,200);const html=await response.text();assert.match(html,/<h1[^>]*>Publishing<\/h1>/);assert.match(html,/Delivery status and provider receipts for your selected brand/);assert.match(html,/Choose a brand/);assert.match(html,/href="\/publishing"/);
+ assert.equal(response.status,200);const html=await response.text();assert.match(html,/<h1[^>]*>Publishing<\/h1>/);assert.match(html,/Delivery status and provider receipts for your selected brand/);assert.match(html,/Loading brands/);assert.doesNotMatch(html,/Publishing disabled|No publishing activity recorded/);assert.match(html,/href="\/publishing"/);
 });

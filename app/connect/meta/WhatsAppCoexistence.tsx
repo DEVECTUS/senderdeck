@@ -1,4 +1,5 @@
 "use client";
+import DataLoading from "../../DataLoading";
 import { useEffect, useRef, useState } from "react";
 
 type Setup={configured:boolean;appId:string|null;configId:string|null;graphVersion:string};
@@ -51,6 +52,7 @@ export default function WhatsAppCoexistence({brandId}:{brandId:string}){
     <p>Meta may unlink companion devices and change features such as broadcasts and disappearing messages. Review <a href="https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/onboarding-business-app-users" target="_blank" rel="noreferrer">Meta’s feature changes</a> before approving. SenderDeck never registers, deregisters or migrates your phone number.</p>
     <p>Keep the Business app open during initial sync. Message history is retained under your brand’s retention period; contacts sync is acknowledged without importing your phone address book. Sharing history is your choice in Meta. Templates and media sending remain unavailable.</p>
     {error&&<p role="alert">{error}</p>}
+    {!setup&&!error&&<DataLoading label="Loading WhatsApp connection settings…"/>}
     {setup&&!setup.configured&&<p role="status">Coexistence configuration is pending. The operator must complete Meta Tech Provider access and configure a separate WhatsApp Embedded Signup flow. Your existing phone app is unchanged.</p>}
     {result?<><p role="status">Meta verified Coexistence. Connection state: {result.coexistence?.status||"needs review"}. Contacts: {result.coexistence?.contacts_state||"unverified"}. History: {result.coexistence?.history_state||"unverified"} ({result.coexistence?.history_progress||0}% reported). Queued events: {result.queuedEvents}.</p>
       <p>Request acceptance does not establish complete history or live delivery. Replies retain exact draft approval and the 24-hour response window.</p>

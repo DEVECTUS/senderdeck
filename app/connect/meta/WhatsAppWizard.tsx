@@ -1,4 +1,5 @@
 "use client";
+import DataLoading from "../../DataLoading";
 import { useEffect, useState } from "react";
 import MetaChannelNav from "./MetaChannelNav";
 import WhatsAppCoexistence from "./WhatsAppCoexistence";
@@ -8,11 +9,12 @@ async function action<T>(name:string,args:Record<string,unknown>):Promise<T> {
   const result=await response.json();if(!response.ok)throw new Error(result.error||"Please try again.");return result;
 }
 export default function WhatsAppWizard({ initialBrandId = "" }: { initialBrandId?: string }){
+  const [loading,setLoading]=useState(true);
   const [mode,setMode]=useState("coexistence");
   const [brands,setBrands]=useState<Array<{id:string;name:string}>>([]),[brandId,setBrandId]=useState(initialBrandId),[grantId,setGrantId]=useState("");
   const [wabaId,setWabaId]=useState(""),[assets,setAssets]=useState<Asset[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
   const run=async(fn:()=>Promise<void>)=>{setBusy(true);setError("");try{await fn();}catch(e){setError(e instanceof Error?e.message:"Please try again.");}finally{setBusy(false);}};
-  useEffect(()=>{const query=new URLSearchParams(location.search);setBrandId(query.get("brand")||"");if(query.get("grant"))setMode("cloud");else if(query.get("mode")==="cloud")setMode("cloud");setGrantId(query.get("grant")||"");if(query.get("connection"))setError("Authorisation was cancelled, expired or failed. Please restart the connection.");void action<{brands:Array<{id:string;name:string}>}>("social_workspace_list",{}).then(r=>setBrands(r.brands)).catch(e=>setError(e.message));},[]);
+  useEffect(()=>{const query=new URLSearchParams(location.search);setBrandId(query.get("brand")||"");if(query.get("grant"))setMode("cloud");else if(query.get("mode")==="cloud")setMode("cloud");setGrantId(query.get("grant")||"");if(query.get("connection"))setError("Authorisation was cancelled, expired or failed. Please restart the connection.");void action<{brands:Array<{id:string;name:string}>}>("social_workspace_list",{}).then(r=>setBrands(r.brands)).catch(e=>setError(e.message)).finally(()=>setLoading(false));},[]);
   return <div className="setup-wizard meta-connect"><header><a href="/accounts">← Connections</a><p className="workspace-kicker">WHATSAPP BUSINESS</p><h1>Connect your business number</h1><p>Choose how you use WhatsApp today. Meta authorises the connection; SenderDeck then checks the number and message delivery.</p></header>
     <MetaChannelNav active="whatsapp" brandId={brandId}/>
     <ol className="connection-steps" aria-label="WhatsApp connection steps"><li className={!brandId ? "current" : "complete"}><span>1</span>Choose brand and number type</li><li className={brandId && !grantId ? "current" : ""}><span>2</span>Authorise with Meta</li><li className={grantId ? "current" : ""}><span>3</span>Verify connection and delivery</li></ol>
@@ -20,7 +22,8 @@ export default function WhatsAppWizard({ initialBrandId = "" }: { initialBrandId
     <details className="connection-details"><summary>Messages, history and reply limits</summary><p>Messages received through signed webhooks are encrypted and kept under the brand’s retention policy. Outside Meta’s optional initial Coexistence sync, older or missed messages cannot be fetched. Text replies use the existing draft, inspection and explicit approval workflow within the 24-hour reply window. Templates and media sending are unavailable.</p></details>
     {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
     {!grantId&&<label>How is this number used today?<select value={mode} onChange={e=>setMode(e.target.value)}><option value="coexistence">Keep the existing WhatsApp Business phone app</option><option value="cloud">Number already registered with Cloud API</option></select><small>{mode === "coexistence" ? "Use this for a number already working in the WhatsApp Business app on your phone. Regular WhatsApp is a different app." : "Use this only for an existing Cloud API number. This is not a workaround for blocked Coexistence onboarding."}</small></label>}
-    <fieldset disabled={busy}><label>Brand<select value={brandId} disabled={!!grantId} onChange={e=>{setBrandId(e.target.value);setAssets([]);}}><option value="">Choose a brand</option>{brands.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+    {loading&&<DataLoading label="Loading your brands…"/>}
+    <fieldset disabled={busy||loading}><label>Brand<select value={brandId} disabled={!!grantId} onChange={e=>{setBrandId(e.target.value);setAssets([]);}}><option value="">Choose a brand</option>{brands.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
     {mode === "coexistence" ? null : !grantId?<button disabled={!brandId} onClick={()=>void run(async()=>{const result=await action<{authorizationUrl:string}>("social_account_connect",{brandId,provider:"whatsapp"});location.assign(result.authorizationUrl);})}>Continue with Meta</button>:<>
       <label>WhatsApp Business Account ID<input value={wabaId} inputMode="numeric" onChange={e=>{setWabaId(e.target.value);setAssets([]);}}/></label><p>Find this ID in WhatsApp Manager. Only phone numbers accessible through your current authorisation can be selected.</p>
       <button disabled={!/^\d{1,32}$/.test(wabaId)} onClick={()=>void run(async()=>{const result=await action<{assets:Asset[]}>("social_asset_list",{brandId,grantId,kind:"whatsapp",wabaId});setAssets(result.assets);if(!result.assets.length)setMessage("No accessible business phone numbers were returned.");})}>Find business numbers</button>

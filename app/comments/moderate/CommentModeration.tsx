@@ -1,4 +1,5 @@
 "use client";
+import DataLoading from "../../DataLoading";
 import { useEffect, useState } from "react";
 import ProviderIcon from "../../ProviderIcon";
 type Brand = { id: string; name: string; role: string };
@@ -13,9 +14,10 @@ export default function CommentModeration() {
   const [accounts, setAccounts] = useState<Account[]>([]), [accountId, setAccountId] = useState("");
   const [commentId, setCommentId] = useState(""), [action, setAction] = useState<"hide" | "unhide">("hide");
   const [inspection, setInspection] = useState<Inspection | null>(null), [approved, setApproved] = useState(false);
+  const [brandsLoading,setBrandsLoading]=useState(true),[accountsLoading,setAccountsLoading]=useState(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [result, setResult] = useState("");
-  useEffect(() => { let active = true; void api<{ brands: Brand[] }>("social_workspace_list").then(data => { if (active) setBrands(data.brands.filter(b => ["owner", "admin"].includes(b.role))); }).catch(e => { if (active) setError(String(e.message)); }); return () => { active = false; }; }, []);
-  useEffect(() => { let active = true; setAccounts([]); setAccountId(""); if (brandId) void api<{ accounts: Account[] }>("social_account_list", { brandId }).then(data => { if (active) setAccounts(data.accounts.filter(a => a.provider === "instagram")); }).catch(e => { if (active) setError(String(e.message)); }); return () => { active = false; }; }, [brandId]);
+  useEffect(() => { let active = true; void api<{ brands: Brand[] }>("social_workspace_list").then(data => { if (active) setBrands(data.brands.filter(b => ["owner", "admin"].includes(b.role))); }).catch(e => { if (active) setError(String(e.message)); }).finally(()=>{if(active)setBrandsLoading(false);}); return () => { active = false; }; }, []);
+  useEffect(() => { let active = true; setAccounts([]); setAccountId(""); setAccountsLoading(!!brandId); if (brandId) void api<{ accounts: Account[] }>("social_account_list", { brandId }).then(data => { if (active) setAccounts(data.accounts.filter(a => a.provider === "instagram")); }).catch(e => { if (active) setError(String(e.message)); }).finally(()=>{if(active)setAccountsLoading(false);}); return () => { active = false; }; }, [brandId]);
   function reset() { setInspection(null); setApproved(false); setResult(""); setError(""); }
   async function inspect() {
     setBusy(true); reset();
@@ -34,8 +36,9 @@ export default function CommentModeration() {
     <a href="/conversations">← Conversations</a><h1 style={{ fontSize: 26 }}>Comment visibility</h1><p>Hide or restore one Instagram comment.</p>
     {error && <p role="alert" className="social-alert">{error}</p>}{result && <p role="status">{result}</p>}
     <div className="social-card" style={{ display: "grid", gap: 16 }}>
-      <label>Brand<select disabled={busy} value={brandId} onChange={e => { reset(); setBrandId(e.target.value); }}><option value="">Choose a brand</option>{brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
-      <label><span><ProviderIcon provider="instagram" /> Instagram account</span><select disabled={busy || !brandId} value={accountId} onChange={e => { reset(); setAccountId(e.target.value); }}><option value="">Choose an account</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
+      {(brandsLoading||accountsLoading)&&<DataLoading label={brandsLoading?"Loading brands…":"Loading Instagram accounts…"}/>}
+      <label>Brand<select disabled={busy||brandsLoading} value={brandId} onChange={e => { reset(); setAccountsLoading(!!e.target.value); setBrandId(e.target.value); }}><option value="">Choose a brand</option>{brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+      <label><span><ProviderIcon provider="instagram" /> Instagram account</span><select disabled={busy || brandsLoading || accountsLoading || !brandId} value={accountId} onChange={e => { reset(); setAccountId(e.target.value); }}><option value="">Choose an account</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
       <label>Comment ID<input disabled={busy} inputMode="numeric" value={commentId} onChange={e => { reset(); setCommentId(e.target.value); }} /></label>
       <label>Action<select disabled={busy} value={action} onChange={e => { reset(); setAction(e.target.value as "hide" | "unhide"); }}><option value="hide">Hide comment</option><option value="unhide">Restore comment</option></select></label>
       <button disabled={busy || !brandId || !accountId || !/^\d{1,32}$/.test(commentId)} onClick={() => void inspect()}>Inspect comment</button>

@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useRef,useState} from "react";
 import ProviderIcon from "../ProviderIcon";
+import DataLoading from "../DataLoading";
 type Brand={id:string;name:string;role:string};
 type Capability={channel:string;notConnected:boolean;accounts:Array<{accountId:string;assetId:string;name:string;state:string;blockers:string[]}>};
 type Delivery={channel:string;state:string;error:string|null;receipt:{providerId:string|null;url:string|null;verification:string;expiryState:string}|null};
@@ -21,8 +22,9 @@ export default function Publishing(){
  const [brands,setBrands]=useState<Brand[]>([]),[brandId,setBrandId]=useState(""),[caps,setCaps]=useState<Capability[]>([]),[items,setItems]=useState<Item[]>([]),[enabled,setEnabled]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");const generation=useRef(0);
  const [metaGrant,setMetaGrant]=useState(""),[metaInspection,setMetaInspection]=useState<{requiredConfirmation:string;accountName:string;requiredPermissions:string[]}|null>(null);
  const [grant,setGrant]=useState(""),[companies,setCompanies]=useState<Array<{assetId:string;role:string}>>([]),[company,setCompany]=useState("");
- useEffect(()=>{let active=true;void api<{brands:Brand[]}>("social_workspace_list").then(data=>{if(active){setBrands(data.brands);const query=new URLSearchParams(location.search);setBrandId(query.get("brand")||"");setGrant(query.get("linkedinGrant")||"");setMetaGrant(query.get("metaGrant")||"");if(query.has("connection"))setError("Provider connection was cancelled, expired or failed. Existing grants are preserved; review setup before restarting.");}}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[]);
- useEffect(()=>{const current=++generation.current;if(!brandId)return;void Promise.all([api<{enabled:boolean;channels:Capability[]}>("social_publish_capabilities",{brandId}),api<{items:Item[]}>("social_publish_list",{brandId})]).then(([c,i])=>{if(current===generation.current){setEnabled(c.enabled);setCaps(c.channels);setItems(i.items);}}).catch(e=>{if(current===generation.current)setError(e.message);});return()=>{generation.current=current+1;};},[brandId]);
+ const [workspaceLoading,setWorkspaceLoading]=useState(true),[dataState,setDataState]=useState<"idle"|"loading"|"ready"|"error">("idle"),[loadedBrandId,setLoadedBrandId]=useState(""),[refreshIndex,setRefreshIndex]=useState(0);
+ useEffect(()=>{let active=true;void api<{brands:Brand[]}>("social_workspace_list").then(data=>{if(active){setBrands(data.brands);const query=new URLSearchParams(location.search);setBrandId(query.get("brand")||"");setGrant(query.get("linkedinGrant")||"");setMetaGrant(query.get("metaGrant")||"");if(query.has("connection"))setError("Provider connection was cancelled, expired or failed. Existing grants are preserved; review setup before restarting.");}}).catch(e=>{if(active)setError(e.message);}).finally(()=>{if(active)setWorkspaceLoading(false);});return()=>{active=false;};},[]);
+ useEffect(()=>{const current=++generation.current;if(!brandId)return;void Promise.all([api<{enabled:boolean;channels:Capability[]}>("social_publish_capabilities",{brandId}),api<{items:Item[]}>("social_publish_list",{brandId})]).then(([c,i])=>{if(current===generation.current){setEnabled(c.enabled);setCaps(c.channels);setItems(i.items);setLoadedBrandId(brandId);setDataState("ready");}}).catch(e=>{if(current===generation.current){setError(e.message);setDataState("error");}});return()=>{generation.current=current+1;};},[brandId,refreshIndex]);
  async function run(action:string,args:Record<string,unknown>={}){const current=generation.current;setBusy(true);setError("");try{const result=await api<Record<string,unknown>>(action,{brandId,...args});if(current!==generation.current)return;if(typeof result.authorizationUrl==="string"){location.assign(result.authorizationUrl);return;}if(action==="social_publish_meta_inspect")setMetaInspection(result as typeof metaInspection);if(action==="social_publish_meta_complete"){setMetaInspection(null);setMetaGrant("");history.replaceState(null,"",`/publishing?brand=${encodeURIComponent(brandId)}`);}if(Array.isArray(result.organizations))setCompanies(result.organizations as typeof companies);setMessage(action==="social_publish_preflight"?result.clear?"Duplicate check completed. No content found for this date.":"Content exists for this date. Inspect its native receipt before continuing.":"Request completed. Check each destination result below.");const [c,i]=await Promise.all([api<{enabled:boolean;channels:Capability[]}>("social_publish_capabilities",{brandId}),api<{items:Item[]}>("social_publish_list",{brandId})]);if(current===generation.current){setEnabled(c.enabled);setCaps(c.channels);setItems(i.items);}}catch(e){if(current===generation.current)setError(e instanceof Error?e.message:"Request failed.");}finally{setBusy(false);}}
  const [selected,setSelected]=useState<{itemId:string;channel:string}|null>(null);
  const [filter,setFilter]=useState("all");
@@ -31,14 +33,19 @@ export default function Publishing(){
  const visibleItems=items.filter(item=>filter==="all"||(filter==="published"?complete(item):!complete(item)));
  const publishedCount=items.filter(complete).length;
  const readyCount=caps.filter(c=>c.accounts.some(a=>a.state==="ready")).length;
- return <section className="publishing-workspace">
+ const activityReady=!!brandId&&dataState==="ready"&&loadedBrandId===brandId;
+ return <section className="publishing-workspace" aria-busy={workspaceLoading||busy||!!brandId&&!activityReady&&dataState!=="error"}>
   <div className="publishing-toolbar">
-   <label>Brand<select value={brandId} disabled={busy} onChange={e=>{setCaps([]);setItems([]);setCompanies([]);setCompany("");setError("");setMessage("");setBrandId(e.target.value);setGrant("");setMetaGrant("");setMetaInspection(null);setSelected(null);setFilter("all");}}><option value="">Choose a brand</option>{brands.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
-   {brandId&&<span className={`publishing-host-status ${enabled?"is-enabled":""}`}><span/>{enabled?"Publishing enabled":"Publishing disabled"}</span>}
+   <label>Brand<select value={brandId} disabled={busy||workspaceLoading} onChange={e=>{setDataState("loading");setLoadedBrandId("");setCaps([]);setItems([]);setCompanies([]);setCompany("");setError("");setMessage("");setBrandId(e.target.value);setGrant("");setMetaGrant("");setMetaInspection(null);setSelected(null);setFilter("all");}}><option value="">{workspaceLoading?"Loading brands…":"Choose a brand"}</option>{brands.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+   {activityReady&&<span className={`publishing-host-status ${enabled?"is-enabled":""}`}><span/>{enabled?"Publishing enabled":"Publishing disabled"}</span>}
   </div>
   {error&&<p className="social-alert error" role="alert">{error}</p>}
   {message&&<p className="social-alert" role="status">{message}</p>}
-  {brandId&&<>
+  {workspaceLoading&&<DataLoading label="Loading brands…"/>}
+  {!workspaceLoading&&brandId&&!activityReady&&dataState!=="error"&&<DataLoading label="Loading publishing activity…"/>}
+  {busy&&<DataLoading label="Processing request…" compact/>}
+  {brandId&&dataState==="error"&&<button type="button" onClick={()=>{setError("");setDataState("loading");setRefreshIndex(value=>value+1);}}>Retry loading activity</button>}
+  {activityReady&&<>
    <div className="publishing-section-head"><div><h2>Publishing activity</h2><p>{items.length} records · {publishedCount} fully published</p></div><label className="publishing-filter">Show<select aria-label="Show publishing activity" value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All activity</option><option value="published">Published</option><option value="attention">Not fully published</option></select></label></div>
    <p className="publishing-scroll-hint">Scroll across to see all five destinations.</p>
    <div className="publishing-table-wrap" role="region" aria-label="Scrollable publishing receipts" tabIndex={0}><table className="publishing-table" aria-label="Publishing activity by destination">
