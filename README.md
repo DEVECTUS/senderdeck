@@ -352,4 +352,6 @@ Use **Continue with OpenAI** to authenticate through Sites. That fresh platform 
 
 ## Routine organic publishing
 
+SenderDeck is the activity transport, not a content planner or scheduler. The calling agent or external workflow owns content, editorial approval and timing. SenderDeck validates authorised requests, passes them to the exact provider destination, and records delivery status and receipts. Its Publishing page is an activity ledger; saving a request never installs a timer.
+
 See [Social publishing](docs/SOCIAL-PUBLISHING.md) for scoped feed/Story approval, exact provider setup, media uploads, independent receipts, duplicate protection and rollback. Customer reply approvals remain separate.

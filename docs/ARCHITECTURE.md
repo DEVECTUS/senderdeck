@@ -59,6 +59,10 @@ Signed Meta events enter a durable deduplicated D1 queue before processing. Queu
 
 The scheduled worker handler and authenticated maintenance endpoint need an independently provisioned hosted trigger. No active social schedule, Meta grant or LinkedIn access is included in the current deployment. LinkedIn data ingestion remains blocked pending programme and data-use review; Page messaging is a separate restricted capability. See [SOCIAL-ACTIVATION.md](SOCIAL-ACTIVATION.md).
 
+## Publishing is an activity transport
+
+The calling workflow owns content planning, editorial decisions and scheduling. SenderDeck accepts already approved payloads, checks exact provider authority, dispatches only on an explicit call and returns independent receipts. Stored delivery requests are integrity and recovery records, not a content calendar or a publication timer. The Publishing UI exposes activity and transport controls rather than topic planning. Maintenance timers do not invoke publication. See [the publishing transport contract](SOCIAL-PUBLISHING.md).
+
 ## Verification
 
 `npm run typecheck` checks TypeScript; `npm test` builds and runs the rendered-page and unit suites. Tests use synthetic data and mocked provider calls. Passing tests establish the implemented controls under those conditions, not provider approval or live channel coverage. The live acceptance steps in the activation guide require owner-authorised test assets and separate approval before any real send.

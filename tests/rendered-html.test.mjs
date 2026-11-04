@@ -453,5 +453,5 @@ test("WhatsApp setup explains provider refusal without offering migration as rec
 
 test("publishing workspace renders separate authority and scoped brand controls",async()=>{
  const worker=await loadWorker();const response=await worker.fetch(new Request("http://localhost/publishing",{headers:{accept:"text/html","oai-authenticated-user-email":"owner@example.com"}}),baseEnv,context);
- assert.equal(response.status,200);const html=await response.text();assert.match(html,/<h1[^>]*>Publishing<\/h1>/);assert.match(html,/One daily topic for your selected brand/);assert.match(html,/Choose a brand/);assert.match(html,/href="\/publishing"/);
+ assert.equal(response.status,200);const html=await response.text();assert.match(html,/<h1[^>]*>Publishing<\/h1>/);assert.match(html,/Delivery status and provider receipts for your selected brand/);assert.match(html,/Choose a brand/);assert.match(html,/href="\/publishing"/);
 });

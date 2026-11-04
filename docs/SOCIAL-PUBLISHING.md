@@ -1,10 +1,18 @@
-# Organic social publishing
+# Organic social publishing transport
+
+## Product boundary
+
+SenderDeck tunnels authorised provider activities. Content planning, editorial decisions, calendars and publication schedules belong to the calling agent or external workflow. SenderDeck does not choose topics, compose a content plan, own the content calendar or run a publication timer. Infrastructure maintenance and inbox reconciliation are separate from content scheduling.
+
+The Publishing page is an activity ledger: caller-submitted delivery requests, imported publication history, independent destination status and provider receipts. Its connection checks, duplicate checks, explicit dispatch and reconciliation are transport operations. It provides no topic planning, editorial hold/decline controls or scheduling UI.
+
+`social_publish_prepare` registers an already approved caller-supplied delivery payload; it does not plan or schedule the content. `social_publish_release` and the legacy `social_publish_due` convenience operation execute only when explicitly invoked. Existing policy/date bounds constrain the authority of a request; they are not a SenderDeck schedule. Persisted manifests support integrity, duplicate protection and uncertain-result recovery, not autonomous future publication. The calling workflow remains responsible for timing and for reconciling conflicting native schedules. Do not make SenderDeck the sole scheduler or add a content timer to remove a provider coverage limitation.
 
 Version 0.4.37 adds five independent destinations: Instagram feed, Facebook Page feed, LinkedIn company feed, Instagram Story and Facebook Story. This does not enable customer replies, renew WhatsApp test allowances, expand scopes or install a daily scheduler.
 
 ## Authority and setup
 
-The brand owner/admin records existing standing authority with policy_preview and policy_set, binding each channel to its exact account and provider asset. Explicit null accounts permit planning only the exact unconnected asset. Save revision 0 initially, or the current policy revision when changing it. RoutineOnly must be true, paidPromotion false, timezone Australia/Sydney. Saving requires the exact preview confirmation. Cancelling, declining, holding, disabling or changing the policy blocks unstarted writes. Policy-author membership is checked again at dispatch.
+The brand owner/admin records existing standing authority with policy_preview and policy_set, binding each channel to its exact account and provider asset. Explicit null accounts record only the exact unconnected target and remain blocked from delivery. Save revision 0 initially, or the current policy revision when changing it. RoutineOnly must be true, paidPromotion false, timezone Australia/Sydney. Saving requires the exact preview confirmation. A caller's cancellation, decline, hold, disable or policy change blocks unstarted writes. Policy-author membership is checked again at dispatch.
 
 Hosting SOCIAL_PUBLISH_ENABLED must explicitly equal true before any public write. Deployment alone leaves this off. Existing SOCIAL_SEND_ENABLED, WhatsApp allowance, inbox validation, monitoring and reply approvals are independent. No production account or policy is created by migration.
 
@@ -16,7 +24,7 @@ LinkedIn requires LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET, LINKEDIN_COMMUN
 
 New Community Management connections request rw_organization_admin because that product does not provide r_organization_admin. Existing grants with the read-only variant remain valid for organization role checks when they also include both social permissions. SenderDeck uses the administrative scope only for read-only organization discovery and role verification; it does not change Page administrators or settings. See the provider's [product permission table](https://learn.microsoft.com/en-us/linkedin/marketing/increasing-access) and [organization role permissions](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/organizations/organization-access-control-by-role).
 
-## Daily workflow
+## Caller-invoked delivery workflow
 
 1. Discover the brand and actual accounts, then call social_publish_capabilities. Read the policy and save it only within explicit standing owner authority.
 2. Import actual historical receipts before preparing a current topic. Import never publishes. Provide the exact local account or explicit null, asset, channel, actual publication time, actual provider ID or URL and positive observation evidence. Unknown Story expiry is null. Historical expired Stories remain published.
