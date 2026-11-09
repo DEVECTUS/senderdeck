@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { SITE_ORIGIN } from "./site-seo";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import "./workspace.css";
 
 const display = Space_Grotesk({
   variable: "--font-display",

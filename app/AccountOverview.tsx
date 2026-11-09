@@ -29,6 +29,7 @@ export default function AccountOverview(_props: { authSource?: string; summary?:
   for (const channel of ["facebook", "instagram", "whatsapp"]) counts[channel] = socialComplete && workspace ? accounts.filter(account => account.provider === channel).length : undefined;
   const hasRows=emails.length+accounts.length>0;
   return <section className="connections-list" aria-label="Your connections" aria-busy={loading}>
+    <h2 className="workspace-section-title"><span>Connected</span><i aria-hidden="true"/><span className="workspace-section-count">{loading ? "…" : emails.length + accounts.length}{!loading && errors.length > 0 ? "+" : ""}</span></h2>
     <div className="connections-toolbar">
       <label><span className="sr-only">Search connected accounts</span><input type="search" placeholder="Search accounts or brands" value={query} onChange={event => setQuery(event.target.value)}/></label>
       <label><span className="sr-only">Channel</span><select value={provider} onChange={event => setProvider(event.target.value)}><option value="all">All channels</option>{Object.entries(channelNames).map(([key, name]) => <option key={key} value={key}>{name}</option>)}</select></label>

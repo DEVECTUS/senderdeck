@@ -6,5 +6,5 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Connections | SenderDeck" };
 export default async function AccountsPage() {
   const user = await requireSenderDeckUser("/accounts");
-  return <main className="workspace-page"><WorkspaceNav source={user.authSource} email={user.email} active="accounts" /><header className="workspace-heading"><div><p className="workspace-kicker">YOUR WORKSPACE</p><h1>Connections</h1></div><a className="secondary dark" href="/conversations">Open conversations →</a></header><AccountOverview authSource={user.authSource} /></main>;
+  return <main className="workspace-page"><WorkspaceNav source={user.authSource} email={user.email} active="accounts" /><header className="workspace-heading"><div><h1>Connections</h1><p>Your accounts, organised by channel and brand.</p></div><a className="secondary dark" href="/conversations">Open conversations →</a></header><AccountOverview authSource={user.authSource} /></main>;
 }

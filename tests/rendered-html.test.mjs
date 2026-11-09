@@ -148,8 +148,8 @@ test("signed-in Overview and Connections lead with a compact account table", asy
     assert.match(html, /role="status"/);
     assert.doesNotMatch(html, /No connections loaded|No matching connections/);
     assert.match(html, /Search connected accounts/);
-    assert.match(html, /<summary>Add connection<\/summary>/);
-    assert.ok(html.indexOf("Loading connections") < html.indexOf('<summary>Add connection</summary>'));
+    assert.match(html, /Add a connection/);
+    assert.ok(html.indexOf("Loading connections") < html.indexOf('Add a connection'));
     assert.doesNotMatch(html, /channel-card|overview-stats|Your next step|CHOOSE YOUR CHANNEL/);
     assert.match(html, /aria-label="Main navigation"/);
     assert.match(html, /href="\/accounts"/);
@@ -397,19 +397,21 @@ test("WhatsApp connection renders separate phone-app and existing Cloud API choi
 });
 
 
-test("optional channel setup is a collapsed compact table with icons and individual links", async () => {
+test("connection catalog exposes provider search, categories and individual connection routes", async () => {
   const worker = await loadWorker();
   const response = await worker.fetch(new Request("http://localhost/accounts", {headers: {accept:"text/html", "oai-authenticated-user-email":"owner@example.com"}}), baseEnv, context);
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /<details class="connection-add"><summary>Add connection<\/summary>/);
-  const options = html.match(/<table class="connections-table connection-options"[\s\S]*?<\/table>/)?.[0];
+  assert.match(html, /Filter providers/);
+  assert.match(html, /aria-label="Connection category"/);
+  const options = html.match(/<section class="connection-catalog"[\s\S]*?<\/section>/)?.[0];
   assert.ok(options);
   for (const provider of ["facebook", "instagram", "whatsapp"]) {
     assert.ok(options.includes(`src="/providers/${provider}.svg"`));
     assert.ok(options.includes(`href="/connect/meta?provider=${provider}"`));
   }
-  assert.doesNotMatch(html, /channel-card|Meta checks eligibility|Keep your Business phone app/);
+  assert.match(options, /Provider approval required/);
+  assert.match(options, /href="\/social-setup#linkedin"/);
   const icon = await readFile(new URL("../dist/client/providers/whatsapp.svg", import.meta.url), "utf8");
   assert.match(icon, /<svg/);
 });
